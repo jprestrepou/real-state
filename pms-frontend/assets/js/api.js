@@ -5,7 +5,7 @@ Copiar
  * API Client — HTTP client with JWT interceptor and auto-refresh.
  */
 
-const API_BASE = `${import.meta.env.VITE_API_URL}/api/v1`;
+const API_BASE = (import.meta.env.VITE_API_URL || 'https://real-state-xd5o.onrender.com') + '/api/v1';
 
 class ApiClient {
     constructor() {
