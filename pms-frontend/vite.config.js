@@ -7,11 +7,11 @@ export default defineConfig({
     open: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'https://real-state-xd5o.onrender.com',
         changeOrigin: true,
       },
       '/uploads': {
-        target: 'http://localhost:8000',
+        target: 'https://real-state-xd5o.onrender.com',
         changeOrigin: true,
       },
     },
