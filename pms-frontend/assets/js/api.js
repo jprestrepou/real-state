@@ -2,7 +2,8 @@
  * API Client — HTTP client with JWT interceptor and auto-refresh.
  */
 
-const API_BASE = 'http://localhost:8000/api/v1';
+//const API_BASE = 'http://localhost:8000/api/v1';
+const API_BASE = 'https://real-state-xd5o.onrender.com/api/v1';
 
 class ApiClient {
     constructor() {
