@@ -1,0 +1,213 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Google Font Import ─────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+/* ── Base Overrides ─────────────────────────────────── */
+@layer base {
+  html {
+    @apply scroll-smooth;
+  }
+  body {
+    @apply bg-surface-50 text-surface-900 font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+}
+
+/* ── Glassmorphism Card ─────────────────────────────── */
+@layer components {
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-lg rounded-2xl shadow-card border border-white/20
+           transition-all duration-300 ease-in-out;
+  }
+  .glass-card:hover {
+    @apply shadow-card-hover -translate-y-0.5;
+  }
+  .glass-card-static {
+    @apply bg-white/80 backdrop-blur-lg rounded-2xl shadow-card border border-white/20;
+  }
+
+  /* ── KPI Card ───────────────────────────────────────── */
+  .kpi-card {
+    @apply glass-card p-6 flex flex-col gap-2 relative overflow-hidden;
+  }
+  .kpi-card::before {
+    content: '';
+    @apply absolute top-0 left-0 w-full h-1 rounded-t-2xl;
+  }
+  .kpi-card.kpi-blue::before { @apply bg-gradient-to-r from-primary-500 to-primary-400; }
+  .kpi-card.kpi-green::before { @apply bg-gradient-to-r from-accent-500 to-accent-400; }
+  .kpi-card.kpi-amber::before { @apply bg-gradient-to-r from-amber-500 to-amber-400; }
+  .kpi-card.kpi-red::before { @apply bg-gradient-to-r from-rose-500 to-rose-400; }
+
+  /* ── Buttons ────────────────────────────────────────── */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
+           transition-all duration-200 ease-in-out cursor-pointer
+           focus:outline-none focus:ring-2 focus:ring-offset-2
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-gradient-to-r from-primary-600 to-primary-500 text-white
+           hover:from-primary-700 hover:to-primary-600 hover:shadow-lg
+           focus:ring-primary-400 active:scale-[0.98];
+  }
+  .btn-secondary {
+    @apply btn bg-surface-100 text-surface-700
+           hover:bg-surface-200 hover:shadow-sm
+           focus:ring-surface-400;
+  }
+  .btn-danger {
+    @apply btn bg-gradient-to-r from-rose-600 to-rose-500 text-white
+           hover:from-rose-700 hover:to-rose-600
+           focus:ring-rose-400;
+  }
+  .btn-ghost {
+    @apply btn bg-transparent text-surface-600
+           hover:bg-surface-100 hover:text-surface-900;
+  }
+
+  /* ── Form Inputs ────────────────────────────────────── */
+  .input {
+    @apply w-full px-4 py-2.5 rounded-xl border border-surface-300 bg-white
+           text-surface-900 placeholder:text-surface-400
+           focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-primary-400
+           transition-all duration-200;
+  }
+  .label {
+    @apply block text-sm font-medium text-surface-700 mb-1.5;
+  }
+  .select {
+    @apply input appearance-none bg-no-repeat;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 0.75rem center;
+    background-size: 1.25em 1.25em;
+    padding-right: 2.5rem;
+  }
+
+  /* ── Sidebar ────────────────────────────────────────── */
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-medium text-surface-600
+           transition-all duration-200 hover:bg-primary-50 hover:text-primary-700;
+  }
+  .sidebar-link.active {
+    @apply bg-primary-100 text-primary-800 font-semibold shadow-sm;
+  }
+
+  /* ── Badge / Tag ────────────────────────────────────── */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+  .badge-green  { @apply bg-accent-100 text-accent-800; }
+  .badge-blue   { @apply bg-primary-100 text-primary-800; }
+  .badge-amber  { @apply bg-amber-100 text-amber-800; }
+  .badge-red    { @apply bg-rose-100 text-rose-800; }
+  .badge-gray   { @apply bg-surface-100 text-surface-700; }
+
+  /* ── Table ──────────────────────────────────────────── */
+  .data-table {
+    @apply w-full text-sm text-left;
+  }
+  .data-table thead {
+    @apply bg-surface-50 border-b border-surface-200;
+  }
+  .data-table th {
+    @apply px-4 py-3 font-semibold text-surface-600 uppercase tracking-wider text-xs;
+  }
+  .data-table td {
+    @apply px-4 py-3.5 border-b border-surface-100;
+  }
+  .data-table tbody tr {
+    @apply hover:bg-primary-50/30 transition-colors;
+  }
+
+  /* ── Semaphore ──────────────────────────────────────── */
+  .semaphore {
+    @apply w-4 h-4 rounded-full inline-block;
+  }
+  .semaphore-green  { @apply bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]; }
+  .semaphore-amber  { @apply bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]; }
+  .semaphore-red    { @apply bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]; }
+
+  /* ── Toast ──────────────────────────────────────────── */
+  .toast-container {
+    @apply fixed top-4 right-4 z-[9999] flex flex-col gap-2;
+  }
+  .toast {
+    @apply px-5 py-3 rounded-xl shadow-glass text-sm font-medium
+           animate-[slideIn_0.3s_ease-out] backdrop-blur-md;
+  }
+  .toast-success { @apply bg-accent-500/90 text-white; }
+  .toast-error   { @apply bg-rose-500/90 text-white; }
+  .toast-warning { @apply bg-amber-500/90 text-white; }
+  .toast-info    { @apply bg-primary-500/90 text-white; }
+
+  /* ── Tabs ───────────────────────────────────────────── */
+  .tab-btn {
+    @apply px-4 py-2 text-sm font-medium text-surface-500 border-b-2 border-transparent
+           transition-all duration-200 hover:text-surface-700 hover:border-surface-200;
+  }
+  .tab-btn.active {
+    @apply text-primary-600 border-primary-600;
+  }
+  .tab-content {
+    @apply animate-fade-in;
+  }
+}
+
+/* ── Animations ───────────────────────────────────────── */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out forwards;
+}
+
+/* ── Leaflet Overrides ────────────────────────────────── */
+.leaflet-container {
+  @apply rounded-2xl;
+  z-index: 1;
+}
+
+.leaflet-popup-content-wrapper {
+  @apply rounded-xl shadow-card;
+}
+
+/* ── Scrollbar ────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-surface-300 rounded-full;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-surface-400;
+}
+
+/* ── Modal Overlay ────────────────────────────────────── */
+.modal-overlay {
+  @apply fixed inset-0 bg-black/40 backdrop-blur-sm z-50
+         flex items-center justify-center
+         animate-[fadeIn_0.2s_ease-out];
+}
+.modal-content {
+  @apply bg-white rounded-2xl shadow-glass max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto
+         animate-[fadeIn_0.3s_ease-out];
+}

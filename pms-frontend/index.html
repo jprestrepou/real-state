@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="es" class="">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>PMS — Property Management System</title>
+  <meta name="description"
+    content="Sistema Integral de Gestión Inmobiliaria — administre su cartera de propiedades, finanzas, mantenimientos y contratos." />
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="./assets/css/styles.css" />
+
+  <!-- Tailwind Play CDN (Fallback para desarrollo visual inmediato) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#f0f4ff', 100: '#dbe4ff', 200: '#bac8ff', 300: '#91a7ff',
+              400: '#748ffc', 500: '#5c7cfa', 600: '#4c6ef5', 700: '#4263eb',
+              800: '#3b5bdb', 900: '#364fc7',
+            },
+            accent: {
+              50: '#e6fcf5', 100: '#c3fae8', 200: '#96f2d7', 300: '#63e6be',
+              400: '#38d9a9', 500: '#20c997', 600: '#12b886', 700: '#0ca678',
+              800: '#099268', 900: '#087f5b',
+            },
+            surface: {
+              50: '#f8f9fa', 100: '#f1f3f5', 200: '#e9ecef', 300: '#dee2e6',
+              400: '#ced4da', 500: '#adb5bd', 600: '#868e96', 700: '#495057',
+              800: '#343a40', 900: '#212529',
+            },
+          },
+          boxShadow: {
+            'glass': '0 8px 32px 0 rgba(31, 38, 135, 0.15)',
+            'card': '0 4px 24px 0 rgba(0, 0, 0, 0.06)',
+            'card-hover': '0 8px 40px 0 rgba(0, 0, 0, 0.12)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</head>
+
+<body class="min-h-screen">
+
+  <!-- ─── Auth Screen (Login / Register) ──────────── -->
+  <div id="auth-screen"
+    class="hidden min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-600 via-primary-700 to-primary-900">
+    <div class="w-full max-w-md mx-4">
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl mb-4">
+          <i data-lucide="building-2" class="w-8 h-8 text-white"></i>
+        </div>
+        <h1 class="text-3xl font-bold text-white">PMS</h1>
+        <p class="text-primary-200 mt-1">Property Management System</p>
+      </div>
+
+      <div class="glass-card-static p-8 bg-white/95">
+        <!-- Login Form -->
+        <form id="login-form" class="">
+          <h2 class="text-xl font-bold text-surface-900 mb-6">Iniciar Sesión</h2>
+          <div class="mb-4">
+            <label class="label" for="login-email">Correo electrónico</label>
+            <input class="input" type="email" id="login-email" placeholder="admin@pms.app" required />
+          </div>
+          <div class="mb-6">
+            <label class="label" for="login-password">Contraseña</label>
+            <input class="input" type="password" id="login-password" placeholder="••••••••" required />
+          </div>
+          <button type="submit" class="btn-primary w-full">Ingresar</button>
+          <p class="text-center text-sm text-surface-500 mt-4">
+            ¿No tienes cuenta? <a href="#" id="show-register"
+              class="text-primary-600 font-semibold hover:underline">Registrarse</a>
+          </p>
+        </form>
+
+        <!-- Register Form -->
+        <form id="register-form" class="hidden">
+          <h2 class="text-xl font-bold text-surface-900 mb-6">Crear Cuenta</h2>
+          <div class="mb-4">
+            <label class="label" for="reg-name">Nombre completo</label>
+            <input class="input" type="text" id="reg-name" placeholder="Juan Pérez" required />
+          </div>
+          <div class="mb-4">
+            <label class="label" for="reg-email">Correo electrónico</label>
+            <input class="input" type="email" id="reg-email" placeholder="juan@pms.app" required />
+          </div>
+          <div class="mb-4">
+            <label class="label" for="reg-password">Contraseña</label>
+            <input class="input" type="password" id="reg-password" placeholder="Mínimo 8 caracteres" required
+              minlength="8" />
+          </div>
+          <div class="mb-6">
+            <label class="label" for="reg-role">Rol</label>
+            <select class="select" id="reg-role">
+              <option value="Propietario">Propietario</option>
+              <option value="Gestor">Gestor</option>
+              <option value="Admin">Administrador</option>
+            </select>
+          </div>
+          <button type="submit" class="btn-primary w-full">Crear Cuenta</button>
+          <p class="text-center text-sm text-surface-500 mt-4">
+            ¿Ya tienes cuenta? <a href="#" id="show-login"
+              class="text-primary-600 font-semibold hover:underline">Iniciar Sesión</a>
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── App Shell ───────────────────────────────── -->
+  <div id="app-shell" class="hidden">
+    <!-- Sidebar -->
+    <aside id="sidebar"
+      class="fixed left-0 top-0 bottom-0 w-64 bg-white/90 backdrop-blur-xl border-r border-surface-200 z-30 flex flex-col transition-transform duration-300">
+      <!-- Logo -->
+      <div class="p-6 border-b border-surface-100">
+        <div class="flex items-center gap-3">
+          <div
+            class="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-700 rounded-xl flex items-center justify-center shadow-lg">
+            <i data-lucide="building-2" class="w-5 h-5 text-white"></i>
+          </div>
+          <div>
+            <h1 class="font-bold text-surface-900 text-lg leading-tight">PMS</h1>
+            <span class="text-xs text-surface-500">Property Manager</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Nav Links -->
+      <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+        <a href="#/dashboard" class="sidebar-link" data-page="dashboard">
+          <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="#/properties" class="sidebar-link" data-page="properties">
+          <i data-lucide="home" class="w-5 h-5"></i>
+          <span>Propiedades</span>
+        </a>
+        <a href="#/financials" class="sidebar-link" data-page="financials">
+          <i data-lucide="wallet" class="w-5 h-5"></i>
+          <span>Finanzas</span>
+        </a>
+        <a href="#/maintenance" class="sidebar-link" data-page="maintenance">
+          <i data-lucide="wrench" class="w-5 h-5"></i>
+          <span>Mantenimientos</span>
+        </a>
+        <a href="#/contracts" class="sidebar-link" data-page="contracts">
+          <i data-lucide="file-text" class="w-5 h-5"></i>
+          <span>Contratos</span>
+        </a>
+        <a href="#/budgets" class="sidebar-link" data-page="budgets">
+          <i data-lucide="pie-chart" class="w-5 h-5"></i>
+          <span>Presupuestos</span>
+        </a>
+      </nav>
+
+      <!-- User Card -->
+      <div class="p-4 border-t border-surface-100">
+        <div class="flex items-center gap-3">
+          <div
+            class="w-9 h-9 bg-gradient-to-br from-accent-400 to-accent-600 rounded-xl flex items-center justify-center text-white font-bold text-sm"
+            id="user-avatar">
+            U
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-semibold text-surface-900 truncate" id="user-name">Usuario</p>
+            <p class="text-xs text-surface-500 truncate" id="user-role">Rol</p>
+          </div>
+          <button id="logout-btn"
+            class="p-2 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-rose-500 transition-colors"
+            title="Cerrar sesión">
+            <i data-lucide="log-out" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="ml-64 min-h-screen">
+      <!-- Top Bar -->
+      <header class="sticky top-0 z-20 bg-white/80 backdrop-blur-xl border-b border-surface-100 px-8 py-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 id="page-title" class="text-xl font-bold text-surface-900">Dashboard</h2>
+            <p id="page-subtitle" class="text-sm text-surface-500">Vista general de su cartera inmobiliaria</p>
+          </div>
+          <div class="flex items-center gap-3">
+            <!-- Notifications -->
+            <button id="notifications-btn"
+              class="relative p-2.5 rounded-xl bg-surface-100 hover:bg-surface-200 transition-colors">
+              <i data-lucide="bell" class="w-5 h-5 text-surface-600"></i>
+              <span id="notification-badge"
+                class="hidden absolute -top-1 -right-1 w-5 h-5 bg-rose-500 text-white text-xs font-bold rounded-full flex items-center justify-center">0</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Page Content -->
+      <div id="page-content" class="p-8">
+        <!-- Dynamic content loaded here -->
+      </div>
+    </main>
+  </div>
+
+  <!-- ─── Toast Container ─────────────────────────── -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- ─── Modal Container ─────────────────────────── -->
+  <div id="modal-container"></div>
+
+  <!-- ─── Scripts ─────────────────────────────────── -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script type="module" src="./assets/js/app.js"></script>
+</body>
+
+</html>
