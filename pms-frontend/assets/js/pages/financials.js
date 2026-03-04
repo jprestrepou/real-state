@@ -26,6 +26,9 @@ export async function renderFinancials(container) {
         <button id="add-transaction-btn" class="btn-secondary">
           <i data-lucide="plus-circle" class="w-4 h-4"></i> Transacción
         </button>
+        <button id="add-general-expense-btn" class="btn-secondary bg-gradient-to-r from-amber-500 to-orange-500 text-white border-0 hover:from-amber-600 hover:to-orange-600">
+          <i data-lucide="receipt" class="w-4 h-4"></i> Gasto General
+        </button>
         <button id="add-transfer-btn" class="btn-secondary">
           <i data-lucide="arrow-left-right" class="w-4 h-4"></i> Transferencia
         </button>
@@ -96,6 +99,7 @@ export async function renderFinancials(container) {
                  <th>Fecha</th>
                  <th>Descripción</th>
                  <th>Categoría</th>
+                 <th>Propiedad</th>
                  <th>Tipo</th>
                  <th>Monto</th>
                  <th>Dirección</th>
@@ -107,6 +111,9 @@ export async function renderFinancials(container) {
                    <td class="text-xs text-surface-500">${formatDate(tx.transaction_date)}</td>
                    <td><div class="font-medium text-surface-900 text-sm">${tx.description}</div></td>
                    <td><span class="badge badge-gray text-xs">${tx.category}</span></td>
+                   <td class="text-xs text-surface-500">
+                     ${tx.property_id ? `<span class="badge badge-blue text-xs">Propiedad</span>` : `<span class="badge badge-amber text-xs">General</span>`}
+                   </td>
                    <td class="text-xs text-surface-500">${tx.transaction_type}</td>
                    <td class="font-semibold ${tx.direction === 'Debit' ? 'text-accent-600' : 'text-rose-600'}">
                      ${tx.direction === 'Debit' ? '+' : '-'}${formatCurrency(tx.amount)}
@@ -118,7 +125,7 @@ export async function renderFinancials(container) {
                    </td>
                  </tr>
                `).join('') : `
-                 <tr><td colspan="6" class="text-center py-12 text-surface-400">No hay transacciones</td></tr>
+                 <tr><td colspan="7" class="text-center py-12 text-surface-400">No hay transacciones</td></tr>
                `}
              </tbody>
            </table>
@@ -145,8 +152,11 @@ export async function renderFinancials(container) {
   // Add Account
   document.getElementById('add-account-btn')?.addEventListener('click', () => openAccountModal());
 
-  // Add Transaction
-  document.getElementById('add-transaction-btn')?.addEventListener('click', () => openTransactionModal(accounts, properties));
+  // Add Transaction (linked to property)
+  document.getElementById('add-transaction-btn')?.addEventListener('click', () => openTransactionModal(accounts, properties, false));
+
+  // Add General Expense (not linked to property)
+  document.getElementById('add-general-expense-btn')?.addEventListener('click', () => openTransactionModal(accounts, properties, true));
 
   // Add Transfer
   document.getElementById('add-transfer-btn')?.addEventListener('click', () => openTransferModal(accounts));
@@ -175,13 +185,29 @@ export async function renderFinancials(container) {
 async function loadPerformance(propertyId) {
   if (!propertyId) return;
   const content = document.getElementById('performance-content');
-  content.innerHTML = '<p class="animate-pulse">Calculando métricas...</p>';
+  content.innerHTML = '<div class="flex items-center justify-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-2 border-accent-500 border-t-transparent"></div><p class="ml-3 text-surface-500">Calculando métricas...</p></div>';
 
   const perf = await api.get(`/properties/${propertyId}/performance`);
   if (!perf) return;
 
+  const hasFinancialData = perf.total_income > 0 || perf.total_expenses > 0;
+
   content.innerHTML = `
     <div class="animate-fade-in">
+      <!-- Property Header -->
+      <div class="flex items-center justify-between mb-6 pb-4 border-b border-surface-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
+            <i data-lucide="building-2" class="w-5 h-5 text-primary-600"></i>
+          </div>
+          <div>
+            <h4 class="font-bold text-surface-900">${perf.property_name}</h4>
+            <span class="badge ${perf.property_status === 'Arrendada' ? 'badge-green' : perf.property_status === 'Disponible' ? 'badge-blue' : 'badge-amber'} text-xs">${perf.property_status || 'Sin estado'}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <div class="bg-white p-5 rounded-2xl border border-surface-100 shadow-sm hover:shadow-md transition-shadow">
           <p class="text-xs font-bold text-surface-400 uppercase tracking-wider mb-2">Ingresos Totales</p>
@@ -199,7 +225,7 @@ async function loadPerformance(propertyId) {
         </div>
         <div class="bg-white p-5 rounded-2xl border border-surface-100 shadow-sm hover:shadow-md transition-shadow">
           <p class="text-xs font-bold text-surface-400 uppercase tracking-wider mb-2">Utilidad Neta</p>
-          <p class="text-2xl font-bold text-primary-600">${formatCurrency(perf.net_profit)}</p>
+          <p class="text-2xl font-bold ${perf.net_profit >= 0 ? 'text-primary-600' : 'text-rose-600'}">${formatCurrency(perf.net_profit)}</p>
           <div class="mt-2 text-[10px] text-primary-500 font-medium flex items-center gap-1">
             <i data-lucide="wallet" class="w-3 h-3"></i> Saldo operacional
           </div>
@@ -213,7 +239,72 @@ async function loadPerformance(propertyId) {
         </div>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <!-- Monthly Cashflow Chart -->
+        <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-surface-100 shadow-sm">
+          <h4 class="text-sm font-bold text-surface-900 mb-4 flex items-center gap-2">
+            <i data-lucide="activity" class="w-4 h-4 text-primary-500"></i>
+            Flujo de Caja Mensual (12 meses)
+          </h4>
+          <div class="h-[220px]">
+            <canvas id="property-cashflow-chart"></canvas>
+          </div>
+        </div>
+        
+        <!-- Distribution Doughnut Chart -->
+        <div class="bg-white p-6 rounded-2xl border border-surface-100 shadow-sm">
+          <h4 class="text-sm font-bold text-surface-900 mb-4 flex items-center gap-2">
+            <i data-lucide="pie-chart" class="w-4 h-4 text-primary-500"></i>
+            Distribución Financiera
+          </h4>
+          <div class="h-[200px] flex items-center justify-center">
+            <canvas id="property-mini-chart"></canvas>
+          </div>
+          <div class="mt-4 grid grid-cols-2 gap-2 text-[10px] items-center">
+             <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-accent-500"></span> Ingresos</div>
+             <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-rose-500"></span> Gastos</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Categories + Transactions Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Category Breakdown -->
+        <div class="bg-white p-6 rounded-2xl border border-surface-100 shadow-sm">
+          <h4 class="text-sm font-bold text-surface-900 mb-4 flex items-center gap-2">
+            <i data-lucide="layers" class="w-4 h-4 text-primary-500"></i>
+            Desglose por Categoría
+          </h4>
+          ${hasFinancialData ? `
+            ${Object.keys(perf.income_by_category).length > 0 ? `
+              <p class="text-xs font-bold text-accent-600 uppercase tracking-wider mb-2">Ingresos</p>
+              <div class="space-y-2 mb-4">
+                ${Object.entries(perf.income_by_category).map(([cat, val]) => `
+                  <div class="flex justify-between items-center text-sm">
+                    <span class="text-surface-600">${cat}</span>
+                    <span class="font-semibold text-accent-600">+${formatCurrency(val)}</span>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+            ${Object.keys(perf.expense_by_category).length > 0 ? `
+              <p class="text-xs font-bold text-rose-600 uppercase tracking-wider mb-2">Gastos</p>
+              <div class="space-y-2">
+                ${Object.entries(perf.expense_by_category).map(([cat, val]) => `
+                  <div class="flex justify-between items-center text-sm">
+                    <span class="text-surface-600">${cat}</span>
+                    <span class="font-semibold text-rose-600">-${formatCurrency(val)}</span>
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
+          ` : `
+            <p class="text-center text-surface-400 py-6">Sin datos de categorías</p>
+          `}
+        </div>
+
+        <!-- Last Transactions -->
         <div class="bg-white p-6 rounded-2xl border border-surface-100 shadow-sm">
           <h4 class="text-sm font-bold text-surface-900 mb-4 flex items-center gap-2">
             <i data-lucide="history" class="w-4 h-4 text-primary-500"></i>
@@ -242,30 +333,16 @@ async function loadPerformance(propertyId) {
             </table>
           </div>
         </div>
-        
-        <div class="bg-white p-6 rounded-2xl border border-surface-100 shadow-sm">
-          <h4 class="text-sm font-bold text-surface-900 mb-4 flex items-center gap-2">
-            <i data-lucide="pie-chart" class="w-4 h-4 text-primary-500"></i>
-            Distribución Financiera
-          </h4>
-          <div class="h-[200px] flex items-center justify-center">
-            <canvas id="property-mini-chart"></canvas>
-          </div>
-          <div class="mt-4 grid grid-cols-2 gap-2 text-[10px] items-center">
-             <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-accent-500"></span> Ingresos</div>
-             <div class="flex items-center gap-2"><span class="w-2 h-2 rounded-full bg-rose-500"></span> Gastos</div>
-          </div>
-        </div>
       </div>
     </div>
   `;
 
   if (window.lucide) lucide.createIcons();
 
-  // Mini Chart for the property
-  const ctx = document.getElementById('property-mini-chart');
-  if (ctx) {
-    new Chart(ctx, {
+  // Doughnut Chart
+  const doughnutCtx = document.getElementById('property-mini-chart');
+  if (doughnutCtx && hasFinancialData) {
+    new Chart(doughnutCtx, {
       type: 'doughnut',
       data: {
         labels: ['Ingresos', 'Gastos'],
@@ -280,6 +357,49 @@ async function loadPerformance(propertyId) {
         responsive: true,
         maintainAspectRatio: false,
         plugins: { legend: { display: false } }
+      }
+    });
+  }
+
+  // Monthly Cashflow Bar Chart
+  const cashflowCtx = document.getElementById('property-cashflow-chart');
+  if (cashflowCtx && perf.monthly_cashflow) {
+    const months = perf.monthly_cashflow;
+    new Chart(cashflowCtx, {
+      type: 'bar',
+      data: {
+        labels: months.map(m => m.month),
+        datasets: [
+          {
+            label: 'Ingresos',
+            data: months.map(m => m.income),
+            backgroundColor: 'rgba(32, 201, 151, 0.7)',
+            borderRadius: 6,
+            barPercentage: 0.6,
+          },
+          {
+            label: 'Gastos',
+            data: months.map(m => m.expenses),
+            backgroundColor: 'rgba(240, 62, 62, 0.7)',
+            borderRadius: 6,
+            barPercentage: 0.6,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { usePointStyle: true, pointStyleWidth: 10, font: { size: 10 } } }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { font: { size: 10 }, callback: v => '$' + (v >= 1000000 ? (v / 1000000).toFixed(1) + 'M' : v >= 1000 ? (v / 1000).toFixed(0) + 'K' : v) },
+            grid: { color: 'rgba(0,0,0,0.04)' }
+          },
+          x: { ticks: { font: { size: 9 } }, grid: { display: false } }
+        }
       }
     });
   }
@@ -385,15 +505,51 @@ function openAccountModal() {
       } catch (err) {
         console.error('Error al crear cuenta:', err);
         showToast(`Error: ${err.message}`, 'error');
-        throw err; // Re-throw to keep modal open if onConfirm handles it
+        throw err;
       }
     },
   });
 }
 
-function openTransactionModal(accounts, properties = []) {
-  showModal('Registrar Transacción', `
+function openTransactionModal(accounts, properties = [], isGeneralExpense = false) {
+  const title = isGeneralExpense ? 'Registrar Gasto General' : 'Registrar Transacción';
+  
+  const generalCategories = [
+    'Gastos Generales',
+    'Nómina y Personal',
+    'Suministros de Oficina',
+    'Marketing y Publicidad',
+    'Servicios Públicos',
+    'Seguros',
+    'Impuestos y Tasas',
+    'Honorarios Gestión',
+    'Otros',
+  ];
+
+  const propertyCategories = [
+    'Ingresos por Arriendo',
+    'Gastos Mantenimiento',
+    'Impuestos y Tasas',
+    'Cuotas de Administración',
+    'Servicios Públicos',
+    'Honorarios Gestión',
+    'Seguros',
+    'Pago Hipoteca',
+    'Otros',
+  ];
+
+  const categories = isGeneralExpense ? generalCategories : propertyCategories;
+
+  showModal(title, `
     <form id="tx-form" class="space-y-4">
+      ${isGeneralExpense ? `
+        <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-2">
+          <div class="flex items-center gap-2 text-amber-700 text-sm font-medium">
+            <i data-lucide="info" class="w-4 h-4"></i>
+            Este gasto no está asociado a ninguna propiedad
+          </div>
+        </div>
+      ` : ''}
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="label">Cuenta *</label>
@@ -401,6 +557,7 @@ function openTransactionModal(accounts, properties = []) {
             ${accounts.map(a => `<option value="${a.id}">${a.account_name}</option>`).join('')}
           </select>
         </div>
+        ${isGeneralExpense ? '' : `
         <div>
           <label class="label">Propiedad *</label>
           <select class="select" name="property_id" required>
@@ -408,19 +565,29 @@ function openTransactionModal(accounts, properties = []) {
             ${properties.map(p => `<option value="${p.id}">${p.name}</option>`).join('')}
           </select>
         </div>
+        `}
       </div>
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="label">Tipo *</label>
           <select class="select" name="transaction_type" required id="tx-type-select">
-            <option value="Ingreso">Ingreso</option>
-            <option value="Gasto">Gasto</option>
-            <option value="Transferencia">Transferencia</option>
-            <option value="Inversión">Inversión</option>
-            <option value="Interés">Interés</option>
-            <option value="Abono">Abono</option>
-            <option value="Crédito">Crédito</option>
-            <option value="Ajuste">Ajuste</option>
+            ${isGeneralExpense ? `
+              <option value="Gasto">Gasto</option>
+            ` : `
+              <option value="Ingreso">Ingreso</option>
+              <option value="Gasto">Gasto</option>
+              <option value="Transferencia">Transferencia</option>
+              <option value="Interés">Interés</option>
+              <option value="Abono">Abono</option>
+              <option value="Crédito">Crédito</option>
+              <option value="Ajuste">Ajuste</option>
+            `}
+          </select>
+        </div>
+        <div>
+          <label class="label">Categoría *</label>
+          <select class="select" name="category" required>
+            ${categories.map(c => `<option value="${c}">${c}</option>`).join('')}
           </select>
         </div>
       </div>
@@ -430,26 +597,13 @@ function openTransactionModal(accounts, properties = []) {
           <input class="input" name="amount" type="number" step="0.01" min="0.01" required placeholder="1500000" />
         </div>
         <div>
-          <label class="label">Categoría *</label>
-          <select class="select" name="category" required>
-            <option value="Ingresos por Arriendo">Ingresos por Arriendo</option>
-            <option value="Gastos Mantenimiento">Gastos Mantenimiento</option>
-            <option value="Impuestos y Tasas">Impuestos y Tasas</option>
-            <option value="Cuotas de Administración">Cuotas de Administración</option>
-            <option value="Servicios Públicos">Servicios Públicos</option>
-            <option value="Honorarios Gestión">Honorarios Gestión</option>
-            <option value="Seguros">Seguros</option>
-            <option value="Otros">Otros</option>
-          </select>
+          <label class="label">Fecha *</label>
+          <input class="input" name="transaction_date" type="date" required value="${new Date().toISOString().split('T')[0]}" />
         </div>
       </div>
       <div>
         <label class="label">Descripción *</label>
-        <input class="input" name="description" required placeholder="Pago de canon mes de marzo" />
-      </div>
-      <div>
-        <label class="label">Fecha *</label>
-        <input class="input" name="transaction_date" type="date" required value="${new Date().toISOString().split('T')[0]}" />
+        <input class="input" name="description" required placeholder="${isGeneralExpense ? 'Pago de servicios de oficina central' : 'Pago de canon mes de marzo'}" />
       </div>
     </form>
   `, {
@@ -460,16 +614,25 @@ function openTransactionModal(accounts, properties = []) {
       const payload = {};
       fd.forEach((v, k) => {
         if (k === 'amount') payload[k] = parseFloat(v);
-        else payload[k] = v;
+        else if (v) payload[k] = v;
       });
+
+      // For general expenses, don't send property_id
+      if (isGeneralExpense) {
+        delete payload.property_id;
+      }
+
       // Auto-map direction
       if (payload.transaction_type === 'Ingreso') payload.direction = 'Debit';
       else if (payload.transaction_type === 'Gasto') payload.direction = 'Credit';
+
       await api.post('/transactions', payload);
-      showToast('Transacción registrada', 'success');
+      showToast(isGeneralExpense ? 'Gasto general registrado' : 'Transacción registrada', 'success');
       await renderFinancials(document.getElementById('page-content'));
     },
   });
+
+  if (window.lucide) lucide.createIcons();
 }
 
 async function loadReports() {

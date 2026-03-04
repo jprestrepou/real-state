@@ -3,12 +3,13 @@ Ledger service — double-entry conciliation + balance management.
 """
 
 from datetime import date, timedelta
+from dateutil.relativedelta import relativedelta
 from sqlalchemy.orm import Session
 from sqlalchemy import select, func, extract
 from fastapi import HTTPException, status
 
 from app.models.financial import BankAccount, Transaction, TransactionDirection
-from app.models.property import Property
+from app.models.property import Property, PropertyStatus
 from app.schemas.financial import TransactionCreate, TransferCreate
 
 
@@ -24,7 +25,7 @@ def create_account(db: Session, data: dict) -> BankAccount:
     """Create a new bank account."""
     # Extract initial_balance as it's not a field in the SQLAlchemy model
     initial_balance = data.pop("initial_balance", 0)
-    
+
     # Create account with remaining fields
     account = BankAccount(**data, current_balance=initial_balance)
     db.add(account)
@@ -55,26 +56,29 @@ def register_transaction(
     Register a transaction in the ledger with automatic balance update.
     Atomic operation: updates account balance + creates transaction record.
     """
-    # 0. Validate property exists
-    prop_stmt = select(Property).where(Property.id == data.property_id, Property.is_active == True)  # noqa: E712
-    prop = db.execute(prop_stmt).scalar_one_or_none()
-    if not prop:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Propiedad con ID {data.property_id} no encontrada o inactiva"
+    # 0. Validate property exists (only if property_id is provided)
+    if data.property_id:
+        prop_stmt = select(Property).where(
+            Property.id == data.property_id,
+            Property.is_active == True,  # noqa: E712
         )
+        prop = db.execute(prop_stmt).scalar_one_or_none()
+        if not prop:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Propiedad con ID {data.property_id} no encontrada o inactiva",
+            )
 
-    # 1. Get account with lock (for_update)
+    # 1. Get account
     account = get_account(db, data.account_id)
 
-    # 2. Automate direction mapping if missing or for consistency
+    # 2. Automate direction mapping if missing
     if not data.direction:
         if data.transaction_type == "Ingreso":
             data.direction = TransactionDirection.DEBIT.value
         elif data.transaction_type == "Gasto":
             data.direction = TransactionDirection.CREDIT.value
         else:
-            # For Transferencia/Ajuste, we might need more info, but default to Debit
             data.direction = TransactionDirection.DEBIT.value
 
     # 3. Update balance based on direction
@@ -85,10 +89,10 @@ def register_transaction(
     elif data.direction == TransactionDirection.DEBIT.value:
         account.current_balance = float(account.current_balance) + data.amount
 
-    # 3. Create transaction record
+    # 4. Create transaction record
     transaction = Transaction(
         account_id=data.account_id,
-        property_id=data.property_id,
+        property_id=data.property_id,  # Can be None for general expenses
         transaction_type=data.transaction_type,
         category=data.category,
         amount=data.amount,
@@ -101,7 +105,7 @@ def register_transaction(
     )
     db.add(transaction)
 
-    # 4. Atomic commit
+    # 5. Atomic commit
     db.commit()
     db.refresh(transaction)
     db.refresh(account)
@@ -118,12 +122,12 @@ def transfer_funds(
     Transfer funds between two accounts.
     Creates a Credit transaction in source and a Debit in destination.
     """
-    # 1. Source Transaction (Credit)
+    # Source Transaction (Credit)
     source_tx = register_transaction(
         db,
         TransactionCreate(
             account_id=data.source_account_id,
-            property_id="GLOBAL", # Placeholder until we allow null or have a global property
+            property_id=None,  # Transfers are not tied to a property
             transaction_type="Transferencia",
             category="Transferencia Interna",
             amount=data.amount,
@@ -131,15 +135,15 @@ def transfer_funds(
             description=f"Transferencia a {data.destination_account_id}: {data.description}",
             transaction_date=data.transaction_date,
         ),
-        recorded_by=recorded_by
+        recorded_by=recorded_by,
     )
 
-    # 2. Destination Transaction (Debit)
+    # Destination Transaction (Debit)
     dest_tx = register_transaction(
         db,
         TransactionCreate(
             account_id=data.destination_account_id,
-            property_id="GLOBAL",
+            property_id=None,  # Transfers are not tied to a property
             transaction_type="Transferencia",
             category="Transferencia Interna",
             amount=data.amount,
@@ -147,7 +151,7 @@ def transfer_funds(
             description=f"Transferencia desde {data.source_account_id}: {data.description}",
             transaction_date=data.transaction_date,
         ),
-        recorded_by=recorded_by
+        recorded_by=recorded_by,
     )
 
     return source_tx, dest_tx
@@ -188,10 +192,6 @@ def list_transactions(
 
 def get_financial_summary(db: Session, property_id: str | None = None) -> dict:
     """Get financial summary — total income, expenses, net."""
-    base = select(Transaction)
-    if property_id:
-        base = base.where(Transaction.property_id == property_id)
-
     # Income
     income_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
         Transaction.direction == TransactionDirection.DEBIT.value
@@ -209,7 +209,6 @@ def get_financial_summary(db: Session, property_id: str | None = None) -> dict:
     total_expenses = float(db.execute(expense_stmt).scalar() or 0)
 
     # Properties count and occupancy
-    from app.models.property import Property, PropertyStatus
     prop_stmt = select(func.count()).select_from(Property).where(Property.is_active == True)  # noqa: E712
     total_properties = db.execute(prop_stmt).scalar() or 0
 
@@ -240,9 +239,8 @@ def get_cashflow_report(db: Session, property_id: str | None = None, months: int
     total_expenses = 0.0
 
     for i in range(months - 1, -1, -1):
-        # Calculate month start/end
-        month_date = today.replace(day=1) - timedelta(days=i * 28)
-        month_start = month_date.replace(day=1)
+        # Calculate month start/end using relativedelta for accuracy
+        month_start = (today.replace(day=1) - relativedelta(months=i))
         if month_start.month == 12:
             month_end = month_start.replace(year=month_start.year + 1, month=1, day=1) - timedelta(days=1)
         else:
@@ -292,11 +290,11 @@ def get_property_performance(db: Session, property_id: str) -> dict:
     # 1. Total Income & Expenses for this property
     inc_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
         Transaction.property_id == property_id,
-        Transaction.direction == TransactionDirection.DEBIT.value
+        Transaction.direction == TransactionDirection.DEBIT.value,
     )
     exp_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
         Transaction.property_id == property_id,
-        Transaction.direction == TransactionDirection.CREDIT.value
+        Transaction.direction == TransactionDirection.CREDIT.value,
     )
     total_income = float(db.execute(inc_stmt).scalar() or 0)
     total_expenses = float(db.execute(exp_stmt).scalar() or 0)
@@ -304,21 +302,88 @@ def get_property_performance(db: Session, property_id: str) -> dict:
 
     # 2. Get property details (for ROI calculation)
     prop = db.execute(select(Property).where(Property.id == property_id)).scalar_one_or_none()
-    roi = 0.0
-    if prop and prop.price and prop.price > 0:
-        roi = round((net_profit / float(prop.price)) * 100, 2)
+    if not prop:
+        raise HTTPException(status_code=404, detail="Propiedad no encontrada")
 
-    # 3. Last transactions
-    txs_stmt = select(Transaction).where(Transaction.property_id == property_id).order_by(Transaction.transaction_date.desc()).limit(10)
+    roi = 0.0
+    if prop.commercial_value and float(prop.commercial_value) > 0:
+        roi = round((net_profit / float(prop.commercial_value)) * 100, 2)
+
+    # 3. Monthly cashflow for the last 12 months
+    today = date.today()
+    monthly_cashflow = []
+    for i in range(11, -1, -1):
+        month_start = (today.replace(day=1) - relativedelta(months=i))
+        if month_start.month == 12:
+            month_end = month_start.replace(year=month_start.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = month_start.replace(month=month_start.month + 1, day=1) - timedelta(days=1)
+
+        m_inc = float(db.execute(
+            select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+                Transaction.property_id == property_id,
+                Transaction.direction == TransactionDirection.DEBIT.value,
+                Transaction.transaction_date >= month_start,
+                Transaction.transaction_date <= month_end,
+            )
+        ).scalar() or 0)
+
+        m_exp = float(db.execute(
+            select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+                Transaction.property_id == property_id,
+                Transaction.direction == TransactionDirection.CREDIT.value,
+                Transaction.transaction_date >= month_start,
+                Transaction.transaction_date <= month_end,
+            )
+        ).scalar() or 0)
+
+        monthly_cashflow.append({
+            "month": month_start.strftime("%b %Y"),
+            "income": m_inc,
+            "expenses": m_exp,
+            "net": m_inc - m_exp,
+        })
+
+    # 4. Category breakdowns
+    cat_stmt = select(
+        Transaction.category,
+        Transaction.direction,
+        func.sum(Transaction.amount).label("total"),
+    ).where(
+        Transaction.property_id == property_id,
+    ).group_by(Transaction.category, Transaction.direction)
+
+    cat_results = db.execute(cat_stmt).all()
+    income_by_category = {}
+    expense_by_category = {}
+    for row in cat_results:
+        cat = str(row.category)
+        amount = float(row.total or 0)
+        if str(row.direction) == TransactionDirection.DEBIT.value:
+            income_by_category[cat] = amount
+        else:
+            expense_by_category[cat] = amount
+
+    # 5. Last transactions
+    txs_stmt = (
+        select(Transaction)
+        .where(Transaction.property_id == property_id)
+        .order_by(Transaction.transaction_date.desc())
+        .limit(10)
+    )
     last_transactions = db.execute(txs_stmt).scalars().all()
 
     return {
-        "property_name": prop.name if prop else "Unknown",
+        "property_name": prop.name,
+        "property_status": prop.status,
         "total_income": total_income,
         "total_expenses": total_expenses,
         "net_profit": net_profit,
         "roi": roi,
-        "last_transactions": last_transactions
+        "monthly_cashflow": monthly_cashflow,
+        "income_by_category": income_by_category,
+        "expense_by_category": expense_by_category,
+        "last_transactions": last_transactions,
     }
 
 
@@ -326,12 +391,12 @@ def get_balance_sheet(db: Session) -> dict:
     """Summary of assets (bank balances)."""
     accounts = list_accounts(db)
     total_assets = sum(float(a.current_balance) for a in accounts)
-    
+
     return {
         "date": date.today(),
         "accounts": accounts,
         "total_assets": total_assets,
-        "equity": total_assets, # Simple model: Assets = Equity
+        "equity": total_assets,  # Simple model: Assets = Equity
     }
 
 
@@ -341,36 +406,36 @@ def get_income_statement(db: Session, start_date: date, end_date: date) -> dict:
     stmt = select(
         Transaction.category,
         Transaction.direction,
-        func.sum(Transaction.amount).label("total")
+        func.sum(Transaction.amount).label("total"),
     ).where(
         Transaction.transaction_date >= start_date,
-        Transaction.transaction_date <= end_date
+        Transaction.transaction_date <= end_date,
     ).group_by(Transaction.category, Transaction.direction)
-    
+
     results = db.execute(stmt).all()
-    
+
     income_by_cat = {}
     expense_by_cat = {}
     total_income: float = 0.0
     total_expense: float = 0.0
-    
+
     for row in results:
         cat = str(row.category)
         direction = str(row.direction)
         amount = float(row.total or 0)
-        
+
         if direction == TransactionDirection.DEBIT.value:
             income_by_cat[cat] = amount
             total_income = total_income + amount
         else:
             expense_by_cat[cat] = amount
             total_expense = total_expense + amount
-            
+
     return {
         "period": {"start": start_date, "end": end_date},
         "income": income_by_cat,
         "expenses": expense_by_cat,
         "total_income": total_income,
         "total_expense": total_expense,
-        "net_income": float(total_income - total_expense)
+        "net_income": float(total_income - total_expense),
     }

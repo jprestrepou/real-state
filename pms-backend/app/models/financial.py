@@ -48,6 +48,10 @@ class TransactionCategory(str, enum.Enum):
     HIPOTECA = "Pago Hipoteca"
     INTERESES_BANCARIOS = "Intereses Bancarios"
     TRANSFERENCIA_INTERNA = "Transferencia Interna"
+    GASTOS_GENERALES = "Gastos Generales"
+    NOMINA = "Nómina y Personal"
+    SUMINISTROS = "Suministros de Oficina"
+    MARKETING = "Marketing y Publicidad"
     OTROS = "Otros"
 
 
@@ -85,8 +89,8 @@ class Transaction(Base):
     account_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("bank_accounts.id"), nullable=False, index=True
     )
-    property_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("properties.id"), nullable=False, index=True
+    property_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("properties.id"), nullable=True, index=True
     )
     transaction_type: Mapped[str] = mapped_column(
         SAEnum(TransactionType, values_callable=lambda e: [x.value for x in e]),
@@ -110,7 +114,7 @@ class Transaction(Base):
 
     # Relationships
     account = relationship("BankAccount", back_populates="transactions")
-    property = relationship("Property", back_populates="transactions")
+    property = relationship("Property", back_populates="transactions", lazy="joined")
 
     def __repr__(self) -> str:
         return f"<Transaction {self.direction} {self.amount} ({self.category})>"

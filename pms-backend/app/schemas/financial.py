@@ -42,7 +42,7 @@ class AccountResponse(BaseModel):
 # ── Transactions ─────────────────────────────────────────
 class TransactionCreate(BaseModel):
     account_id: str
-    property_id: str
+    property_id: Optional[str] = None
     transaction_type: str = Field(pattern="^(Ingreso|Gasto|Transferencia|Ajuste|Interés|Abono|Crédito)$")
     category: str = Field(min_length=2, max_length=100)
     amount: float = Field(gt=0)
@@ -69,7 +69,7 @@ class TransactionUpdate(BaseModel):
 class TransactionResponse(BaseModel):
     id: str
     account_id: str
-    property_id: str
+    property_id: Optional[str] = None
     transaction_type: str
     category: str
     amount: float
@@ -112,10 +112,14 @@ class FinancialSummary(BaseModel):
 
 class PropertyPerformanceResponse(BaseModel):
     property_name: str
+    property_status: Optional[str] = None
     total_income: float
     total_expenses: float
     net_profit: float
     roi: float
+    monthly_cashflow: list[CashFlowMonth]
+    income_by_category: dict[str, float]
+    expense_by_category: dict[str, float]
     last_transactions: list[TransactionResponse]
 
 
