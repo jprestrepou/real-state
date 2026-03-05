@@ -516,6 +516,9 @@ function openTransactionModal(accounts, properties = [], isGeneralExpense = fals
   
   const generalCategories = [
     'Gastos Generales',
+    'Gastos Administrativos',
+    'Mantenimiento General',
+    'Pago de Empleados',
     'Nómina y Personal',
     'Suministros de Oficina',
     'Marketing y Publicidad',

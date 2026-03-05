@@ -1,0 +1,119 @@
+2026-03-05 14:50:01,191 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-03-05 14:50:01,213 INFO sqlalchemy.engine.Engine SELECT coalesce(sum(transactions.amount), ?) AS coalesce_1 
+FROM transactions 
+WHERE transactions.direction = ?
+2026-03-05 14:50:01,213 INFO sqlalchemy.engine.Engine [generated in 0.00020s] (0, 'Debit')
+2026-03-05 14:50:01,214 INFO sqlalchemy.engine.Engine SELECT coalesce(sum(transactions.amount), ?) AS coalesce_1 
+FROM transactions 
+WHERE transactions.direction = ?
+2026-03-05 14:50:01,214 INFO sqlalchemy.engine.Engine [cached since 0.001812s ago] (0, 'Credit')
+2026-03-05 14:50:01,215 INFO sqlalchemy.engine.Engine SELECT count(*) AS count_1 
+FROM properties 
+WHERE properties.is_active = 1
+2026-03-05 14:50:01,215 INFO sqlalchemy.engine.Engine [generated in 0.00013s] ()
+2026-03-05 14:50:01,216 INFO sqlalchemy.engine.Engine SELECT count(*) AS count_1 
+FROM properties 
+WHERE properties.is_active = 1 AND properties.status = ?
+2026-03-05 14:50:01,216 INFO sqlalchemy.engine.Engine [generated in 0.00016s] ('Arrendada',)
+2026-03-05 14:50:01,217 INFO sqlalchemy.engine.Engine SELECT bank_accounts.id, bank_accounts.account_name, bank_accounts.account_type, bank_accounts.bank_name, bank_accounts.account_number, bank_accounts.currency, bank_accounts.current_balance, bank_accounts.is_active, bank_accounts.created_at 
+FROM bank_accounts 
+WHERE bank_accounts.is_active = 1
+2026-03-05 14:50:01,217 INFO sqlalchemy.engine.Engine [generated in 0.00012s] ()
+2026-03-05 14:50:01,219 INFO sqlalchemy.engine.Engine SELECT coalesce(sum(transactions.amount), ?) AS coalesce_1 
+FROM transactions 
+WHERE transactions.direction = ?
+2026-03-05 14:50:01,219 INFO sqlalchemy.engine.Engine [cached since 0.00622s ago] (0, 'Debit')
+2026-03-05 14:50:01,219 INFO sqlalchemy.engine.Engine SELECT coalesce(sum(transactions.amount), ?) AS coalesce_1 
+FROM transactions 
+WHERE transactions.direction = ?
+2026-03-05 14:50:01,219 INFO sqlalchemy.engine.Engine [cached since 0.00666s ago] (0, 'Credit')
+2026-03-05 14:50:01,219 INFO sqlalchemy.engine.Engine SELECT count(*) AS count_1 
+FROM properties 
+WHERE properties.is_active = 1
+2026-03-05 14:50:01,219 INFO sqlalchemy.engine.Engine [cached since 0.004117s ago] ()
+2026-03-05 14:50:01,220 INFO sqlalchemy.engine.Engine SELECT count(*) AS count_1 
+FROM properties 
+WHERE properties.is_active = 1 AND properties.status = ?
+2026-03-05 14:50:01,220 INFO sqlalchemy.engine.Engine [cached since 0.003526s ago] ('Arrendada',)
+2026-03-05 14:50:01,220 INFO sqlalchemy.engine.Engine SELECT bank_accounts.id, bank_accounts.account_name, bank_accounts.account_type, bank_accounts.bank_name, bank_accounts.account_number, bank_accounts.currency, bank_accounts.current_balance, bank_accounts.is_active, bank_accounts.created_at 
+FROM bank_accounts 
+WHERE bank_accounts.is_active = 1
+2026-03-05 14:50:01,220 INFO sqlalchemy.engine.Engine [cached since 0.002536s ago] ()
+Before transaction, net: 35990823.0
+2026-03-05 14:50:01,221 INFO sqlalchemy.engine.Engine SELECT bank_accounts.id, bank_accounts.account_name, bank_accounts.account_type, bank_accounts.bank_name, bank_accounts.account_number, bank_accounts.currency, bank_accounts.current_balance, bank_accounts.is_active, bank_accounts.created_at 
+FROM bank_accounts 
+WHERE bank_accounts.id = ?
+2026-03-05 14:50:01,221 INFO sqlalchemy.engine.Engine [generated in 0.00012s] ('2c77e5ba-e649-44da-a3fb-04804e165e81',)
+2026-03-05 14:50:01,223 INFO sqlalchemy.engine.Engine UPDATE bank_accounts SET current_balance=? WHERE bank_accounts.id = ?
+2026-03-05 14:50:01,223 INFO sqlalchemy.engine.Engine [generated in 0.00016s] (35990773.0, '2c77e5ba-e649-44da-a3fb-04804e165e81')
+2026-03-05 14:50:01,225 INFO sqlalchemy.engine.Engine INSERT INTO transactions (id, account_id, property_id, transaction_type, category, amount, direction, description, reference_id, reference_type, invoice_file, transaction_date, recorded_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING created_at
+2026-03-05 14:50:01,225 INFO sqlalchemy.engine.Engine [generated in 0.00025s] ('2610a861-2245-4b5b-b18e-922b4899c38b', '2c77e5ba-e649-44da-a3fb-04804e165e81', None, 'Gasto', 'Pago de Empleados', 50.0, 'Credit', 'Pago de mensajero', None, None, None, '2026-03-05', 'test-user-id')
+2026-03-05 14:50:01,225 INFO sqlalchemy.engine.Engine ROLLBACK
+Traceback (most recent call last):
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+sqlite3.IntegrityError: FOREIGN KEY constraint failed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "<string>", line 22, in <module>
+  File "C:\Users\jupa_\Desktop\proyecto real state\pms-backend\app\services\ledger_service.py", line 109, in register_transaction
+    db.commit()
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\session.py", line 2028, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\session.py", line 1313, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\session.py", line 1288, in _prepare_impl
+    self.session.flush()
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\session.py", line 4352, in flush
+    self._flush(objects)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\session.py", line 4487, in _flush
+    with util.safe_reraise():
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\session.py", line 4448, in _flush
+    flush_context.execute()
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 466, in execute
+    rec.execute(self)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 642, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\persistence.py", line 93, in save_obj
+    _emit_insert_statements(
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\persistence.py", line 1233, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1418, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\sql\elements.py", line 515, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1640, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+[SQL: INSERT INTO transactions (id, account_id, property_id, transaction_type, category, amount, direction, description, reference_id, reference_type, invoice_file, transaction_date, recorded_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING created_at]
+[parameters: ('2610a861-2245-4b5b-b18e-922b4899c38b', '2c77e5ba-e649-44da-a3fb-04804e165e81', None, 'Gasto', 'Pago de Empleados', 50.0, 'Credit', 'Pago de mensajero', None, None, None, '2026-03-05', 'test-user-id')]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)

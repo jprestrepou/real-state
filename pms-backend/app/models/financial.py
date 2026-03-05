@@ -52,6 +52,9 @@ class TransactionCategory(str, enum.Enum):
     NOMINA = "Nómina y Personal"
     SUMINISTROS = "Suministros de Oficina"
     MARKETING = "Marketing y Publicidad"
+    GASTOS_ADMINISTRATIVOS = "Gastos Administrativos"
+    MANTENIMIENTO_GENERAL = "Mantenimiento General"
+    PAGO_EMPLEADOS = "Pago de Empleados"
     OTROS = "Otros"
 
 
