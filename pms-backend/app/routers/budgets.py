@@ -17,11 +17,12 @@ router = APIRouter(prefix="/budgets", tags=["Presupuestos"])
 def list_budgets(
     property_id: str | None = None,
     year: int | None = None,
+    month: int | None = None,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Listar presupuestos."""
-    return budget_service.list_budgets(db, property_id, year)
+    return budget_service.list_budgets(db, property_id, year, month)
 
 
 @router.post("", response_model=BudgetResponse, status_code=201)

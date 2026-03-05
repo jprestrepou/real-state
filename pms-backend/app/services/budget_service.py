@@ -14,12 +14,15 @@ def list_budgets(
     db: Session,
     property_id: str | None = None,
     year: int | None = None,
+    month: int | None = None,
 ) -> list[Budget]:
     stmt = select(Budget)
     if property_id:
         stmt = stmt.where(Budget.property_id == property_id)
     if year:
         stmt = stmt.where(Budget.year == year)
+    if month:
+        stmt = stmt.where(Budget.month == month)
     return list(db.execute(stmt).scalars().all())
 
 
@@ -35,6 +38,7 @@ def create_budget(db: Session, data: BudgetCreate) -> Budget:
     budget = Budget(
         property_id=data.property_id,
         year=data.year,
+        month=data.month,
         total_budget=data.total_budget,
         notes=data.notes,
     )
@@ -57,11 +61,14 @@ def create_budget(db: Session, data: BudgetCreate) -> Budget:
 def check_budget_alert(db: Session, property_id: str, category: str, amount: float) -> str | None:
     """Check if a new expense triggers a budget alert. Returns semaphore color or None."""
     import datetime
-    current_year = datetime.date.today().year
+    current_date = datetime.date.today()
+    current_year = current_date.year
+    current_month = current_date.month
 
     stmt = select(Budget).where(
         Budget.property_id == property_id,
         Budget.year == current_year,
+        Budget.month == current_month,
     )
     budget = db.execute(stmt).scalar_one_or_none()
     if not budget:

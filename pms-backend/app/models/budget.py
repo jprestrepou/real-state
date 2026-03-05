@@ -31,6 +31,7 @@ class Budget(Base):
         String(36), ForeignKey("properties.id"), nullable=False, index=True
     )
     year: Mapped[int] = mapped_column(Integer, nullable=False)
+    month: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     total_budget: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
     total_executed: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

@@ -6,9 +6,9 @@ import { formatCurrency, formatPercent, semaphoreClass } from '../utils/formatte
 import { showToast, showModal } from '../components/modal.js';
 
 export async function renderBudgets(container) {
-    const budgets = await api.get('/budgets');
+  const budgets = await api.get('/budgets');
 
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="flex items-center justify-between mb-6 animate-fade-in">
       <h3 class="text-lg font-semibold text-surface-700">Presupuestos por Propiedad</h3>
       <button id="add-budget-btn" class="btn-primary"><i data-lucide="plus" class="w-4 h-4"></i> Nuevo Presupuesto</button>
@@ -18,7 +18,7 @@ export async function renderBudgets(container) {
         <div class="glass-card-static p-6">
           <div class="flex items-center justify-between mb-4">
             <div>
-              <h4 class="font-bold text-surface-900">Año ${b.year}</h4>
+              <h4 class="font-bold text-surface-900">Año ${b.year} - Mes ${b.month}</h4>
               <p class="text-xs text-surface-400">Propiedad: ${b.property_id.slice(0, 8)}...</p>
             </div>
             <div class="flex items-center gap-2">
@@ -55,17 +55,19 @@ export async function renderBudgets(container) {
         </div>
       `).join('') : '<p class="text-surface-400 col-span-2 text-center py-12">No hay presupuestos. Cree uno para empezar.</p>'}
     </div>`;
-    if (window.lucide) lucide.createIcons();
-    document.getElementById('add-budget-btn').addEventListener('click', () => openBudgetModal());
+  if (window.lucide) lucide.createIcons();
+  document.getElementById('add-budget-btn').addEventListener('click', () => openBudgetModal());
 }
 
 function openBudgetModal() {
-    const year = new Date().getFullYear();
-    showModal('Nuevo Presupuesto', `<form id="bf" class="space-y-4">
+  const year = new Date().getFullYear();
+  const month = new Date().getMonth() + 1;
+  showModal('Nuevo Presupuesto', `<form id="bf" class="space-y-4">
     <div><label class="label">Propiedad ID *</label><input class="input" name="property_id" required /></div>
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid grid-cols-3 gap-4">
       <div><label class="label">Año *</label><input class="input" name="year" type="number" value="${year}" required /></div>
-      <div><label class="label">Presupuesto Total *</label><input class="input" name="total_budget" type="number" step="0.01" required /></div>
+      <div><label class="label">Mes *</label><input class="input" name="month" type="number" min="1" max="12" value="${month}" required /></div>
+      <div><label class="label">Presupuesto *</label><input class="input" name="total_budget" type="number" step="0.01" required /></div>
     </div>
     <div id="cats-container">
       <label class="label">Categorías</label>
@@ -73,25 +75,25 @@ function openBudgetModal() {
       <button type="button" id="add-cat-btn" class="btn-ghost text-xs mt-2"><i data-lucide="plus" class="w-3 h-3"></i> Agregar Categoría</button>
     </div>
   </form>`, {
-        confirmText: 'Crear', onConfirm: async () => {
-            const fd = new FormData(document.getElementById('bf'));
-            const cats = [];
-            document.querySelectorAll('.cat-row').forEach(r => {
-                const n = r.querySelector('[name="cat_name"]').value;
-                const a = r.querySelector('[name="cat_amount"]').value;
-                if (n && a) cats.push({ category_name: n, budgeted_amount: parseFloat(a) });
-            });
-            await api.post('/budgets', { property_id: fd.get('property_id'), year: parseInt(fd.get('year')), total_budget: parseFloat(fd.get('total_budget')), categories: cats });
-            showToast('Presupuesto creado', 'success');
-            await renderBudgets(document.getElementById('page-content'));
-        }
-    });
-    if (window.lucide) lucide.createIcons();
-    document.getElementById('add-cat-btn').addEventListener('click', () => {
-        const list = document.getElementById('cats-list');
-        const row = document.createElement('div');
-        row.className = 'cat-row grid grid-cols-2 gap-2';
-        row.innerHTML = `<input class="input text-sm py-1.5" name="cat_name" placeholder="Mantenimiento" /><input class="input text-sm py-1.5" name="cat_amount" type="number" step="0.01" placeholder="5000000" />`;
-        list.appendChild(row);
-    });
+    confirmText: 'Crear', onConfirm: async () => {
+      const fd = new FormData(document.getElementById('bf'));
+      const cats = [];
+      document.querySelectorAll('.cat-row').forEach(r => {
+        const n = r.querySelector('[name="cat_name"]').value;
+        const a = r.querySelector('[name="cat_amount"]').value;
+        if (n && a) cats.push({ category_name: n, budgeted_amount: parseFloat(a) });
+      });
+      await api.post('/budgets', { property_id: fd.get('property_id'), year: parseInt(fd.get('year')), month: parseInt(fd.get('month')), total_budget: parseFloat(fd.get('total_budget')), categories: cats });
+      showToast('Presupuesto creado', 'success');
+      await renderBudgets(document.getElementById('page-content'));
+    }
+  });
+  if (window.lucide) lucide.createIcons();
+  document.getElementById('add-cat-btn').addEventListener('click', () => {
+    const list = document.getElementById('cats-list');
+    const row = document.createElement('div');
+    row.className = 'cat-row grid grid-cols-2 gap-2';
+    row.innerHTML = `<input class="input text-sm py-1.5" name="cat_name" placeholder="Mantenimiento" /><input class="input text-sm py-1.5" name="cat_amount" type="number" step="0.01" placeholder="5000000" />`;
+    list.appendChild(row);
+  });
 }

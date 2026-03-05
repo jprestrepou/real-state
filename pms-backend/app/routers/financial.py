@@ -103,13 +103,162 @@ def export_transactions(
 ):
     """Exportar transacciones a CSV."""
     transactions, _ = ledger_service.list_transactions(db, property_id=property_id, limit=1000)
-    csv_data = financial_reports.export_transactions_to_csv(transactions)
+    csv_data = financial_reports.export_transactions_to_csv(db, transactions)
     
     return Response(
         content=csv_data,
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename=transacciones_{date.today()}.csv"}
     )
+
+
+@router.get("/reports/eeff", response_model=dict)
+def get_eeff_report(
+    property_id: str | None = Query(None),
+    year: int = Query(default_factory=lambda: date.today().year),
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
+):
+    """Generar reporte matricial EEFF (Estado de Resultados Mensual)."""
+    # Initialize matrix
+    # Months 1 to 12
+    report = {
+        "year": year,
+        "property_id": property_id,
+        "months": {},
+        "categories": set(),
+        "total_income": 0,
+        "total_expenses": 0,
+        "utilidad_operacional": 0
+    }
+    
+    for m in range(1, 13):
+        report["months"][m] = {
+            "income": 0,
+            "expenses": 0,
+            "utilidad_operacional": 0,
+            "by_category": {}
+        }
+    
+    # Get all transactions for the year
+    from sqlalchemy import select, and_, extract
+    from app.models.financial import Transaction, TransactionDirection
+    
+    stmt = select(Transaction).where(extract('year', Transaction.transaction_date) == year)
+    if property_id:
+        stmt = stmt.where(Transaction.property_id == property_id)
+        
+    transactions = db.execute(stmt).scalars().all()
+    
+    for tx in transactions:
+        m = tx.transaction_date.month
+        cat = tx.category
+        report["categories"].add(cat)
+        
+        m_data = report["months"][m]
+        if cat not in m_data["by_category"]:
+            m_data["by_category"][cat] = 0
+            
+        if tx.direction == TransactionDirection.DEBIT.value:
+            # Ingreso
+            m_data["income"] += tx.amount
+            report["total_income"] += tx.amount
+        else:
+            # Gasto
+            m_data["by_category"][cat] += tx.amount
+            m_data["expenses"] += tx.amount
+            report["total_expenses"] += tx.amount
+            
+        m_data["utilidad_operacional"] = m_data["income"] - m_data["expenses"]
+        
+    report["utilidad_operacional"] = report["total_income"] - report["total_expenses"]
+    report["categories"] = list(report["categories"])
+    
+    return report
+
+
+
+import io
+import csv
+from fastapi import UploadFile, File
+from dateutil import parser
+from app.models.financial import BankAccount
+from app.models.property import Property
+
+@router.post("/transactions/import", status_code=201)
+def import_transactions(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario")),
+):
+    """Importar transacciones desde un CSV con estructura de wallet_records.csv."""
+    content = file.file.read().decode("utf-8-sig")  # utf-8-sig handles BOM
+    reader = csv.DictReader(io.StringIO(content), delimiter=";")
+    
+    # Caches for lookups
+    accounts_by_name = {a.account_name.lower(): a.id for a in db.query(BankAccount).all()}
+    properties_by_name = {p.name.lower(): p.id for p in db.query(Property).all()}
+    
+    imported_count = 0
+    errors = []
+    
+    for row_idx, row in enumerate(reader, start=2):
+        try:
+            account_name = row.get("account", "").strip()
+            if not account_name:
+                continue
+                
+            category = row.get("category", "General").strip()
+            amount_str = row.get("amount", "0").replace(",", ".")
+            tx_type = row.get("type", "Gasto").strip()
+            note = row.get("note", "").strip()
+            date_str = row.get("date", "").strip()
+            labels = row.get("labels", "").strip()
+            
+            # Obtener account_id
+            account_id = accounts_by_name.get(account_name.lower())
+            if not account_id:
+                errors.append(f"Fila {row_idx}: Cuenta '{account_name}' no encontrada.")
+                continue
+            
+            # Obtener property_id
+            property_id = None
+            if labels:
+                # Buscamos en properties exacto
+                property_id = properties_by_name.get(labels.lower())
+                
+            try:
+                amount = abs(float(amount_str))
+            except ValueError:
+                amount = 0.0
+                
+            # Parse Date
+            try:
+                tx_date = parser.parse(date_str).date() if date_str else date.today()
+            except Exception:
+                tx_date = date.today()
+                
+            # Create transaction
+            tx_data = TransactionCreate(
+                account_id=account_id,
+                property_id=property_id,
+                transaction_type=tx_type,
+                category=category,
+                amount=amount,
+                description=note or "Importado de CSV",
+                transaction_date=tx_date
+            )
+            
+            ledger_service.register_transaction(db, tx_data, current_user.id)
+            imported_count += 1
+            
+        except Exception as e:
+            errors.append(f"Fila {row_idx}: Error procesando - {str(e)}")
+            
+    return {
+        "message": f"Se importaron {imported_count} transacciones.",
+        "errors": errors
+    }
 @router.get("/transactions", response_model=dict)
 def list_transactions(
     property_id: str | None = None,

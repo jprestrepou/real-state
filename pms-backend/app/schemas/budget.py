@@ -16,6 +16,7 @@ class BudgetCategoryCreate(BaseModel):
 class BudgetCreate(BaseModel):
     property_id: str
     year: int = Field(ge=2020, le=2100)
+    month: int = Field(ge=1, le=12, default=1)
     total_budget: float = Field(gt=0)
     categories: list[BudgetCategoryCreate] = []
     notes: Optional[str] = None
@@ -36,6 +37,7 @@ class BudgetResponse(BaseModel):
     id: str
     property_id: str
     year: int
+    month: int
     total_budget: float
     total_executed: float
     execution_pct: float
