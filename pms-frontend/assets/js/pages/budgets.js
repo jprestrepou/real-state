@@ -20,6 +20,7 @@ export async function renderBudgets(container) {
             <div>
               <h4 class="font-bold text-surface-900">Año ${b.year} - Mes ${b.month}</h4>
               <p class="text-xs text-surface-400">Propiedad: ${b.property_id.slice(0, 8)}...</p>
+              <a href="#/budget-report?property_id=${b.property_id}&year=${b.year}&month=${b.month}" class="text-xs text-primary-600 hover:underline mt-1 inline-block">Ver Reporte Detallado</a>
             </div>
             <div class="flex items-center gap-2">
               <span class="semaphore ${semaphoreClass(b.semaphore)}"></span>
@@ -81,7 +82,8 @@ function openBudgetModal() {
       document.querySelectorAll('.cat-row').forEach(r => {
         const n = r.querySelector('[name="cat_name"]').value;
         const a = r.querySelector('[name="cat_amount"]').value;
-        if (n && a) cats.push({ category_name: n, budgeted_amount: parseFloat(a) });
+        const d = r.querySelector('[name="cat_dist"]').checked;
+        if (n && a) cats.push({ category_name: n, budgeted_amount: parseFloat(a), is_distributable: d });
       });
       await api.post('/budgets', { property_id: fd.get('property_id'), year: parseInt(fd.get('year')), month: parseInt(fd.get('month')), total_budget: parseFloat(fd.get('total_budget')), categories: cats });
       showToast('Presupuesto creado', 'success');
@@ -92,8 +94,15 @@ function openBudgetModal() {
   document.getElementById('add-cat-btn').addEventListener('click', () => {
     const list = document.getElementById('cats-list');
     const row = document.createElement('div');
-    row.className = 'cat-row grid grid-cols-2 gap-2';
-    row.innerHTML = `<input class="input text-sm py-1.5" name="cat_name" placeholder="Mantenimiento" /><input class="input text-sm py-1.5" name="cat_amount" type="number" step="0.01" placeholder="5000000" />`;
+    row.className = 'cat-row flex gap-2 items-center';
+    row.innerHTML = `
+      <input class="input text-sm py-1.5 flex-1" name="cat_name" placeholder="Mantenimiento" />
+      <input class="input text-sm py-1.5 w-32" name="cat_amount" type="number" step="0.01" placeholder="Monto" />
+      <div class="flex items-center gap-1">
+        <input type="checkbox" name="cat_dist" class="w-4 h-4" />
+        <span class="text-[10px] text-surface-500">Distribuir</span>
+      </div>
+    `;
     list.appendChild(row);
   });
 }

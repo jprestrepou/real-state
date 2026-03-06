@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
-    String, Text, Numeric, Integer,
+    String, Text, Numeric, Integer, Boolean,
     Enum as SAEnum, DateTime, ForeignKey, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -44,7 +44,8 @@ class Budget(Base):
     @property
     def execution_pct(self) -> float:
         if self.total_budget and float(self.total_budget) > 0:
-            return round(float(self.total_executed) / float(self.total_budget) * 100, 2)
+            val = float(self.total_executed) / float(self.total_budget) * 100
+            return float(round(val, 2))
         return 0.0
 
     @property
@@ -73,6 +74,7 @@ class BudgetCategory(Base):
     category_name: Mapped[str] = mapped_column(String(100), nullable=False)
     budgeted_amount: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
     executed_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    is_distributable: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships
@@ -81,7 +83,8 @@ class BudgetCategory(Base):
     @property
     def execution_pct(self) -> float:
         if self.budgeted_amount and float(self.budgeted_amount) > 0:
-            return round(float(self.executed_amount) / float(self.budgeted_amount) * 100, 2)
+            val = float(self.executed_amount) / float(self.budgeted_amount) * 100
+            return float(round(val, 2))
         return 0.0
 
     @property

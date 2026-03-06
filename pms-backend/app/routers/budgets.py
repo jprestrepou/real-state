@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas.budget import BudgetCreate, BudgetResponse
+from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetReport
 from app.services import budget_service
 from app.utils.security import get_current_user, require_role
 
@@ -43,3 +43,13 @@ def get_budget(
 ):
     """Obtener detalle de presupuesto con semáforo."""
     return budget_service.get_budget(db, budget_id)
+@router.get("/report/{property_id}", response_model=BudgetReport)
+def get_budget_report(
+    property_id: str,
+    year: int = Query(..., ge=2020),
+    month: int = Query(..., ge=1, le=12),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Obtener reporte presupuesto vs real con distribución."""
+    return budget_service.get_budget_vs_actual_report(db, property_id, year, month)

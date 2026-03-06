@@ -64,6 +64,9 @@ class Property(Base):
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    parent_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("properties.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships
@@ -73,6 +76,7 @@ class Property(Base):
     maintenance_orders = relationship("MaintenanceOrder", back_populates="property")
     contracts = relationship("Contract", back_populates="property")
     budgets = relationship("Budget", back_populates="property_rel")
+    sub_units = relationship("Property", backref="parent", remote_side=[id])
 
     def __repr__(self) -> str:
         return f"<Property {self.name} ({self.status})>"
