@@ -10,7 +10,7 @@ from fastapi import HTTPException, status
 
 from app.models.financial import BankAccount, Transaction, TransactionDirection
 from app.models.property import Property, PropertyStatus
-from app.schemas.financial import TransactionCreate, TransferCreate
+from app.schemas.financial import TransactionCreate, TransferCreate, TransactionUpdate
 
 
 class InsufficientFundsError(HTTPException):
@@ -438,4 +438,143 @@ def get_income_statement(db: Session, start_date: date, end_date: date) -> dict:
         "total_income": total_income,
         "total_expense": total_expense,
         "net_income": float(total_income - total_expense),
+    }
+
+
+# ── Account CRUD ─────────────────────────────────────────
+
+def update_account(db: Session, account_id: str, data: dict) -> BankAccount:
+    """Update bank account fields."""
+    account = get_account(db, account_id)
+    for key, value in data.items():
+        if value is not None and hasattr(account, key):
+            setattr(account, key, value)
+    db.commit()
+    db.refresh(account)
+    return account
+
+
+def delete_account(db: Session, account_id: str) -> None:
+    """Soft-delete a bank account (set is_active=False)."""
+    account = get_account(db, account_id)
+    # Check for non-zero balance
+    if float(account.current_balance) != 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"No se puede eliminar: la cuenta tiene saldo de {account.current_balance}. Transfiera los fondos primero.",
+        )
+    account.is_active = False
+    db.commit()
+
+
+# ── Transaction CRUD ─────────────────────────────────────
+
+def update_transaction(db: Session, tx_id: str, data: TransactionUpdate) -> Transaction:
+    """Update a transaction and adjust account balance if amount changed."""
+    stmt = select(Transaction).where(Transaction.id == tx_id)
+    tx = db.execute(stmt).scalar_one_or_none()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transacción no encontrada")
+
+    old_amount = float(tx.amount)
+    old_direction = tx.direction
+
+    # Update fields
+    update_data = data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        if value is not None and hasattr(tx, key):
+            setattr(tx, key, value)
+
+    new_amount = float(tx.amount)
+
+    # Adjust balance if amount changed
+    if new_amount != old_amount:
+        account = get_account(db, tx.account_id)
+        # Revert old effect
+        if old_direction == TransactionDirection.DEBIT.value:
+            account.current_balance = float(account.current_balance) - old_amount
+        else:
+            account.current_balance = float(account.current_balance) + old_amount
+        # Apply new effect
+        if tx.direction == TransactionDirection.DEBIT.value:
+            account.current_balance = float(account.current_balance) + new_amount
+        else:
+            account.current_balance = float(account.current_balance) - new_amount
+
+    db.commit()
+    db.refresh(tx)
+    return tx
+
+
+def delete_transaction(db: Session, tx_id: str) -> None:
+    """Delete a transaction and revert its balance effect."""
+    stmt = select(Transaction).where(Transaction.id == tx_id)
+    tx = db.execute(stmt).scalar_one_or_none()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transacción no encontrada")
+
+    # Revert balance
+    account = get_account(db, tx.account_id)
+    if tx.direction == TransactionDirection.DEBIT.value:
+        account.current_balance = float(account.current_balance) - float(tx.amount)
+    else:
+        account.current_balance = float(account.current_balance) + float(tx.amount)
+
+    db.delete(tx)
+    db.commit()
+
+
+# ── Account History ──────────────────────────────────────
+
+def get_account_history(db: Session, account_id: str, months: int = 12) -> dict:
+    """Get monthly cashflow + recent transactions for a specific account."""
+    account = get_account(db, account_id)
+    today = date.today()
+    monthly_data = []
+
+    for i in range(months - 1, -1, -1):
+        month_start = today.replace(day=1) - relativedelta(months=i)
+        if month_start.month == 12:
+            month_end = month_start.replace(year=month_start.year + 1, month=1, day=1) - timedelta(days=1)
+        else:
+            month_end = month_start.replace(month=month_start.month + 1, day=1) - timedelta(days=1)
+
+        m_inc = float(db.execute(
+            select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+                Transaction.account_id == account_id,
+                Transaction.direction == TransactionDirection.DEBIT.value,
+                Transaction.transaction_date >= month_start,
+                Transaction.transaction_date <= month_end,
+            )
+        ).scalar() or 0)
+
+        m_exp = float(db.execute(
+            select(func.coalesce(func.sum(Transaction.amount), 0)).where(
+                Transaction.account_id == account_id,
+                Transaction.direction == TransactionDirection.CREDIT.value,
+                Transaction.transaction_date >= month_start,
+                Transaction.transaction_date <= month_end,
+            )
+        ).scalar() or 0)
+
+        monthly_data.append({
+            "month": month_start.strftime("%b %Y"),
+            "income": m_inc,
+            "expenses": m_exp,
+            "net": m_inc - m_exp,
+        })
+
+    # Recent transactions
+    txs_stmt = (
+        select(Transaction)
+        .where(Transaction.account_id == account_id)
+        .order_by(Transaction.transaction_date.desc())
+        .limit(20)
+    )
+    recent_txs = db.execute(txs_stmt).scalars().all()
+
+    return {
+        "account": account,
+        "monthly_cashflow": monthly_data,
+        "recent_transactions": recent_txs,
     }

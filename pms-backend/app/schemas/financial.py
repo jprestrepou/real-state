@@ -64,6 +64,9 @@ class TransferCreate(BaseModel):
 class TransactionUpdate(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
+    amount: Optional[float] = Field(None, gt=0)
+    transaction_type: Optional[str] = Field(None, pattern="^(Ingreso|Gasto|Transferencia|Ajuste|Interés|Abono|Crédito)$")
+    transaction_date: Optional[date] = None
 
 
 class TransactionResponse(BaseModel):

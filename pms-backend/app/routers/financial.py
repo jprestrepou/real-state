@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.schemas.financial import (
     AccountCreate, AccountResponse, AccountUpdate,
-    TransactionCreate, TransactionResponse, TransferCreate,
+    TransactionCreate, TransactionResponse, TransferCreate, TransactionUpdate,
     CashFlowReport, FinancialSummary, PropertyPerformanceResponse,
     BalanceSheetResponse, IncomeStatementResponse,
 )
@@ -47,6 +47,44 @@ def get_account(
 ):
     """Obtener saldo y datos de una cuenta."""
     return ledger_service.get_account(db, account_id)
+
+
+@router.put("/accounts/{account_id}", response_model=AccountResponse)
+def update_account(
+    account_id: str,
+    data: AccountUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario")),
+):
+    """Editar una cuenta bancaria."""
+    return ledger_service.update_account(db, account_id, data.model_dump(exclude_unset=True))
+
+
+@router.delete("/accounts/{account_id}", status_code=204)
+def delete_account(
+    account_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario")),
+):
+    """Eliminar (desactivar) una cuenta bancaria."""
+    ledger_service.delete_account(db, account_id)
+    return None
+
+
+@router.get("/accounts/{account_id}/history")
+def get_account_history(
+    account_id: str,
+    months: int = Query(12, ge=1, le=24),
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Obtener historial mensual y transacciones recientes de una cuenta."""
+    result = ledger_service.get_account_history(db, account_id, months)
+    return {
+        "account": AccountResponse.model_validate(result["account"]),
+        "monthly_cashflow": result["monthly_cashflow"],
+        "recent_transactions": [TransactionResponse.model_validate(t) for t in result["recent_transactions"]],
+    }
 
 
 @router.post("/accounts/transfer", status_code=201)
@@ -237,6 +275,28 @@ def create_transaction(
 ):
     """Registrar transacción en el ledger (actualiza saldo automáticamente)."""
     return ledger_service.register_transaction(db, data, current_user.id)
+
+
+@router.put("/transactions/{transaction_id}", response_model=TransactionResponse)
+def update_transaction(
+    transaction_id: str,
+    data: TransactionUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Gestor")),
+):
+    """Editar una transacción (ajusta balance si cambia el monto)."""
+    return ledger_service.update_transaction(db, transaction_id, data)
+
+
+@router.delete("/transactions/{transaction_id}", status_code=204)
+def delete_transaction(
+    transaction_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Gestor")),
+):
+    """Eliminar una transacción (revierte el efecto en el saldo)."""
+    ledger_service.delete_transaction(db, transaction_id)
+    return None
 
 
 # ── Reports ──────────────────────────────────────────────
