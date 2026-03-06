@@ -34,6 +34,10 @@ export async function renderFinancials(container) {
         </button>
       </div>
       <div class="flex items-center gap-2">
+         <button id="import-csv-btn" class="btn-secondary bg-gradient-to-r from-indigo-500 to-purple-500 text-white border-0 hover:from-indigo-600 hover:to-purple-600">
+          <i data-lucide="upload" class="w-4 h-4"></i> Importar CSV
+        </button>
+        <input type="file" id="import-csv-input" accept=".csv" class="hidden" />
          <button id="export-csv-btn" class="btn-secondary-outline">
           <i data-lucide="download" class="w-4 h-4"></i> Exportar
         </button>
@@ -160,6 +164,18 @@ export async function renderFinancials(container) {
 
   // Add Transfer
   document.getElementById('add-transfer-btn')?.addEventListener('click', () => openTransferModal(accounts));
+
+  // Import CSV
+  document.getElementById('import-csv-btn')?.addEventListener('click', () => {
+    document.getElementById('import-csv-input')?.click();
+  });
+  document.getElementById('import-csv-input')?.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      await openImportModal(file);
+      e.target.value = ''; // Reset so same file can be re-selected
+    }
+  });
 
   // Export CSV
   document.getElementById('export-csv-btn')?.addEventListener('click', async () => {
@@ -513,7 +529,7 @@ function openAccountModal() {
 
 function openTransactionModal(accounts, properties = [], isGeneralExpense = false) {
   const title = isGeneralExpense ? 'Registrar Gasto General' : 'Registrar Transacción';
-  
+
   const generalCategories = [
     'Gastos Generales',
     'Gastos Administrativos',
@@ -699,4 +715,163 @@ async function loadReports() {
       </div>
     `;
   }
+}
+
+async function openImportModal(file) {
+  // Step 1: Analyze the CSV
+  showModal('Analizando CSV...', `
+    <div class="flex items-center justify-center py-12">
+      <div class="animate-spin rounded-full h-8 w-8 border-2 border-indigo-500 border-t-transparent"></div>
+      <p class="ml-3 text-surface-500">Analizando archivo...</p>
+    </div>
+  `, { showCancel: false, showConfirm: false });
+
+  let analysis;
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    analysis = await api.upload('/transactions/import/analyze', formData);
+  } catch (err) {
+    showToast(`Error al analizar: ${err.message}`, 'error');
+    return;
+  }
+
+  // Step 2: Show analysis modal with label checkboxes
+  const { total_rows, transfers_skipped, new_accounts, existing_accounts, detected_labels, category_mapping } = analysis;
+
+  const labelsHtml = detected_labels.length > 0 ? detected_labels.map((lbl, idx) => `
+    <label class="flex items-center gap-3 p-3 rounded-xl border border-surface-100 hover:bg-surface-50 transition cursor-pointer">
+      <input type="checkbox" class="import-label-check w-4 h-4 rounded text-indigo-500"
+             value="${lbl.label}" ${lbl.suggested_apartment ? 'checked' : ''}
+             ${lbl.already_exists ? 'checked disabled' : ''} />
+      <div class="flex-1 min-w-0">
+        <span class="font-medium text-surface-800 text-sm">${lbl.label}</span>
+        <span class="text-xs text-surface-400 ml-2">(${lbl.transaction_count} transacciones)</span>
+      </div>
+      ${lbl.already_exists ? '<span class="badge badge-green text-xs">Ya existe</span>' :
+      lbl.suggested_apartment ? '<span class="badge badge-blue text-xs">Sugerido</span>' :
+        '<span class="badge badge-amber text-xs">Gasto general</span>'}
+    </label>
+  `).join('') : '<p class="text-surface-400 text-sm py-4 text-center">No se detectaron labels</p>';
+
+  const newAccountsHtml = new_accounts.length > 0 ? `
+    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+      <p class="text-sm font-bold text-blue-700 mb-2 flex items-center gap-2">
+        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+        Cuentas nuevas que se crearán (${new_accounts.length})
+      </p>
+      <div class="space-y-1">
+        ${new_accounts.map(a => `
+          <div class="flex justify-between text-sm">
+            <span class="text-blue-600">${a.name}</span>
+            <span class="text-blue-400">${a.transaction_count} transacciones</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  const existingAccountsHtml = existing_accounts.length > 0 ? `
+    <div class="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+      <p class="text-sm font-bold text-green-700 mb-2 flex items-center gap-2">
+        <i data-lucide="check-circle" class="w-4 h-4"></i>
+        Cuentas existentes (${existing_accounts.length})
+      </p>
+      <div class="space-y-1">
+        ${existing_accounts.map(a => `
+          <div class="flex justify-between text-sm">
+            <span class="text-green-600">${a.name}</span>
+            <span class="text-green-400">${a.transaction_count} transacciones</span>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  ` : '';
+
+  const categoryHtml = Object.keys(category_mapping).length > 0 ? `
+    <details class="bg-surface-50 border border-surface-200 rounded-xl p-4 mb-4">
+      <summary class="text-sm font-bold text-surface-700 cursor-pointer flex items-center gap-2">
+        <i data-lucide="tag" class="w-4 h-4"></i>
+        Mapeo de categorías (${Object.keys(category_mapping).length})
+      </summary>
+      <div class="mt-3 space-y-1 max-h-40 overflow-y-auto">
+        ${Object.entries(category_mapping).map(([csv, sys]) => `
+          <div class="flex justify-between text-xs py-1 border-b border-surface-100">
+            <span class="text-surface-500">${csv}</span>
+            <span class="font-medium text-indigo-600">→ ${sys}</span>
+          </div>
+        `).join('')}
+      </div>
+    </details>
+  ` : '';
+
+  showModal('Importación de Transacciones', `
+    <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+      <!-- Summary Stats -->
+      <div class="grid grid-cols-3 gap-3">
+        <div class="bg-indigo-50 rounded-xl p-3 text-center">
+          <p class="text-2xl font-bold text-indigo-600">${total_rows}</p>
+          <p class="text-xs text-indigo-400">Transacciones</p>
+        </div>
+        <div class="bg-amber-50 rounded-xl p-3 text-center">
+          <p class="text-2xl font-bold text-amber-600">${transfers_skipped}</p>
+          <p class="text-xs text-amber-400">Transferencias omitidas</p>
+        </div>
+        <div class="bg-purple-50 rounded-xl p-3 text-center">
+          <p class="text-2xl font-bold text-purple-600">${detected_labels.length}</p>
+          <p class="text-xs text-purple-400">Labels detectadas</p>
+        </div>
+      </div>
+
+      ${newAccountsHtml}
+      ${existingAccountsHtml}
+      ${categoryHtml}
+
+      <!-- Labels Section -->
+      <div>
+        <p class="text-sm font-bold text-surface-700 mb-3 flex items-center gap-2">
+          <i data-lucide="building" class="w-4 h-4 text-indigo-500"></i>
+          ¿Cuáles labels son apartamentos/propiedades?
+        </p>
+        <p class="text-xs text-surface-400 mb-3">Los seleccionados se crearán como propiedades. Los no seleccionados irán a gastos generales.</p>
+        <div class="space-y-2 max-h-60 overflow-y-auto">
+          ${labelsHtml}
+        </div>
+      </div>
+    </div>
+  `, {
+    confirmText: 'Importar Transacciones',
+    onConfirm: async () => {
+      // Collect confirmed labels
+      const checks = document.querySelectorAll('.import-label-check:checked');
+      const confirmedLabels = Array.from(checks).map(c => c.value);
+
+      // Re-upload file with confirmed labels
+      const fd = new FormData();
+      fd.append('file', file);
+
+      const labelsParam = encodeURIComponent(confirmedLabels.join(','));
+      try {
+        const result = await api.upload(`/transactions/import/confirm?confirmed_labels=${labelsParam}`, fd);
+
+        let msg = `✅ Se importaron ${result.imported} transacciones.`;
+        if (result.accounts_created.length > 0) {
+          msg += `\n📁 Cuentas creadas: ${result.accounts_created.join(', ')}`;
+        }
+        if (result.properties_created.length > 0) {
+          msg += `\n🏠 Propiedades creadas: ${result.properties_created.join(', ')}`;
+        }
+        if (result.errors.length > 0) {
+          msg += `\n⚠️ ${result.errors.length} errores`;
+        }
+
+        showToast(msg, 'success');
+        await renderFinancials(document.getElementById('page-content'));
+      } catch (err) {
+        showToast(`Error al importar: ${err.message}`, 'error');
+      }
+    }
+  });
+
+  if (window.lucide) lucide.createIcons();
 }

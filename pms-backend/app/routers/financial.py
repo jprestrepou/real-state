@@ -178,87 +178,33 @@ def get_eeff_report(
 
 
 
-import io
-import csv
 from fastapi import UploadFile, File
-from dateutil import parser
-from app.models.financial import BankAccount
-from app.models.property import Property
+from app.services import import_service
 
-@router.post("/transactions/import", status_code=201)
-def import_transactions(
+
+@router.post("/transactions/import/analyze")
+async def analyze_csv_import(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario")),
 ):
-    """Importar transacciones desde un CSV con estructura de wallet_records.csv."""
-    content = file.file.read().decode("utf-8-sig")  # utf-8-sig handles BOM
-    reader = csv.DictReader(io.StringIO(content), delimiter=";")
-    
-    # Caches for lookups
-    accounts_by_name = {a.account_name.lower(): a.id for a in db.query(BankAccount).all()}
-    properties_by_name = {p.name.lower(): p.id for p in db.query(Property).all()}
-    
-    imported_count = 0
-    errors = []
-    
-    for row_idx, row in enumerate(reader, start=2):
-        try:
-            account_name = row.get("account", "").strip()
-            if not account_name:
-                continue
-                
-            category = row.get("category", "General").strip()
-            amount_str = row.get("amount", "0").replace(",", ".")
-            tx_type = row.get("type", "Gasto").strip()
-            note = row.get("note", "").strip()
-            date_str = row.get("date", "").strip()
-            labels = row.get("labels", "").strip()
-            
-            # Obtener account_id
-            account_id = accounts_by_name.get(account_name.lower())
-            if not account_id:
-                errors.append(f"Fila {row_idx}: Cuenta '{account_name}' no encontrada.")
-                continue
-            
-            # Obtener property_id
-            property_id = None
-            if labels:
-                # Buscamos en properties exacto
-                property_id = properties_by_name.get(labels.lower())
-                
-            try:
-                amount = abs(float(amount_str))
-            except ValueError:
-                amount = 0.0
-                
-            # Parse Date
-            try:
-                tx_date = parser.parse(date_str).date() if date_str else date.today()
-            except Exception:
-                tx_date = date.today()
-                
-            # Create transaction
-            tx_data = TransactionCreate(
-                account_id=account_id,
-                property_id=property_id,
-                transaction_type=tx_type,
-                category=category,
-                amount=amount,
-                description=note or "Importado de CSV",
-                transaction_date=tx_date
-            )
-            
-            ledger_service.register_transaction(db, tx_data, current_user.id)
-            imported_count += 1
-            
-        except Exception as e:
-            errors.append(f"Fila {row_idx}: Error procesando - {str(e)}")
-            
-    return {
-        "message": f"Se importaron {imported_count} transacciones.",
-        "errors": errors
-    }
+    """Paso 1: Analizar CSV y retornar cuentas, labels y categorías detectadas."""
+    content = (await file.read()).decode("utf-8-sig")
+    return import_service.analyze_csv(db, content)
+
+
+@router.post("/transactions/import/confirm", status_code=201)
+async def confirm_csv_import(
+    file: UploadFile = File(...),
+    confirmed_labels: str = Query(""),
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario")),
+):
+    """Paso 2: Importar transacciones con labels confirmadas como apartamentos."""
+    content = (await file.read()).decode("utf-8-sig")
+    labels_list = [l.strip() for l in confirmed_labels.split(",") if l.strip()]
+    return import_service.process_import(db, content, labels_list, current_user.id)
+
 @router.get("/transactions", response_model=dict)
 def list_transactions(
     property_id: str | None = None,
