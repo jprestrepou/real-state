@@ -11,8 +11,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 from dateutil import parser as date_parser
 
-from app.models.financial import BankAccount, Transaction, TransactionDirection
-from app.models.property import Property
+from app.models.financial import (
+    BankAccount, Transaction, TransactionDirection, TransactionType, 
+    TransactionCategory, AccountType
+)
+from app.models.property import Property, PropertyType, PropertyStatus
 from app.schemas.financial import TransactionCreate
 from app.services import ledger_service
 
@@ -29,60 +32,67 @@ def map_category(csv_category: str, note: str, csv_type: str) -> str:
 
     # Note-based detection (most specific)
     if "arriendo" in note_lower:
-        return "Ingresos por Arriendo"
+        return TransactionCategory.ARRIENDO.value
     if "administración" in note_lower or "administracion" in note_lower:
-        return "Cuotas de Administración"
+        return TransactionCategory.ADMINISTRACION.value
     if "mantenimiento" in note_lower:
-        return "Gastos Mantenimiento"
+        return TransactionCategory.MANTENIMIENTO.value
     if "impuesto predial" in note_lower:
-        return "Impuestos y Tasas"
+        return TransactionCategory.IMPUESTOS.value
     if "impuesto" in note_lower or "semaforización" in note_lower.replace("ó", "o"):
-        return "Impuestos y Tasas"
+        return TransactionCategory.IMPUESTOS.value
     if "tasa de seguridad" in note_lower:
-        return "Impuestos y Tasas"
+        return TransactionCategory.IMPUESTOS.value
     if "seguro" in note_lower or "soat" in note_lower:
-        return "Seguros"
+        return TransactionCategory.SEGUROS.value
     if "seguridad social" in note_lower:
-        return "Pago de Empleados"
+        return TransactionCategory.PAGO_EMPLEADOS.value
     if "rendimiento" in note_lower:
-        return "Intereses Bancarios"
+        return TransactionCategory.INTERESES_BANCARIOS.value
     if "abogado" in note_lower or "contador" in note_lower:
-        return "Honorarios Gestión"
+        return TransactionCategory.HONORARIOS.value
     if "cda" in note_lower:
-        return "Gastos Mantenimiento"
+        return TransactionCategory.MANTENIMIENTO.value
     if "retención" in note_lower or "retencion" in note_lower:
-        return "Impuestos y Tasas"
+        return TransactionCategory.IMPUESTOS.value
 
     # Category-based detection
     if "empleados" in cat_lower:
-        return "Pago de Empleados"
+        return TransactionCategory.PAGO_EMPLEADOS.value
     if "reparaciones" in cat_lower or "mantenimiento" in cat_lower:
-        return "Gastos Mantenimiento"
-    if "intereses" in cat_lower and "ganancias" in cat_lower:
-        return "Intereses Bancarios"
+        return TransactionCategory.MANTENIMIENTO.value
+    if "intereses" in cat_lower and ("ganancias" in cat_lower or "rendimiento" in cat_lower):
+        return TransactionCategory.INTERESES_BANCARIOS.value
     if "intereses" in cat_lower and ("cargos" in cat_lower or "seguros" in cat_lower):
-        return "Seguros"
+        return TransactionCategory.SEGUROS.value
     if "impuestos" in cat_lower:
-        return "Impuestos y Tasas"
+        return TransactionCategory.IMPUESTOS.value
     if "servicios" in cat_lower and csv_type.lower() == "ingreso":
-        return "Ingresos por Arriendo"
+        return TransactionCategory.ARRIENDO.value
     if "servicios contables" in cat_lower:
-        return "Honorarios Gestión"
+        return TransactionCategory.HONORARIOS.value
     if "transferir" in cat_lower or "retirar" in cat_lower:
-        return "Transferencia Interna"
+        return TransactionCategory.TRANSFERENCIA_INTERNA.value
     if "gastos de viaje" in cat_lower:
-        return "Gastos Generales"
+        return TransactionCategory.GASTOS_GENERALES.value
     if "préstamos" in cat_lower or "prestamos" in cat_lower:
-        return "Otros"
+        return TransactionCategory.OTROS.value
     if "otros gastos" in cat_lower or "administrativos" in cat_lower:
-        return "Gastos Administrativos"
+        return TransactionCategory.GASTOS_ADMINISTRATIVOS.value
 
-    return "Otros"
+    return TransactionCategory.OTROS.value
 
 
 def _parse_csv(file_content: str) -> list[dict]:
-    """Parse CSV content and return list of row dicts."""
-    reader = csv.DictReader(io.StringIO(file_content), delimiter=";")
+    """Parse CSV content and return list of row dicts. Auto-detects delimiter."""
+    if not file_content.strip():
+        return []
+        
+    # Sniff delimiter
+    first_line = file_content.splitlines()[0]
+    delimiter = ";" if ";" in first_line else ","
+    
+    reader = csv.DictReader(io.StringIO(file_content), delimiter=delimiter)
     return list(reader)
 
 
@@ -227,7 +237,7 @@ def process_import(
         if name.lower() not in accounts_cache:
             new_account = ledger_service.create_account(db, {
                 "account_name": name,
-                "account_type": "Ahorros",
+                "account_type": AccountType.AHORROS.value,
                 "bank_name": name,
                 "currency": "COP",
                 "initial_balance": 0,
@@ -249,14 +259,14 @@ def process_import(
             new_prop = Property(
                 owner_id=user_id,
                 name=label,
-                property_type="Apartamento",
+                property_type=PropertyType.APARTAMENTO.value,
                 address="Pendiente de actualizar",
                 city="Medellín",
                 country="Colombia",
                 latitude=6.2442,
                 longitude=-75.5812,
                 area_sqm=0,
-                status="Disponible",
+                status=PropertyStatus.DISPONIBLE.value,
             )
             db.add(new_prop)
             db.flush()  # Get the ID without full commit
@@ -319,10 +329,10 @@ def process_import(
             # Map direction
             if csv_type.lower() == "ingreso":
                 direction = TransactionDirection.DEBIT.value
-                tx_type = "Ingreso"
+                tx_type_val = TransactionType.INGRESO.value
             else:
                 direction = TransactionDirection.CREDIT.value
-                tx_type = "Gasto"
+                tx_type_val = TransactionType.GASTO.value
 
             # Build description with context
             desc_parts = []
@@ -339,7 +349,7 @@ def process_import(
             transaction = Transaction(
                 account_id=account_id,
                 property_id=property_id,
-                transaction_type=tx_type,
+                transaction_type=tx_type_val,
                 category=mapped_category,
                 amount=amount,
                 direction=direction,

@@ -485,18 +485,27 @@ def update_transaction(db: Session, tx_id: str, data: TransactionUpdate) -> Tran
         if value is not None and hasattr(tx, key):
             setattr(tx, key, value)
 
-    new_amount = float(tx.amount)
+    # Recalculate direction if transaction_type changed
+    if data.transaction_type:
+        if data.transaction_type == "Ingreso":
+            tx.direction = TransactionDirection.DEBIT.value
+        elif data.transaction_type == "Gasto":
+            tx.direction = TransactionDirection.CREDIT.value
 
-    # Adjust balance if amount changed
-    if new_amount != old_amount:
+    new_amount = float(tx.amount)
+    new_direction = tx.direction
+
+    # Adjust balance if amount or direction changed
+    if new_amount != old_amount or new_direction != old_direction:
         account = get_account(db, tx.account_id)
-        # Revert old effect
+        # 1. Revert old effect
         if old_direction == TransactionDirection.DEBIT.value:
             account.current_balance = float(account.current_balance) - old_amount
         else:
             account.current_balance = float(account.current_balance) + old_amount
-        # Apply new effect
-        if tx.direction == TransactionDirection.DEBIT.value:
+            
+        # 2. Apply new effect
+        if new_direction == TransactionDirection.DEBIT.value:
             account.current_balance = float(account.current_balance) + new_amount
         else:
             account.current_balance = float(account.current_balance) - new_amount

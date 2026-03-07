@@ -14,14 +14,19 @@ export async function renderContracts(container) {
   const properties = propertiesData.items || [];
 
   container.innerHTML = `
-    <div class="flex items-center justify-between mb-6 animate-fade-in">
-      <select id="fc-status" class="select text-sm py-2 w-40">
-        <option value="">Todos</option>
-        <option value="Activo">Activo</option>
-        <option value="Borrador">Borrador</option>
-        <option value="Finalizado">Finalizado</option>
-      </select>
-      <button id="add-contract-btn" class="btn-primary"><i data-lucide="plus" class="w-4 h-4"></i> Nuevo Contrato</button>
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-8 animate-fade-in glass-card-static p-4 !rounded-2xl border-white/40 shadow-sm">
+      <div class="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-xl border border-white/20 shadow-sm">
+        <i data-lucide="filter" class="w-3.5 h-3.5 text-surface-400"></i>
+        <select id="fc-status" class="bg-transparent text-sm font-medium focus:outline-none min-w-[140px] appearance-none">
+          <option value="">Todos los estados</option>
+          <option value="Activo">Activo</option>
+          <option value="Borrador">Borrador</option>
+          <option value="Finalizado">Finalizado</option>
+        </select>
+      </div>
+      <button id="add-contract-btn" class="btn-primary !rounded-xl shadow-lg shadow-primary-500/20 py-2.5 px-5">
+        <i data-lucide="plus" class="w-4 h-4"></i> Nuevo Contrato
+      </button>
     </div>
     <div class="glass-card-static overflow-hidden animate-fade-in">
       <table class="data-table"><thead><tr>

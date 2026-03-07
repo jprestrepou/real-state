@@ -15,36 +15,40 @@ export async function renderBudgets(container) {
       </div>
 
       <!-- Filters -->
-      <div class="glass-card-static p-4 flex flex-wrap items-end gap-4">
-        <div class="flex-1 min-w-[200px]">
-          <label class="label text-xs">Propiedad</label>
-          <select id="filter-property" class="select text-sm">
+      <div class="flex flex-wrap items-center gap-4 p-4 glass-card-static !rounded-2xl border-white/40 shadow-sm">
+        <div class="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-xl border border-white/20 shadow-sm flex-1 min-w-[200px]">
+          <i data-lucide="home" class="w-3.5 h-3.5 text-surface-400"></i>
+          <select id="filter-property" class="bg-transparent text-sm font-medium focus:outline-none w-full appearance-none">
             <option value="">Todas las propiedades</option>
-            <option value="GENERAL">Gastos Generales</option>
+            <option value="GENERAL">Gastos Generales (Distribuible)</option>
           </select>
         </div>
-        <div class="w-32">
-          <label class="label text-xs">Año</label>
-          <input type="number" id="filter-year" class="input text-sm" value="${new Date().getFullYear()}" />
+        
+        <div class="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-xl border border-white/20 shadow-sm w-32">
+          <i data-lucide="calendar" class="w-3.5 h-3.5 text-surface-400"></i>
+          <input type="number" id="filter-year" class="bg-transparent text-sm font-medium focus:outline-none w-full" value="${new Date().getFullYear()}" />
         </div>
-        <div class="w-32">
-          <label class="label text-xs">Mes</label>
-          <select id="filter-month" class="select text-sm">
-            <option value="">Todos</option>
+
+        <div class="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-xl border border-white/20 shadow-sm w-40">
+          <i data-lucide="calendar-days" class="w-3.5 h-3.5 text-surface-400"></i>
+          <select id="filter-month" class="bg-transparent text-sm font-medium focus:outline-none w-full appearance-none">
+            <option value="">Todos los meses</option>
             ${Array.from({ length: 12 }, (_, i) => `<option value="${i + 1}">${new Date(0, i).toLocaleString('es', { month: 'long' })}</option>`).join('')}
           </select>
         </div>
-        <div class="w-40">
-          <label class="label text-xs">Estado</label>
-          <select id="filter-status" class="select text-sm">
+
+        <div class="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-xl border border-white/20 shadow-sm w-44">
+          <i data-lucide="activity" class="w-3.5 h-3.5 text-surface-400"></i>
+          <select id="filter-status" class="bg-transparent text-sm font-medium focus:outline-none w-full appearance-none">
             <option value="">Cualquier estado</option>
             <option value="Verde">Verde (Saludable)</option>
             <option value="Amarillo">Amarillo (Alerta)</option>
             <option value="Rojo">Rojo (Excedido)</option>
           </select>
         </div>
-        <button id="apply-filters" class="btn-ghost px-4 h-10 border border-surface-200 hover:bg-surface-50">
-          <i data-lucide="filter" class="w-4 h-4 mr-2"></i> Filtrar
+
+        <button id="apply-filters" class="btn-primary !rounded-xl shadow-lg shadow-primary-500/10 py-2 px-4 flex items-center gap-2">
+          <i data-lucide="search" class="w-4 h-4"></i> Buscar
         </button>
       </div>
 

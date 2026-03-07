@@ -3,7 +3,10 @@ PMS Main — FastAPI application entry point.
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from sqlalchemy.exc import SQLAlchemyError
+import logging
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -12,6 +15,10 @@ from app.database import init_db
 
 import os
 
+
+# ── Setup Logging ────────────────────────────────────────
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("pms-backend")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -43,6 +50,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Global Exception Handlers ──────────────────────────────
+@app.exception_handler(SQLAlchemyError)
+async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
+    logger.error(f"Database error: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Error en la base de datos. Por favor contacte al administrador."},
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled error: {str(exc)}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Ocurrió un error inesperado: {str(exc)}"},
+    )
 
 # ── Static files (uploads) ──────────────────────────────
 os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
