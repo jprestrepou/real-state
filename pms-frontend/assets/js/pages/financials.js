@@ -16,6 +16,9 @@ const CATEGORIES_PROPERTY = [
   'Servicios Públicos', 'Honorarios Gestión', 'Seguros', 'Pago Hipoteca', 'Otros',
 ];
 
+let accountDetailChart = null;
+let balanceHistoryChart = null;
+
 export async function renderFinancials(container) {
   const [accountsData, txData, propertiesData] = await Promise.all([
     api.get('/accounts'),
@@ -359,55 +362,127 @@ export async function renderFinancials(container) {
 // ── Account Detail (chart + transactions) ─────────────
 // ══════════════════════════════════════════════════════════
 
-async function openAccountDetailModal(accountId) {
-  showModal('Cargando historial...', `
-    <div class="flex items-center justify-center py-12">
-      <div class="animate-spin rounded-full h-8 w-8 border-2 border-primary-500 border-t-transparent"></div>
-      <p class="ml-3 text-surface-500">Cargando historial de cuenta...</p>
-    </div>
-  `, { showCancel: false });
+async function openAccountDetailModal(accountId, filters = {}) {
+  // Use a unique ID for the modal body to update it
+  const modalId = `account-detail-${accountId}`;
 
-  const data = await api.get(`/accounts/${accountId}/history`);
+  if (!document.getElementById(modalId)) {
+    showModal('Cargando...', `
+      <div id="${modalId}" class="min-h-[400px] flex items-center justify-center">
+        <div class="animate-spin rounded-full h-8 w-8 border-2 border-primary-500 border-t-transparent"></div>
+      </div>
+    `, { showCancel: false });
+
+    // Adjust modal width for "Full Page" feel
+    const modalContent = document.querySelector('.modal-content');
+    if (modalContent) {
+      modalContent.style.maxWidth = '1000px';
+      modalContent.style.width = '95%';
+    }
+  }
+
+  // Construct query params
+  const params = new URLSearchParams();
+  if (filters.date_from) params.set('date_from', filters.date_from);
+  if (filters.date_to) params.set('date_to', filters.date_to);
+  if (filters.tx_type) params.set('tx_type', filters.tx_type);
+  params.set('months', 12);
+
+  const data = await api.get(`/accounts/${accountId}/history?${params.toString()}`);
   if (!data) return;
 
-  const { account, monthly_cashflow, recent_transactions } = data;
+  const { account, monthly_cashflow, recent_transactions, balance_history } = data;
+  const container = document.getElementById(modalId);
+  if (!container) return;
 
-  showModal(`${account.account_name}`, `
-    <div class="space-y-6 max-h-[75vh] overflow-y-auto pr-1">
-      <!-- Balance -->
-      <div class="bg-gradient-to-r from-primary-50 to-indigo-50 rounded-2xl p-5 text-center">
-        <p class="text-sm text-surface-500 mb-1">Saldo Actual</p>
-        <p class="text-3xl font-bold ${account.current_balance >= 0 ? 'text-accent-600' : 'text-rose-600'}">${formatCurrency(account.current_balance)}</p>
-        <p class="text-xs text-surface-400 mt-1">${account.bank_name || ''} • ${account.account_type} • ${account.currency}</p>
+  container.innerHTML = `
+    <div class="space-y-6 max-h-[80vh] overflow-y-auto pr-2 custom-scrollbar">
+      <!-- Header & Balance -->
+      <div class="flex flex-col md:flex-row gap-6 items-center bg-surface-50 p-6 rounded-2xl border border-surface-100">
+        <div class="text-center md:text-left flex-1">
+          <h2 class="text-2xl font-black text-surface-900 mb-1">${account.account_name}</h2>
+          <p class="text-surface-500 text-sm">${account.bank_name || 'Sin Banco'} • ${account.account_type} • ${account.currency}</p>
+        </div>
+        <div class="bg-white px-8 py-4 rounded-xl shadow-sm border border-primary-100 text-center">
+          <p class="text-xs font-bold text-primary-600 uppercase tracking-wider mb-1">Saldo Disponible</p>
+          <p class="text-3xl font-black ${account.current_balance >= 0 ? 'text-accent-600' : 'text-rose-600'}">
+            ${formatCurrency(account.current_balance)}
+          </p>
+        </div>
       </div>
 
-      <!-- Chart -->
-      <div class="bg-white rounded-2xl border border-surface-100 p-4">
-        <h4 class="text-sm font-bold text-surface-700 mb-3 flex items-center gap-2">
-          <i data-lucide="activity" class="w-4 h-4 text-primary-500"></i> Flujo Mensual (12 meses)
-        </h4>
-        <div class="h-[200px]"><canvas id="account-history-chart"></canvas></div>
+      <!-- Filters Row -->
+      <div class="flex flex-wrap items-end gap-4 p-4 bg-white rounded-xl border border-surface-100 shadow-sm">
+        <div class="flex-1 min-w-[150px]">
+          <label class="block text-[10px] font-bold text-surface-400 uppercase mb-1">Desde</label>
+          <input type="date" id="filter-date-from" class="input text-sm py-1.5" value="${filters.date_from || ''}">
+        </div>
+        <div class="flex-1 min-w-[150px]">
+          <label class="block text-[10px] font-bold text-surface-400 uppercase mb-1">Hasta</label>
+          <input type="date" id="filter-date-to" class="input text-sm py-1.5" value="${filters.date_to || ''}">
+        </div>
+        <div class="flex-1 min-w-[150px]">
+          <label class="block text-[10px] font-bold text-surface-400 uppercase mb-1">Tipo</label>
+          <select id="filter-tx-type" class="select text-sm py-1.5">
+            <option value="">Todos</option>
+            <option value="Ingreso" ${filters.tx_type === 'Ingreso' ? 'selected' : ''}>Ingreso</option>
+            <option value="Gasto" ${filters.tx_type === 'Gasto' ? 'selected' : ''}>Gasto</option>
+            <option value="Transferencia" ${filters.tx_type === 'Transferencia' ? 'selected' : ''}>Transferencia</option>
+          </select>
+        </div>
+        <button id="btn-apply-filters" class="btn-primary py-2 px-6 flex items-center gap-2">
+          <i data-lucide="filter" class="w-4 h-4"></i> Filtrar
+        </button>
       </div>
 
-      <!-- Recent Transactions -->
-      <div>
-        <h4 class="text-sm font-bold text-surface-700 mb-3 flex items-center gap-2">
-          <i data-lucide="history" class="w-4 h-4 text-primary-500"></i> Últimos Movimientos
-        </h4>
-        <div class="overflow-x-auto max-h-60">
-          <table class="data-table text-xs w-full">
-            <thead><tr><th>Fecha</th><th>Descripción</th><th>Categoría</th><th>Monto</th></tr></thead>
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-white p-5 rounded-2xl border border-surface-100 shadow-sm">
+          <h4 class="text-sm font-black text-surface-800 mb-4 flex items-center gap-2">
+            <span class="w-2 h-6 bg-primary-500 rounded-full"></span> Flujo de Caja Mensual
+          </h4>
+          <div class="h-[250px]"><canvas id="account-history-chart"></canvas></div>
+        </div>
+        <div class="bg-white p-5 rounded-2xl border border-surface-100 shadow-sm">
+          <h4 class="text-sm font-black text-surface-800 mb-4 flex items-center gap-2">
+            <span class="w-2 h-6 bg-accent-500 rounded-full"></span> Evolución del Saldo
+          </h4>
+          <div class="h-[250px]"><canvas id="account-balance-chart"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Transactions -->
+      <div class="bg-white rounded-2xl border border-surface-100 shadow-sm overflow-hidden">
+        <div class="p-5 border-b border-surface-50 bg-surface-50 flex items-center justify-between">
+          <h4 class="text-sm font-black text-surface-800 flex items-center gap-2">
+            <i data-lucide="list" class="w-4 h-4 text-primary-500"></i> Movimientos
+          </h4>
+          <span class="text-xs text-surface-400">${recent_transactions.length} registros encontrados</span>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="data-table w-full text-sm">
+            <thead class="bg-surface-50/50">
+              <tr>
+                <th class="text-left py-3 font-bold">Fecha</th>
+                <th class="text-left py-3 font-bold">Descripción</th>
+                <th class="text-left py-3 font-bold">Categoría</th>
+                <th class="text-right py-3 font-bold">Monto</th>
+              </tr>
+            </thead>
             <tbody>
               ${recent_transactions.length > 0 ? recent_transactions.map(tx => `
-                <tr>
-                  <td class="text-surface-500">${formatDate(tx.transaction_date)}</td>
-                  <td class="font-medium text-surface-800">${tx.description}</td>
-                  <td><span class="badge badge-gray text-xs">${tx.category}</span></td>
-                  <td class="font-bold ${tx.direction === 'Debit' ? 'text-accent-600' : 'text-rose-600'}">
+                <tr class="hover:bg-surface-50 transition-colors border-b border-surface-50 last:border-0 cursor-pointer">
+                  <td class="py-3 text-surface-500 italic">${formatDate(tx.transaction_date)}</td>
+                  <td class="py-3">
+                    <div class="font-bold text-surface-800">${tx.description}</div>
+                    <div class="text-[10px] text-surface-400">${tx.property_name || 'Gasto General'}</div>
+                  </td>
+                  <td class="py-3"><span class="badge badge-gray text-[10px]">${tx.category}</span></td>
+                  <td class="py-3 text-right font-black ${tx.direction === 'Debit' ? 'text-accent-600' : 'text-rose-600'}">
                     ${tx.direction === 'Debit' ? '+' : '-'}${formatCurrency(tx.amount)}
                   </td>
                 </tr>
-              `).join('') : '<tr><td colspan="4" class="text-center py-4 text-surface-400">Sin movimientos</td></tr>'}
+              `).join('') : '<tr><td colspan="4" class="text-center py-12 text-surface-400">Sin movimientos que coincidan con los filtros</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -417,24 +492,68 @@ async function openAccountDetailModal(accountId) {
 
   if (window.lucide) lucide.createIcons();
 
-  // Render chart
-  const ctx = document.getElementById('account-history-chart');
-  if (ctx && monthly_cashflow.length > 0) {
-    new Chart(ctx, {
+  // Add filter listeners
+  document.getElementById('btn-apply-filters').addEventListener('click', () => {
+    const newFilters = {
+      date_from: document.getElementById('filter-date-from').value,
+      date_to: document.getElementById('filter-date-to').value,
+      tx_type: document.getElementById('filter-tx-type').value
+    };
+    openAccountDetailModal(accountId, newFilters);
+  });
+
+  // Cleanup old charts
+  if (accountDetailChart) accountDetailChart.destroy();
+  if (balanceHistoryChart) balanceHistoryChart.destroy();
+
+  // Render main history chart
+  const ctx1 = document.getElementById('account-history-chart');
+  if (ctx1 && monthly_cashflow.length > 0) {
+    accountDetailChart = new Chart(ctx1, {
       type: 'bar',
       data: {
         labels: monthly_cashflow.map(m => m.month),
         datasets: [
-          { label: 'Ingresos', data: monthly_cashflow.map(m => m.income), backgroundColor: 'rgba(32,201,151,0.7)', borderRadius: 6, barPercentage: 0.6 },
-          { label: 'Gastos', data: monthly_cashflow.map(m => m.expenses), backgroundColor: 'rgba(240,62,62,0.7)', borderRadius: 6, barPercentage: 0.6 },
+          { label: 'Ingresos', data: monthly_cashflow.map(m => m.income), backgroundColor: '#20c997', borderRadius: 4 },
+          { label: 'Gastos', data: monthly_cashflow.map(m => m.expenses), backgroundColor: '#f03e3e', borderRadius: 4 },
         ]
       },
       options: {
         responsive: true, maintainAspectRatio: false,
-        plugins: { legend: { position: 'top', labels: { usePointStyle: true, font: { size: 10 } } } },
+        plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, usePointStyle: true, font: { size: 10, weight: 'bold' } } } },
         scales: {
-          y: { beginAtZero: true, ticks: { font: { size: 9 }, callback: v => '$' + (v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? (v / 1e3).toFixed(0) + 'K' : v) }, grid: { color: 'rgba(0,0,0,0.04)' } },
-          x: { ticks: { font: { size: 8 } }, grid: { display: false } }
+          y: { grid: { borderDash: [5, 5], color: '#f1f3f5' }, ticks: { font: { size: 10 }, callback: v => '$' + v.toLocaleString() } },
+          x: { grid: { display: false }, ticks: { font: { size: 10 } } }
+        }
+      }
+    });
+  }
+
+  // Render balance evolution chart
+  const ctx2 = document.getElementById('account-balance-chart');
+  if (ctx2 && balance_history && balance_history.length > 0) {
+    balanceHistoryChart = new Chart(ctx2, {
+      type: 'line',
+      data: {
+        labels: balance_history.map(b => formatDate(b.date)),
+        datasets: [{
+          label: 'Saldo',
+          data: balance_history.map(b => b.balance),
+          borderColor: '#4263eb',
+          backgroundColor: 'rgba(66, 99, 235, 0.05)',
+          fill: true,
+          tension: 0.4,
+          pointRadius: 0,
+          pointHoverRadius: 5,
+          borderWidth: 3
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+        scales: {
+          y: { grid: { borderDash: [5, 5], color: '#f1f3f5' }, ticks: { font: { size: 10 }, callback: v => '$' + v.toLocaleString() } },
+          x: { grid: { display: false }, ticks: { font: { size: 8 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } }
         }
       }
     });

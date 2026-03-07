@@ -69,8 +69,20 @@ class ApiClient {
         }
 
         if (!response.ok) {
-            const error = await response.json().catch(() => ({ detail: 'Error del servidor' }));
-            throw new Error(error.detail || `Error ${response.status}`);
+            let detail = 'Error del servidor';
+            try {
+                const error = await response.json();
+                if (typeof error.detail === 'string') {
+                    detail = error.detail;
+                } else if (Array.isArray(error.detail)) {
+                    detail = error.detail.map(e => e.msg).join(', ');
+                } else if (error.detail) {
+                    detail = JSON.stringify(error.detail);
+                }
+            } catch (e) {
+                detail = `Error ${response.status}`;
+            }
+            throw new Error(detail);
         }
 
         if (response.status === 204) return null;

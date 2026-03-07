@@ -75,15 +75,19 @@ def delete_account(
 def get_account_history(
     account_id: str,
     months: int = Query(12, ge=1, le=24),
+    date_from: date | None = Query(None),
+    date_to: date | None = Query(None),
+    tx_type: str | None = Query(None),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Obtener historial mensual y transacciones recientes de una cuenta."""
-    result = ledger_service.get_account_history(db, account_id, months)
+    result = ledger_service.get_account_history(db, account_id, months, date_from, date_to, tx_type)
     return {
         "account": AccountResponse.model_validate(result["account"]),
         "monthly_cashflow": result["monthly_cashflow"],
         "recent_transactions": [TransactionResponse.model_validate(t) for t in result["recent_transactions"]],
+        "balance_history": result.get("balance_history", []),
     }
 
 

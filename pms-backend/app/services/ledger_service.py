@@ -526,8 +526,8 @@ def delete_transaction(db: Session, tx_id: str) -> None:
 
 # ── Account History ──────────────────────────────────────
 
-def get_account_history(db: Session, account_id: str, months: int = 12) -> dict:
-    """Get monthly cashflow + recent transactions for a specific account."""
+def get_account_history(db: Session, account_id: str, months: int = 12, date_from: date = None, date_to: date = None, tx_type: str = None) -> dict:
+    """Get monthly cashflow + filtered transactions for a specific account."""
     account = get_account(db, account_id)
     today = date.today()
     monthly_data = []
@@ -564,17 +564,65 @@ def get_account_history(db: Session, account_id: str, months: int = 12) -> dict:
             "net": m_inc - m_exp,
         })
 
-    # Recent transactions
-    txs_stmt = (
-        select(Transaction)
-        .where(Transaction.account_id == account_id)
-        .order_by(Transaction.transaction_date.desc())
-        .limit(20)
-    )
+    # Filtered transactions
+    txs_stmt = select(Transaction).where(Transaction.account_id == account_id)
+    
+    if date_from:
+        txs_stmt = txs_stmt.where(Transaction.transaction_date >= date_from)
+    if date_to:
+        txs_stmt = txs_stmt.where(Transaction.transaction_date <= date_to)
+    if tx_type:
+        txs_stmt = txs_stmt.where(Transaction.transaction_type == tx_type)
+        
+    txs_stmt = txs_stmt.order_by(Transaction.transaction_date.desc()).limit(100)
     recent_txs = db.execute(txs_stmt).scalars().all()
+
+    # Balance history (Daily for last 30 days)
+    balance_history = get_account_balance_history(db, account_id, days=30)
 
     return {
         "account": account,
         "monthly_cashflow": monthly_data,
         "recent_transactions": recent_txs,
+        "balance_history": balance_history
     }
+
+def get_account_balance_history(db: Session, account_id: str, days: int = 30) -> list[dict]:
+    """Calculate daily balance history for a given period."""
+    account = get_account(db, account_id)
+    current_bal = float(account.current_balance)
+    
+    today = date.today()
+    start_date = today - timedelta(days=days)
+    
+    # Get all transactions from start_date till now to backtrack
+    stmt = select(Transaction).where(
+        Transaction.account_id == account_id,
+        Transaction.transaction_date >= start_date
+    ).order_by(Transaction.transaction_date.desc())
+    
+    txs = db.execute(stmt).scalars().all()
+    
+    # We work backwards from current_bal
+    history = []
+    temp_bal = current_bal
+    
+    # Group transactions by date
+    from collections import defaultdict
+    txs_by_date = defaultdict(list)
+    for tx in txs:
+        txs_by_date[tx.transaction_date].append(tx)
+        
+    for i in range(days + 1):
+        dt = today - timedelta(days=i)
+        history.append({"date": dt.isoformat(), "balance": temp_bal})
+        
+        # Undo effect of transactions on this day to find balance of previous day
+        for tx in txs_by_date.get(dt, []):
+            if tx.direction == TransactionDirection.DEBIT.value:
+                temp_bal -= float(tx.amount)
+            else:
+                temp_bal += float(tx.amount)
+                
+    history.reverse() # Chronological order
+    return history

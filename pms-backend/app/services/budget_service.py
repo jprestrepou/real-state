@@ -64,8 +64,8 @@ def _refresh_budget_totals(db: Session, budget: Budget):
     query = select(Transaction.category, func.sum(Transaction.amount)).where(
         and_(
             Transaction.direction == TransactionDirection.CREDIT.value,
-            extract('year', Transaction.transaction_date) == budget.year,
-            extract('month', Transaction.transaction_date) == budget.month
+            func.extract('year', Transaction.transaction_date) == budget.year,
+            func.extract('month', Transaction.transaction_date) == budget.month
         )
     )
 
@@ -110,7 +110,7 @@ def _refresh_budget_totals(db: Session, budget: Budget):
     if budget.auto_calculate_total:
         budget.total_budget = total_budget_sum
     
-    db.commit() # Persist the refreshed values
+    # No longer committing here for performance
 
 def list_budgets(db: Session, property_id: Optional[str] = None, year: Optional[int] = None, month: Optional[int] = None):
     stmt = select(Budget)
@@ -128,6 +128,9 @@ def list_budgets(db: Session, property_id: Optional[str] = None, year: Optional[
     budgets = db.execute(stmt).scalars().all()
     for b in budgets:
         _refresh_budget_totals(db, b)
+    
+    # Commit once for all refreshed budgets
+    db.commit()
     return budgets
 
 def create_budget(db: Session, data: BudgetCreate):
@@ -247,6 +250,7 @@ def get_budget(db: Session, budget_id: str):
     budget = db.execute(stmt).scalar_one_or_none()
     if budget:
         _refresh_budget_totals(db, budget)
+        db.commit()
     return budget
 
 def calculate_distribution_keys(db: Session, parent_property_id: str) -> Dict[str, float]:
