@@ -198,9 +198,6 @@ function renderTable(container, budgets, properties, generalPropId, onReload, so
   if (window.lucide) lucide.createIcons();
 
   // Sorting logic
-  let sortField = '';
-  let sortDir = 1;
-
   container.querySelectorAll('th.sortable').forEach(th => {
     th.addEventListener('click', () => {
       const field = th.dataset.sort;
