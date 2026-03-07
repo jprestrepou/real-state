@@ -86,3 +86,18 @@ def delete_property(
 ):
     """Desactivar propiedad (soft delete)."""
     property_service.delete_property(db, property_id)
+
+
+@router.post("/simulate-rent", response_model=RentSimulationResponse)
+def simulate_rent(
+    data: RentSimulationRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Simular canon de arrendamiento sugerido."""
+    return property_service.calculate_rent_simulation(
+        db, 
+        data.property_id, 
+        data.desired_margin_pct, 
+        data.include_admin_fee
+    )
