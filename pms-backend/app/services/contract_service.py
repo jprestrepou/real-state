@@ -167,31 +167,35 @@ def mark_payment_as_paid(db: Session, payment_id: str, account_id: str) -> Payme
     payment.status = PaymentStatus.PAGADO.value
     payment.paid_date = date.today()
 
-    # Create financial transaction
-    from app.models.financial import Transaction, TransactionDirection, BankAccount
-    from app.models.property import Property
+    # Create financial transaction using standardized service
+    from app.services import ledger_service
+    from app.models.financial import TransactionDirection, TransactionType, TransactionCategory
+    from app.schemas.financial import TransactionCreate
     
     contract = payment.contract
     
-    transaction = Transaction(
-        account_id=account_id,
-        property_id=contract.property_id,
-        amount=payment.amount,
-        direction=TransactionDirection.DEBIT.value, # Income for the landlord
-        category="Renta",
-        description=f"Pago Canon - {contract.tenant_name} - Vence {payment.due_date}",
-        transaction_date=date.today(),
+    transaction = ledger_service.register_transaction(
+        db,
+        data=TransactionCreate(
+            account_id=account_id,
+            property_id=contract.property_id,
+            transaction_type=TransactionType.INGRESO.value,
+            category=TransactionCategory.ARRIENDO.value,
+            amount=float(payment.amount),
+            direction=TransactionDirection.DEBIT.value,
+            description=f"Pago Canon - {contract.tenant_name} - {payment.due_date}",
+            transaction_date=date.today(),
+            reference_id=payment.id,
+            reference_type="payment_schedule",
+        ),
+        recorded_by="SYSTEM",
+        commit=False
     )
-    db.add(transaction)
-    db.flush()
     
+    payment.status = PaymentStatus.PAGADO.value
+    payment.paid_date = date.today()
     payment.transaction_id = transaction.id
     
-    # Update account balance
-    account = db.execute(select(BankAccount).where(BankAccount.id == account_id)).scalar_one_or_none()
-    if account:
-        account.current_balance += payment.amount
-
     db.commit()
     db.refresh(payment)
     return payment

@@ -51,6 +51,7 @@ def register_transaction(
     db: Session,
     data: TransactionCreate,
     recorded_by: str,
+    commit: bool = True,
 ) -> Transaction:
     """
     Register a transaction in the ledger with automatic balance update.
@@ -92,7 +93,7 @@ def register_transaction(
     # 4. Create transaction record
     transaction = Transaction(
         account_id=data.account_id,
-        property_id=data.property_id,  # Can be None for general expenses
+        property_id=data.property_id,
         transaction_type=data.transaction_type,
         category=data.category,
         amount=data.amount,
@@ -105,10 +106,13 @@ def register_transaction(
     )
     db.add(transaction)
 
-    # 5. Atomic commit
-    db.commit()
-    db.refresh(transaction)
-    db.refresh(account)
+    # 5. Atomic commit (optional)
+    if commit:
+        db.commit()
+        db.refresh(transaction)
+        db.refresh(account)
+    else:
+        db.flush()
 
     return transaction
 
@@ -121,40 +125,50 @@ def transfer_funds(
     """
     Transfer funds between two accounts.
     Creates a Credit transaction in source and a Debit in destination.
+    Requirement: Atomic operation (Rule #5).
     """
-    # Source Transaction (Credit)
-    source_tx = register_transaction(
-        db,
-        TransactionCreate(
-            account_id=data.source_account_id,
-            property_id=None,  # Transfers are not tied to a property
-            transaction_type="Transferencia",
-            category="Transferencia Interna",
-            amount=data.amount,
-            direction=TransactionDirection.CREDIT.value,
-            description=f"Transferencia a {data.destination_account_id}: {data.description}",
-            transaction_date=data.transaction_date,
-        ),
-        recorded_by=recorded_by,
-    )
+    try:
+        # Source Transaction (Credit) - NO COMMIT
+        source_tx = register_transaction(
+            db,
+            TransactionCreate(
+                account_id=data.source_account_id,
+                property_id=None,
+                transaction_type="Transferencia",
+                category="Transferencia Interna",
+                amount=data.amount,
+                direction=TransactionDirection.CREDIT.value,
+                description=f"Transferencia a {data.destination_account_id}: {data.description}",
+                transaction_date=data.transaction_date,
+            ),
+            recorded_by=recorded_by,
+            commit=False
+        )
 
-    # Destination Transaction (Debit)
-    dest_tx = register_transaction(
-        db,
-        TransactionCreate(
-            account_id=data.destination_account_id,
-            property_id=None,  # Transfers are not tied to a property
-            transaction_type="Transferencia",
-            category="Transferencia Interna",
-            amount=data.amount,
-            direction=TransactionDirection.DEBIT.value,
-            description=f"Transferencia desde {data.source_account_id}: {data.description}",
-            transaction_date=data.transaction_date,
-        ),
-        recorded_by=recorded_by,
-    )
+        # Destination Transaction (Debit) - NO COMMIT
+        dest_tx = register_transaction(
+            db,
+            TransactionCreate(
+                account_id=data.destination_account_id,
+                property_id=None,
+                transaction_type="Transferencia",
+                category="Transferencia Interna",
+                amount=data.amount,
+                direction=TransactionDirection.DEBIT.value,
+                description=f"Transferencia desde {data.source_account_id}: {data.description}",
+                transaction_date=data.transaction_date,
+            ),
+            recorded_by=recorded_by,
+            commit=False
+        )
 
-    return source_tx, dest_tx
+        db.commit()
+        db.refresh(source_tx)
+        db.refresh(dest_tx)
+        return source_tx, dest_tx
+    except Exception as e:
+        db.rollback()
+        raise e
 
 
 def list_transactions(

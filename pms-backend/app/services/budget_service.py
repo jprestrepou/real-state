@@ -61,12 +61,12 @@ def _refresh_budget_totals(db: Session, budget: Budget):
     all_prop_ids_filtered = [pid for pid in all_prop_ids if pid is not None]
     
     # Base query for all credit transactions in this period
-    from sqlalchemy import func as sa_func
+    from sqlalchemy import func as sa_func, cast, Integer
     query = select(Transaction.category, sa_func.coalesce(sa_func.sum(Transaction.amount), 0.0)).where(
         and_(
             Transaction.direction == TransactionDirection.CREDIT.value,
-            sa_func.extract('year', Transaction.transaction_date) == budget.year,
-            sa_func.extract('month', Transaction.transaction_date) == budget.month
+            cast(sa_func.extract('year', Transaction.transaction_date), Integer) == budget.year,
+            cast(sa_func.extract('month', Transaction.transaction_date), Integer) == budget.month
         )
     )
 
@@ -340,12 +340,13 @@ def get_budget_vs_actual_report(
         # Remove duplicates
         cat_search_terms = list(set(cat_search_terms))
 
+        from sqlalchemy import func, cast, Integer
         trans_stmt = select(func.sum(Transaction.amount)).where(
             and_(
                 Transaction.category.in_(cat_search_terms),
                 Transaction.property_id.in_(all_prop_ids),
-                func.extract('year', Transaction.transaction_date) == year,
-                func.extract('month', Transaction.transaction_date) == month
+                cast(func.extract('year', Transaction.transaction_date), Integer) == year,
+                cast(func.extract('month', Transaction.transaction_date), Integer) == month
             )
         )
         actual_total = db.execute(trans_stmt).scalar() or 0.0

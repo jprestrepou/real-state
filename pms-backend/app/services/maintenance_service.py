@@ -104,7 +104,8 @@ def complete_maintenance(
         reference_type="maintenance",
         transaction_date=date.today(),
     )
-    register_transaction(db, tx_data, user_id)
+    # Auto-register expense in ledger - ATOMIC (Rule #5)
+    register_transaction(db, tx_data, user_id, commit=False)
 
     db.commit()
     db.refresh(order)
