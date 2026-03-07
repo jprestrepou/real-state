@@ -110,4 +110,41 @@ def get_map_data(db: Session, owner_id: str | None = None) -> list[dict]:
             "monthly_rent": float(rent) if rent else None,
         })
 
-    return result
+
+def calculate_rent_simulation(db: Session, property_id: str, desired_margin_pct: float, include_admin_fee: bool) -> dict:
+    """
+    Calculate suggested rent based on Colombian Law 820/2003 and owner requirements.
+    Limit: Monthly rent <= 1% of Commercial Value.
+    """
+    prop = get_property(db, property_id)
+    
+    comm_val = float(prop.commercial_value or 0)
+    admin_fee = float(prop.administration_fee or 0)
+    
+    # Law 820 of 2003 (Colombia) - Art 18: Max 1% of commercial value
+    legal_max = comm_val * 0.01
+    
+    # Calculation: Margin is usually return on equity/investment
+    # Suggested = Costs (Admin) + Profit (Margin on commercial value)
+    profit_goal = comm_val * (desired_margin_pct / 100)
+    
+    suggested = profit_goal
+    if include_admin_fee:
+        suggested += admin_fee
+        
+    is_legal = suggested <= legal_max
+    
+    message = "El valor sugerido está dentro del límite legal (1% del valor comercial)."
+    if not is_legal:
+        message = f"ADVERTENCIA: El valor sugerido (${suggested:,.2f}) excede el límite legal de la Ley 820 (${legal_max:,.2f})."
+    
+    return {
+        "property_name": prop.name,
+        "commercial_value": comm_val,
+        "administration_fee": admin_fee,
+        "legal_max_rent": legal_max,
+        "suggested_rent": suggested,
+        "margin_profit": profit_goal,
+        "is_legal": is_legal,
+        "message": message
+    }

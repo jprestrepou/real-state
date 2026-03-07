@@ -21,6 +21,7 @@ class PropertyCreate(BaseModel):
     bathrooms: Optional[int] = Field(None, ge=0)
     cadastral_id: Optional[str] = Field(None, max_length=50)
     commercial_value: Optional[float] = Field(None, ge=0)
+    administration_fee: Optional[float] = Field(None, ge=0)
     status: str = Field(
         default="Disponible",
         pattern="^(Disponible|Arrendada|En Mantenimiento|Vendida)$",
@@ -42,6 +43,7 @@ class PropertyUpdate(BaseModel):
     bathrooms: Optional[int] = Field(None, ge=0)
     cadastral_id: Optional[str] = None
     commercial_value: Optional[float] = Field(None, ge=0)
+    administration_fee: Optional[float] = Field(None, ge=0)
     status: Optional[str] = Field(None, pattern="^(Disponible|Arrendada|En Mantenimiento|Vendida)$")
     notes: Optional[str] = None
     manager_id: Optional[str] = None
@@ -63,6 +65,7 @@ class PropertyResponse(BaseModel):
     bathrooms: Optional[int] = None
     cadastral_id: Optional[str] = None
     commercial_value: Optional[float] = None
+    administration_fee: Optional[float] = None
     status: str
     notes: Optional[str] = None
     is_active: bool
@@ -82,3 +85,20 @@ class PropertyMapItem(BaseModel):
     monthly_rent: Optional[float] = None
 
     model_config = {"from_attributes": True}
+
+
+class RentSimulationRequest(BaseModel):
+    property_id: str
+    desired_margin_pct: float = Field(default=0.5, ge=0, le=100) # Monthly return on commercial value
+    include_admin_fee: bool = True
+
+class RentSimulationResponse(BaseModel):
+    property_name: str
+    commercial_value: float
+    cadastral_value: Optional[float] = None
+    administration_fee: float
+    legal_max_rent: float # 1% of commercial value (Law 820/2003)
+    suggested_rent: float # Admin fee + (Commercial * Margin)
+    margin_profit: float
+    is_legal: bool
+    message: str
