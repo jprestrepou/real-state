@@ -43,6 +43,24 @@ def get_budget(
 ):
     """Obtener detalle de presupuesto con semáforo."""
     return budget_service.get_budget(db, budget_id)
+    return budget_service.get_budget(db, budget_id)
+
+
+@router.put("/{budget_id}", response_model=BudgetResponse)
+def update_budget(
+    budget_id: str,
+    data: BudgetUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
+):
+    """Actualizar presupuesto y categorías."""
+    budget = budget_service.update_budget(db, budget_id, data)
+    if not budget:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
+    return budget
+
+
 @router.get("/report/{property_id}", response_model=BudgetReport)
 def get_budget_report(
     property_id: str,

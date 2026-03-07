@@ -44,6 +44,7 @@ def _ensure_general_property(db: Session) -> str:
 def _refresh_budget_totals(db: Session, budget: Budget):
     """
     Calculates execution totals for a budget and its categories in real-time.
+    Also updates total_budget if auto_calculate_total is True.
     """
     dist_keys = calculate_distribution_keys(db, budget.property_id)
     stmt_gen = select(Property).where(Property.name == GENERAL_PROPERTY_NAME).limit(1)
@@ -55,7 +56,9 @@ def _refresh_budget_totals(db: Session, budget: Budget):
 
     from sqlalchemy import func
     total_exec = 0.0
+    total_budget_sum = 0.0
     for cat in budget.categories:
+        total_budget_sum += float(cat.budgeted_amount)
         cat_search_terms = [cat.category_name]
         lower_cat = cat.category_name.lower()
         if "mantenimiento" in lower_cat:
@@ -67,10 +70,12 @@ def _refresh_budget_totals(db: Session, budget: Budget):
         
         cat_search_terms = list(set(cat_search_terms))
 
+        from app.models.financial import TransactionDirection
         trans_stmt = select(func.sum(Transaction.amount)).where(
             and_(
                 Transaction.category.in_(cat_search_terms),
                 Transaction.property_id.in_(all_prop_ids),
+                Transaction.direction == TransactionDirection.CREDIT.value, # Only Expenses
                 func.strftime('%Y', Transaction.transaction_date) == str(budget.year),
                 func.strftime('%m', Transaction.transaction_date) == f"{budget.month:02d}"
             )
@@ -80,7 +85,10 @@ def _refresh_budget_totals(db: Session, budget: Budget):
         total_exec += cat_actual
 
     budget.total_executed = total_exec
-    db.flush()
+    if budget.auto_calculate_total:
+        budget.total_budget = total_budget_sum
+    
+    db.commit() # Persist the refreshed values
 
 def list_budgets(db: Session, property_id: Optional[str] = None, year: Optional[int] = None, month: Optional[int] = None):
     stmt = select(Budget)
@@ -110,12 +118,17 @@ def create_budget(db: Session, data: BudgetCreate):
     created_budgets = []
 
     for m in months_to_create:
-        amount = data.total_budget / 12 if data.is_annual else data.total_budget
+        if data.auto_calculate_total:
+            amount = sum(c.budgeted_amount for c in data.categories) / (12 if data.is_annual else 1)
+        else:
+            amount = data.total_budget / 12 if data.is_annual else data.total_budget
+
         new_budget = Budget(
             property_id=property_id,
             year=data.year,
             month=m,
             total_budget=amount,
+            auto_calculate_total=data.auto_calculate_total,
             notes=data.notes
         )
         db.add(new_budget)
@@ -167,6 +180,43 @@ def duplicate_budget(db: Session, budget_id: str, data: BudgetDuplicate):
     db.commit()
     db.refresh(new_budget)
     return [new_budget] # Return as list for compatibility
+
+def update_budget(db: Session, budget_id: str, data: Any): # Using Any to handle BudgetUpdate
+    budget = get_budget(db, budget_id)
+    if not budget:
+        return None
+    
+    if data.notes is not None:
+        budget.notes = data.notes
+    
+    if data.auto_calculate_total is not None:
+        budget.auto_calculate_total = data.auto_calculate_total
+
+    if data.categories is not None:
+        # Complex update: replace categories
+        # For simplicity, clear and re-add
+        for c in budget.categories:
+            db.delete(c)
+        db.flush()
+        
+        for cat_data in data.categories:
+            new_cat = BudgetCategory(
+                budget_id=budget.id,
+                category_name=cat_data.category_name,
+                budgeted_amount=cat_data.budgeted_amount,
+                is_distributable=cat_data.is_distributable
+            )
+            db.add(new_cat)
+        
+        if budget.auto_calculate_total:
+            budget.total_budget = sum(c.budgeted_amount for c in data.categories)
+    
+    # Manual total update if provided and not auto-calculating
+    if data.total_budget is not None and not budget.auto_calculate_total:
+        budget.total_budget = data.total_budget
+
+    db.commit()
+    return get_budget(db, budget_id)
 
 def get_budget(db: Session, budget_id: str):
     stmt = select(Budget).where(Budget.id == budget_id)

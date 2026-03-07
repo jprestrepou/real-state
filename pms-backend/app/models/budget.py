@@ -34,6 +34,7 @@ class Budget(Base):
     month: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     total_budget: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
     total_executed: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
+    auto_calculate_total: Mapped[bool] = mapped_column(Boolean, default=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

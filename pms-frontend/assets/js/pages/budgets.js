@@ -59,12 +59,15 @@ export async function renderBudgets(container) {
 
   if (window.lucide) lucide.createIcons();
 
-  const propertiesData = await api.get('/properties?limit=100');
+  const [propertiesData, generalPropId] = await Promise.all([
+    api.get('/properties?limit=100'),
+    api.get('/properties?limit=1').then(res => res.items.find(p => p.name === 'Gastos Generales')?.id || 'GENERAL')
+  ]);
   const properties = propertiesData.items || [];
 
   // Fill property filter
   const propFilter = document.getElementById('filter-property');
-  properties.forEach(p => {
+  properties.filter(p => p.id !== generalPropId).forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.id;
     opt.textContent = p.name;
@@ -93,20 +96,20 @@ export async function renderBudgets(container) {
         filtered = budgets.filter(b => b.semaphore === status);
       }
 
-      renderTable(tableContainer, filtered, properties);
+      renderTable(tableContainer, filtered, properties, generalPropId, loadContent);
     } catch (err) {
       tableContainer.innerHTML = `<div class="p-8 text-center text-rose-500">Error al cargar presupuestos: ${err.message}</div>`;
     }
   };
 
   document.getElementById('apply-filters').addEventListener('click', loadContent);
-  document.getElementById('add-budget-btn').addEventListener('click', () => openBudgetModal(properties, loadContent));
+  document.getElementById('add-budget-btn').addEventListener('click', () => openBudgetModal(properties, null, loadContent));
 
   // Initial load
   loadContent();
 }
 
-function renderTable(container, budgets, properties) {
+function renderTable(container, budgets, properties, generalPropId, onReload) {
   if (!budgets.length) {
     container.innerHTML = `<div class="py-20 text-center text-surface-400">No se encontraron presupuestos con los filtros seleccionados.</div>`;
     return;
@@ -128,7 +131,7 @@ function renderTable(container, budgets, properties) {
       <tbody>
         ${budgets.map(b => {
     const prop = properties.find(p => p.id === b.property_id);
-    const propName = b.property_id === (properties.find(p => p.name === 'Gastos Generales')?.id || 'GENERAL') ? 'Gastos Generales' : (prop ? prop.name : 'Unidad Borrada');
+    const propName = b.property_id === generalPropId ? 'Gastos Generales' : (prop ? prop.name : 'Unidad Borrada');
     return `
           <tr class="hover:bg-surface-50 transition-colors">
             <td>
@@ -136,7 +139,7 @@ function renderTable(container, budgets, properties) {
               <div class="text-[10px] text-surface-400 italic">${b.property_id.slice(0, 8)}...</div>
             </td>
             <td>
-              <span class="text-sm font-medium text-surface-700">${b.year} - ${new Date(0, b.month - 1).toLocaleString('es', { month: 'short' }).toUpperCase()}</span>
+              <span class="text-sm font-medium text-surface-700">${b.year} - ${new Date(0, b.month - 1).toLocaleString('es', { month: 'short', year: 'numeric' }).toUpperCase()}</span>
             </td>
             <td>
               <div class="flex items-center gap-2">
@@ -161,8 +164,12 @@ function renderTable(container, budgets, properties) {
                   class="p-2 rounded-lg hover:bg-primary-50 text-primary-600 transition" title="Ver Reporte Detallado">
                   <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
                 </a>
+                <button class="edit-btn p-2 rounded-lg hover:bg-blue-50 text-blue-600 transition" 
+                  data-id="${b.id}" title="Editar">
+                  <i data-lucide="edit-3" class="w-4 h-4"></i>
+                </button>
                 <button class="duplicate-btn p-2 rounded-lg hover:bg-surface-100 text-surface-500 transition" 
-                  data-id="${b.id}" title="Duplicar Presupuesto">
+                  data-id="${b.id}" title="Duplicar">
                   <i data-lucide="copy" class="w-4 h-4"></i>
                 </button>
                 <button class="delete-budget-btn p-2 rounded-lg hover:bg-rose-50 text-rose-600 transition" 
@@ -181,8 +188,15 @@ function renderTable(container, budgets, properties) {
   if (window.lucide) lucide.createIcons();
 
   // Attach event listeners
+  container.querySelectorAll('.edit-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const budget = budgets.find(x => x.id === btn.dataset.id);
+      openBudgetModal(properties, budget, onReload);
+    });
+  });
+
   container.querySelectorAll('.duplicate-btn').forEach(btn => {
-    btn.addEventListener('click', () => openDuplicateModal(btn.dataset.id, () => renderBudgets(container.parentElement.parentElement)));
+    btn.addEventListener('click', () => openDuplicateModal(btn.dataset.id, onReload));
   });
 
   container.querySelectorAll('.delete-budget-btn').forEach(btn => {
@@ -192,39 +206,43 @@ function renderTable(container, budgets, properties) {
         onConfirm: async () => {
           await api.delete(`/budgets/${btn.dataset.id}`);
           showToast('Presupuesto eliminado', 'success');
-          // Reload through the flow
-          document.getElementById('apply-filters').click();
+          onReload();
         }
       });
     });
   });
 }
 
-function openBudgetModal(properties, onSuccess) {
-  const year = new Date().getFullYear();
-  const month = new Date().getMonth() + 1;
+function openBudgetModal(properties, existingBudget = null, onSuccess) {
+  const isEdit = !!existingBudget;
+  const year = isEdit ? existingBudget.year : new Date().getFullYear();
+  const month = isEdit ? existingBudget.month : new Date().getMonth() + 1;
 
-  const propertyOptions = properties.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  const propertyOptions = properties.map(p => `<option value="${p.id}" ${isEdit && existingBudget.property_id === p.id ? 'selected' : ''}>${p.name}</option>`).join('');
 
-  showModal('Nuevo Presupuesto', `
+  showModal(isEdit ? 'Editar Presupuesto' : 'Nuevo Presupuesto', `
     <form id="bf" class="space-y-4">
-      <div>
+      <div class="${isEdit ? 'pointer-events-none opacity-60' : ''}">
         <label class="label">Propiedad *</label>
         <select class="select" name="property_id" required>
-          <option value="GENERAL">Gastos Generales (Distribuible)</option>
+          <option value="GENERAL" ${isEdit && existingBudget.property_id === 'GENERAL' ? 'selected' : ''}>Gastos Generales (Distribuible)</option>
           ${propertyOptions}
         </select>
+        ${isEdit ? '<p class="text-[10px] text-surface-400 mt-1">La propiedad y periodo no se pueden cambiar. Duplique el presupuesto si lo desea en otro lugar.</p>' : ''}
       </div>
-      <div class="grid grid-cols-3 gap-4 items-end">
+      <div class="grid grid-cols-3 gap-4 items-end ${isEdit ? 'pointer-events-none opacity-60' : ''}">
         <div><label class="label">Año *</label><input class="input" name="year" type="number" value="${year}" required /></div>
         <div><label class="label">Mes *</label><input class="input" name="month" type="number" min="1" max="12" value="${month}" required /></div>
-        <div><label class="label">Presupuesto *</label><input class="input" name="total_budget" type="number" step="0.01" required /></div>
+        <div id="total-budget-container">
+           <label class="label">Presupuesto *</label>
+           <input class="input" name="total_budget" id="total_budget_input" type="number" step="0.01" value="${isEdit ? existingBudget.total_budget : ''}" ${isEdit && existingBudget.auto_calculate_total ? 'disabled' : ''} />
+        </div>
       </div>
       <div class="flex items-center gap-2 bg-primary-50 p-3 rounded-xl border border-primary-100">
-        <input type="checkbox" id="is_annual" name="is_annual" class="w-4 h-4 rounded text-primary-600" />
+        <input type="checkbox" id="auto_calculate_total" name="auto_calculate_total" class="w-4 h-4 rounded text-primary-600" ${isEdit && existingBudget.auto_calculate_total ? 'checked' : ''} />
         <div class="flex-1">
-          <label for="is_annual" class="text-sm font-bold text-primary-900 cursor-pointer">Presupuesto Anualizado</label>
-          <p class="text-[10px] text-primary-600">Se crearán 12 registros dividiendo el total automáticamente.</p>
+          <label for="auto_calculate_total" class="text-sm font-bold text-primary-900 cursor-pointer">Autocalcular total</label>
+          <p class="text-[10px] text-primary-600">El total será la suma de los montos de cada categoría configurada.</p>
         </div>
       </div>
       <div id="cats-container" class="pt-4 border-t border-surface-100">
@@ -232,15 +250,24 @@ function openBudgetModal(properties, onSuccess) {
           <label class="label mb-0">Categorías Detalladas</label>
           <button type="button" id="add-cat-btn" class="text-xs text-primary-600 font-bold hover:underline">+ Agregar</button>
         </div>
-        <div class="space-y-2 max-h-40 overflow-y-auto pr-2" id="cats-list"></div>
+        <div class="space-y-2 max-h-48 overflow-y-auto pr-2" id="cats-list">
+          ${isEdit ? existingBudget.categories.map(c => renderCatRow(c.category_name, c.budgeted_amount, c.is_distributable)).join('') : ''}
+        </div>
+      </div>
+      <div>
+        <label class="label">Notas</label>
+        <textarea class="textarea text-sm" name="notes" placeholder="Opcional...">${isEdit ? (existingBudget.notes || '') : ''}</textarea>
       </div>
     </form>
   `, {
-    confirmText: 'Crear Presupuesto',
+    confirmText: isEdit ? 'Guardar Cambios' : 'Crear Presupuesto',
     onConfirm: async () => {
-      const fd = new FormData(document.getElementById('bf'));
+      const form = document.getElementById('bf');
+      const fd = new FormData(form);
+      const is_auto = document.getElementById('auto_calculate_total').checked;
+
       const cats = [];
-      document.querySelectorAll('.cat-row').forEach(r => {
+      form.querySelectorAll('.cat-row').forEach(r => {
         const n = r.querySelector('[name="cat_name"]').value;
         const a = r.querySelector('[name="cat_amount"]').value;
         const d = r.querySelector('[name="cat_dist"]').checked;
@@ -251,34 +278,92 @@ function openBudgetModal(properties, onSuccess) {
         property_id: fd.get('property_id'),
         year: parseInt(fd.get('year')),
         month: parseInt(fd.get('month')),
-        total_budget: parseFloat(fd.get('total_budget')),
+        total_budget: is_auto ? 0 : (parseFloat(fd.get('total_budget')) || 0),
         categories: cats,
-        is_annual: document.getElementById('is_annual').checked
+        auto_calculate_total: is_auto,
+        notes: fd.get('notes')
       };
 
-      await api.post('/budgets', payload);
-      showToast(payload.is_annual ? 'Ciclo anual creado' : 'Presupuesto creado', 'success');
+      if (!isEdit) {
+        payload.is_annual = document.getElementById('is_annual')?.checked || false;
+        await api.post('/budgets', payload);
+        showToast('Presupuesto creado', 'success');
+      } else {
+        await api.put(`/budgets/${existingBudget.id}`, payload);
+        showToast('Presupuesto actualizado', 'success');
+      }
+
       if (onSuccess) onSuccess();
     }
   });
 
+  // Handle auto-calculate toggle
+  const checkAuto = document.getElementById('auto_calculate_total');
+  const inputTotal = document.getElementById('total_budget_input');
+  checkAuto.addEventListener('change', () => {
+    inputTotal.disabled = checkAuto.checked;
+    if (checkAuto.checked) {
+      updateTotalFromCats();
+    }
+  });
+
+  const updateTotalFromCats = () => {
+    if (!checkAuto.checked) return;
+    let sum = 0;
+    document.querySelectorAll('.cat-row').forEach(r => {
+      sum += parseFloat(r.querySelector('[name="cat_amount"]').value || 0);
+    });
+    inputTotal.value = sum;
+  };
+
   document.getElementById('add-cat-btn').addEventListener('click', () => {
     const list = document.getElementById('cats-list');
-    const row = document.createElement('div');
-    row.className = 'cat-row flex gap-2 items-center animate-fade-in';
-    row.innerHTML = `
-      <input class="input text-sm py-1.5 flex-1" name="cat_name" placeholder="Ej: Mantenimiento" />
-      <input class="input text-sm py-1.5 w-24" name="cat_amount" type="number" step="0.01" placeholder="$" />
-      <div class="flex items-center gap-1">
-        <input type="checkbox" name="cat_dist" class="w-4 h-4" />
-        <span class="text-[10px] text-surface-400">Dist.</span>
-      </div>
-      <button type="button" class="p-1.5 text-rose-400 hover:text-rose-600" onclick="this.parentElement.remove()"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
-    `;
+    const temp = document.createElement('div');
+    temp.innerHTML = renderCatRow();
+    const row = temp.firstElementChild;
     list.appendChild(row);
     if (window.lucide) lucide.createIcons();
+
+    // Auto update if needed
+    row.querySelector('[name="cat_amount"]').addEventListener('input', updateTotalFromCats);
   });
+
+  // Attach input listeners to initial rows
+  document.querySelectorAll('.cat-row [name="cat_amount"]').forEach(inp => {
+    inp.addEventListener('input', updateTotalFromCats);
+  });
+
+  if (window.lucide) lucide.createIcons();
 }
+
+function renderCatRow(name = '', amount = '', dist = false) {
+  return `
+    <div class="cat-row flex gap-2 items-center animate-fade-in group">
+      <input class="input text-sm py-1.5 flex-1" name="cat_name" value="${name}" placeholder="Ej: Mantenimiento" />
+      <input class="input text-sm py-1.5 w-24" name="cat_amount" type="number" step="0.01" value="${amount}" placeholder="$" />
+      <div class="flex items-center gap-1">
+        <input type="checkbox" name="cat_dist" class="w-4 h-4" ${dist ? 'checked' : ''} />
+        <span class="text-[10px] text-surface-400">Dist.</span>
+      </div>
+      <button type="button" class="p-1.5 text-rose-300 hover:text-rose-600 transition" onclick="this.parentElement.remove(); document.dispatchEvent(new Event('catChange'));">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+  `;
+}
+
+// Global listener for cat deletion to update total
+document.addEventListener('catChange', () => {
+  const checkAuto = document.getElementById('auto_calculate_total');
+  if (checkAuto && checkAuto.checked) {
+    let sum = 0;
+    document.querySelectorAll('.cat-row').forEach(r => {
+      sum += parseFloat(r.querySelector('[name="cat_amount"]').value || 0);
+    });
+    const inputTotal = document.getElementById('total_budget_input');
+    if (inputTotal) inputTotal.value = sum;
+  }
+});
 
 function openDuplicateModal(budgetId, onSuccess) {
   const year = new Date().getFullYear();
