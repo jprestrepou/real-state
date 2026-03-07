@@ -21,6 +21,13 @@ class BudgetCreate(BaseModel):
     total_budget: float = Field(gt=0)
     categories: list[BudgetCategoryCreate] = []
     notes: Optional[str] = None
+    is_annual: bool = False
+
+
+class BudgetDuplicate(BaseModel):
+    target_year: int = Field(ge=2020, le=2100)
+    target_month: int = Field(ge=1, le=12)
+    percentage_increase: float = Field(default=0.0)
 
 
 class BudgetCategoryResponse(BaseModel):

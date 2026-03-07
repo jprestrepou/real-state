@@ -6,7 +6,12 @@ import { formatCurrency, formatPercent, semaphoreClass } from '../utils/formatte
 import { showToast, showModal } from '../components/modal.js';
 
 export async function renderBudgets(container) {
-  const budgets = await api.get('/budgets');
+  const [budgets, propertiesData] = await Promise.all([
+    api.get('/budgets'),
+    api.get('/properties?limit=100')
+  ]);
+
+  const properties = propertiesData.items || [];
 
   container.innerHTML = `
     <div class="flex items-center justify-between mb-6 animate-fade-in">
@@ -20,7 +25,10 @@ export async function renderBudgets(container) {
             <div>
               <h4 class="font-bold text-surface-900">Año ${b.year} - Mes ${b.month}</h4>
               <p class="text-xs text-surface-400">Propiedad: ${b.property_id.slice(0, 8)}...</p>
-              <a href="#/budget-report?property_id=${b.property_id}&year=${b.year}&month=${b.month}" class="text-xs text-primary-600 hover:underline mt-1 inline-block">Ver Reporte Detallado</a>
+              <div class="flex gap-2 mt-2">
+                <a href="#/budget-report?property_id=${b.property_id}&year=${b.year}&month=${b.month}" class="text-xs text-primary-600 hover:underline inline-block">Ver Reporte</a>
+                <button class="duplicate-btn text-[10px] bg-slate-100 px-2 py-0.5 rounded hover:bg-slate-200 transition" data-id="${b.id}">Duplicar</button>
+              </div>
             </div>
             <div class="flex items-center gap-2">
               <span class="semaphore ${semaphoreClass(b.semaphore)}"></span>
@@ -56,19 +64,41 @@ export async function renderBudgets(container) {
         </div>
       `).join('') : '<p class="text-surface-400 col-span-2 text-center py-12">No hay presupuestos. Cree uno para empezar.</p>'}
     </div>`;
+
   if (window.lucide) lucide.createIcons();
-  document.getElementById('add-budget-btn').addEventListener('click', () => openBudgetModal());
+  
+  document.getElementById('add-budget-btn').addEventListener('click', () => openBudgetModal(properties));
+  
+  document.querySelectorAll('.duplicate-btn').forEach(btn => {
+    btn.addEventListener('click', () => openDuplicateModal(btn.dataset.id));
+  });
 }
 
-function openBudgetModal() {
+function openBudgetModal(properties) {
   const year = new Date().getFullYear();
   const month = new Date().getMonth() + 1;
+  
+  const propertyOptions = properties.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  
   showModal('Nuevo Presupuesto', `<form id="bf" class="space-y-4">
-    <div><label class="label">Propiedad ID *</label><input class="input" name="property_id" required /></div>
+    <div>
+      <label class="label">Propiedad *</label>
+      <select class="select" name="property_id" required>
+        <option value="GENERAL">Gastos Generales (Distribuible)</option>
+        ${propertyOptions}
+      </select>
+    </div>
     <div class="grid grid-cols-3 gap-4">
       <div><label class="label">Año *</label><input class="input" name="year" type="number" value="${year}" required /></div>
       <div><label class="label">Mes *</label><input class="input" name="month" type="number" min="1" max="12" value="${month}" required /></div>
-      <div><label class="label">Presupuesto *</label><input class="input" name="total_budget" type="number" step="0.01" required /></div>
+      <div><label class="label">Total Presupuestado *</label><input class="input" name="total_budget" type="number" step="0.01" required /></div>
+    </div>
+    <div class="flex items-center gap-2 bg-primary-50 p-3 rounded-xl">
+      <input type="checkbox" id="is_annual" name="is_annual" class="w-4 h-4 rounded text-primary-600" />
+      <div class="flex-1">
+        <label for="is_annual" class="text-sm font-semibold text-primary-900 cursor-pointer">Presupuesto Anualizado</label>
+        <p class="text-[10px] text-primary-600">Se crearán 12 registros mensuales dividiendo el total automáticamente.</p>
+      </div>
     </div>
     <div id="cats-container">
       <label class="label">Categorías</label>
@@ -85,12 +115,24 @@ function openBudgetModal() {
         const d = r.querySelector('[name="cat_dist"]').checked;
         if (n && a) cats.push({ category_name: n, budgeted_amount: parseFloat(a), is_distributable: d });
       });
-      await api.post('/budgets', { property_id: fd.get('property_id'), year: parseInt(fd.get('year')), month: parseInt(fd.get('month')), total_budget: parseFloat(fd.get('total_budget')), categories: cats });
-      showToast('Presupuesto creado', 'success');
+      
+      const payload = { 
+        property_id: fd.get('property_id'), 
+        year: parseInt(fd.get('year')), 
+        month: parseInt(fd.get('month')), 
+        total_budget: parseFloat(fd.get('total_budget')), 
+        categories: cats,
+        is_annual: document.getElementById('is_annual').checked
+      };
+
+      await api.post('/budgets', payload);
+      showToast(payload.is_annual ? 'Presupuestos anuales creados' : 'Presupuesto creado', 'success');
       await renderBudgets(document.getElementById('page-content'));
     }
   });
+
   if (window.lucide) lucide.createIcons();
+  
   document.getElementById('add-cat-btn').addEventListener('click', () => {
     const list = document.getElementById('cats-list');
     const row = document.createElement('div');
@@ -104,5 +146,37 @@ function openBudgetModal() {
       </div>
     `;
     list.appendChild(row);
+  });
+}
+
+function openDuplicateModal(budgetId) {
+  const year = new Date().getFullYear();
+  
+  showModal('Duplicar Presupuesto', `
+    <form id="df" class="space-y-4">
+      <p class="text-sm text-surface-500">Duplica los valores de este presupuesto para un nuevo periodo, aplicando un incremento opcional.</p>
+      <div class="grid grid-cols-2 gap-4">
+        <div><label class="label">Año Destino *</label><input class="input" name="target_year" type="number" value="${year}" required /></div>
+        <div><label class="label">Mes Destino *</label><input class="input" name="target_month" type="number" min="1" max="12" value="1" required /></div>
+      </div>
+      <div>
+        <label class="label">Incremento Porcentual (%)</label>
+        <input class="input" name="percentage_increase" type="number" step="0.1" value="0" />
+        <p class="text-[10px] text-surface-400 mt-1">Ej: 5.5 para aumentar los valores en 5.5%</p>
+      </div>
+    </form>
+  `, {
+    confirmText: 'Duplicar',
+    onConfirm: async () => {
+      const fd = new FormData(document.getElementById('df'));
+      const payload = {
+        target_year: parseInt(fd.get('target_year')),
+        target_month: parseInt(fd.get('target_month')),
+        percentage_increase: parseFloat(fd.get('percentage_increase') || 0)
+      };
+      await api.post(`/budgets/${budgetId}/duplicate`, payload);
+      showToast('Presupuesto duplicado exitosamente', 'success');
+      await renderBudgets(document.getElementById('page-content'));
+    }
   });
 }

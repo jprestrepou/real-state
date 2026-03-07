@@ -22,6 +22,7 @@ class PropertyType(str, enum.Enum):
     BODEGA = "Bodega"
     OFICINA = "Oficina"
     LOTE = "Lote"
+    OTROS = "Otros"
 
 
 class PropertyStatus(str, enum.Enum):

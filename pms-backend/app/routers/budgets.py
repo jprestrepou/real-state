@@ -53,3 +53,12 @@ def get_budget_report(
 ):
     """Obtener reporte presupuesto vs real con distribución."""
     return budget_service.get_budget_vs_actual_report(db, property_id, year, month)
+@router.post("/{budget_id}/duplicate", response_model=list[BudgetResponse])
+def duplicate_budget(
+    budget_id: str,
+    data: BudgetDuplicate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
+):
+    """Duplicar presupuesto para otro periodo con incremento opcional."""
+    return budget_service.duplicate_budget(db, budget_id, data)

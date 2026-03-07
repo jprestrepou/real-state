@@ -9,7 +9,37 @@ from app.models.property import Property
 from app.models.contract import Contract, ContractStatus
 from app.models.budget import Budget, BudgetCategory
 from app.models.financial import Transaction
-from app.schemas.budget import BudgetCreate
+from app.schemas.budget import BudgetCreate, BudgetDuplicate
+
+GENERAL_PROPERTY_NAME = "Gastos Generales"
+
+def _ensure_general_property(db: Session) -> str:
+    """Ensures the 'Gastos Generales' property exists and returns its ID."""
+    stmt = select(Property).where(Property.name == GENERAL_PROPERTY_NAME)
+    prop = db.execute(stmt).scalar_one_or_none()
+    if not prop:
+        # We need an owner_id. Let's find an admin or the first user.
+        from app.models.user import User
+        user_stmt = select(User).limit(1)
+        user = db.execute(user_stmt).scalar_one_or_none()
+        if not user:
+            raise Exception("No user found to assign Gastos Generales property")
+        
+        prop = Property(
+            name=GENERAL_PROPERTY_NAME,
+            property_type="Otros",
+            address="N/A",
+            city="N/A",
+            latitude=0,
+            longitude=0,
+            area_sqm=0,
+            owner_id=user.id,
+            status="Disponible"
+        )
+        db.add(prop)
+        db.commit()
+        db.refresh(prop)
+    return prop.id
 
 def list_budgets(db: Session, property_id: Optional[str] = None, year: Optional[int] = None, month: Optional[int] = None):
     stmt = select(Budget)
@@ -27,28 +57,72 @@ def list_budgets(db: Session, property_id: Optional[str] = None, year: Optional[
     return db.execute(stmt).scalars().all()
 
 def create_budget(db: Session, data: BudgetCreate):
+    property_id = data.property_id
+    if property_id == "GENERAL":
+        property_id = _ensure_general_property(db)
+
+    # If annual, we create 12 budgets
+    months_to_create = range(1, 13) if data.is_annual else [data.month]
+    created_budgets = []
+
+    for m in months_to_create:
+        amount = data.total_budget / 12 if data.is_annual else data.total_budget
+        new_budget = Budget(
+            property_id=property_id,
+            year=data.year,
+            month=m,
+            total_budget=amount,
+            notes=data.notes
+        )
+        db.add(new_budget)
+        db.flush()
+
+        for cat_data in data.categories:
+            cat_amount = cat_data.budgeted_amount / 12 if data.is_annual else cat_data.budgeted_amount
+            cat = BudgetCategory(
+                budget_id=new_budget.id,
+                category_name=cat_data.category_name,
+                budgeted_amount=cat_amount,
+                is_distributable=cat_data.is_distributable
+            )
+            db.add(cat)
+        created_budgets.append(new_budget)
+    
+    db.commit()
+    for b in created_budgets:
+        db.refresh(b)
+    
+    return created_budgets[0] if not data.is_annual else created_budgets
+
+def duplicate_budget(db: Session, budget_id: str, data: BudgetDuplicate):
+    source = get_budget(db, budget_id)
+    if not source:
+        raise Exception("Presupuesto origen no encontrado")
+
+    multiplier = 1 + (data.percentage_increase / 100.0)
+    
     new_budget = Budget(
-        property_id=data.property_id,
-        year=data.year,
-        month=data.month,
-        total_budget=data.total_budget,
-        notes=data.notes
+        property_id=source.property_id,
+        year=data.target_year,
+        month=data.target_month,
+        total_budget=float(source.total_budget) * multiplier,
+        notes=source.notes
     )
     db.add(new_budget)
-    db.flush()  # Get ID
+    db.flush()
 
-    for cat_data in data.categories:
-        cat = BudgetCategory(
+    for cat in source.categories:
+        new_cat = BudgetCategory(
             budget_id=new_budget.id,
-            category_name=cat_data.category_name,
-            budgeted_amount=cat_data.budgeted_amount,
-            is_distributable=cat_data.is_distributable
+            category_name=cat.category_name,
+            budgeted_amount=float(cat.budgeted_amount) * multiplier,
+            is_distributable=cat.is_distributable
         )
-        db.add(cat)
+        db.add(new_cat)
     
     db.commit()
     db.refresh(new_budget)
-    return new_budget
+    return [new_budget] # Return as list for compatibility
 
 def get_budget(db: Session, budget_id: str):
     stmt = select(Budget).where(Budget.id == budget_id)
