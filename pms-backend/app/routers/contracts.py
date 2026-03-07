@@ -83,3 +83,15 @@ def get_payment_schedules(
 ):
     """Obtener cronograma de pagos de un contrato."""
     return contract_service.get_payment_schedules(db, contract_id)
+
+
+@router.post("/{contract_id}/payments/{payment_id}/pay", response_model=PaymentScheduleResponse)
+def mark_payment_as_paid(
+    contract_id: str,
+    payment_id: str,
+    account_id: str = Query(..., description="ID de la cuenta donde se recibe el pago"),
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
+):
+    """Marcar un pago como pagado y registrar movimiento financiero."""
+    return contract_service.mark_payment_as_paid(db, payment_id, account_id)

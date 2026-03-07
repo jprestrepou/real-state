@@ -14,6 +14,7 @@ import { renderContracts } from './pages/contracts.js';
 import { renderBudgets } from './pages/budgets.js';
 import { renderBudgetReport } from './pages/budget_report.js';
 import { renderFacility } from './pages/facility.js';
+import { renderAccountDetail } from './pages/account_detail.js';
 
 // ── Global State ────────────────────────────────────────
 const state = {
@@ -31,6 +32,7 @@ const pages = {
     budgets: { title: 'Presupuestos', subtitle: 'Control presupuestario y semáforo', render: renderBudgets },
     'budget-report': { title: 'Reporte de Presupuesto', subtitle: 'Distribución y cumplimiento detallado', render: renderBudgetReport },
     facility: { title: 'Facility Management', subtitle: 'Gestión de activos e inspecciones', render: renderFacility },
+    'account-detail': { title: 'Detalle de Cuenta', subtitle: 'Historial de movimientos y análisis de saldo', render: renderAccountDetail },
 };
 
 // ── Router ──────────────────────────────────────────────

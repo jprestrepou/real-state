@@ -395,7 +395,7 @@ function renderCatRow(name = '', amount = '', dist = false) {
   return `
     <div class="cat-row flex gap-2 items-center animate-fade-in group">
       <input class="input text-sm py-1.5 flex-1" name="cat_name" value="${name}" placeholder="Ej: Mantenimiento" />
-      <input class="input text-sm py-1.5 w-24" name="cat_amount" type="number" step="0.01" value="${amount}" placeholder="$" />
+      <input class="input text-sm py-1.5 w-40" name="cat_amount" type="number" step="0.01" value="${amount}" placeholder="$" />
       <div class="flex items-center gap-1">
         <input type="checkbox" name="cat_dist" class="w-4 h-4" ${dist ? 'checked' : ''} />
         <span class="text-[10px] text-surface-400">Dist.</span>

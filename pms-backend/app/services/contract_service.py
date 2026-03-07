@@ -10,7 +10,11 @@ from fastapi import HTTPException
 
 from app.models.contract import Contract, PaymentSchedule, ContractStatus, PaymentStatus
 from app.schemas.contract import ContractCreate, ContractUpdate
+from app.services.pdf_service import generate_contract_pdf
+from app.tasks.email_tasks import send_contract_revision_email
 
+
+from app.models.property import Property
 
 def list_contracts(
     db: Session,
@@ -19,7 +23,7 @@ def list_contracts(
     page: int = 1,
     limit: int = 20,
 ) -> tuple[list[Contract], int]:
-    stmt = select(Contract)
+    stmt = select(Contract).join(Property, Contract.property_id == Property.id)
     if property_id:
         stmt = stmt.where(Contract.property_id == property_id)
     if status_filter:
@@ -29,7 +33,11 @@ def list_contracts(
     total = db.execute(count_stmt).scalar() or 0
 
     stmt = stmt.order_by(Contract.created_at.desc()).offset((page - 1) * limit).limit(limit)
+    # We want the objects, but with property attributes accessible
     contracts = db.execute(stmt).scalars().all()
+    for c in contracts:
+        c.property_name = c.property.name
+        c.property_address = c.property.address
     return contracts, total
 
 
@@ -38,6 +46,10 @@ def get_contract(db: Session, contract_id: str) -> Contract:
     contract = db.execute(stmt).scalar_one_or_none()
     if not contract:
         raise HTTPException(status_code=404, detail="Contrato no encontrado")
+    
+    # Enrich with property info
+    contract.property_name = contract.property.name
+    contract.property_address = contract.property.address
     return contract
 
 
@@ -73,6 +85,24 @@ def activate_contract(db: Session, contract_id: str) -> Contract:
         prop.status = PropertyStatus.ARRENDADA.value
 
     _generate_payment_schedule(db, contract)
+    
+    # PDF and Email integration
+    try:
+        pdf_path = generate_contract_pdf(contract)
+        contract.pdf_file = pdf_path
+        
+        # Trigger email revision task (async)
+        # Assuming we have tenant email and maybe a landlord email (manager email)
+        recipients = []
+        if contract.tenant_email:
+            recipients.append(contract.tenant_email)
+        
+        if recipients:
+            send_contract_revision_email.delay(contract.id, pdf_path, recipients)
+            
+    except Exception as e:
+        print(f"Error in contract post-activation logic: {e}")
+
     db.commit()
     db.refresh(contract)
     return contract
@@ -120,3 +150,48 @@ def _generate_payment_schedule(db: Session, contract: Contract) -> None:
 
         # Move to next month
         current = current + relativedelta(months=1)
+
+
+def mark_payment_as_paid(db: Session, payment_id: str, account_id: str) -> PaymentSchedule:
+    """
+    Mark a payment as paid and register a transaction in the financial module.
+    """
+    stmt = select(PaymentSchedule).where(PaymentSchedule.id == payment_id)
+    payment = db.execute(stmt).scalar_one_or_none()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Pago no encontrado")
+        
+    if payment.status == PaymentStatus.PAGADO.value:
+        raise HTTPException(status_code=400, detail="El pago ya está registrado como pagado")
+
+    payment.status = PaymentStatus.PAGADO.value
+    payment.paid_date = date.today()
+
+    # Create financial transaction
+    from app.models.financial import Transaction, TransactionDirection, BankAccount
+    from app.models.property import Property
+    
+    contract = payment.contract
+    
+    transaction = Transaction(
+        account_id=account_id,
+        property_id=contract.property_id,
+        amount=payment.amount,
+        direction=TransactionDirection.DEBIT.value, # Income for the landlord
+        category="Renta",
+        description=f"Pago Canon - {contract.tenant_name} - Vence {payment.due_date}",
+        transaction_date=date.today(),
+    )
+    db.add(transaction)
+    db.flush()
+    
+    payment.transaction_id = transaction.id
+    
+    # Update account balance
+    account = db.execute(select(BankAccount).where(BankAccount.id == account_id)).scalar_one_or_none()
+    if account:
+        account.current_balance += payment.amount
+
+    db.commit()
+    db.refresh(payment)
+    return payment

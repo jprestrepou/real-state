@@ -56,6 +56,10 @@ class ContractResponse(BaseModel):
     created_by: str
     created_at: datetime
 
+    # Additional fields from join
+    property_name: Optional[str] = None
+    property_address: Optional[str] = None
+
     model_config = {"from_attributes": True}
 
 

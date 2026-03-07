@@ -61,11 +61,12 @@ def _refresh_budget_totals(db: Session, budget: Budget):
     all_prop_ids_filtered = [pid for pid in all_prop_ids if pid is not None]
     
     # Base query for all credit transactions in this period
-    query = select(Transaction.category, func.sum(Transaction.amount)).where(
+    from sqlalchemy import func as sa_func
+    query = select(Transaction.category, sa_func.coalesce(sa_func.sum(Transaction.amount), 0.0)).where(
         and_(
             Transaction.direction == TransactionDirection.CREDIT.value,
-            func.extract('year', Transaction.transaction_date) == budget.year,
-            func.extract('month', Transaction.transaction_date) == budget.month
+            sa_func.extract('year', Transaction.transaction_date) == budget.year,
+            sa_func.extract('month', Transaction.transaction_date) == budget.month
         )
     )
 
