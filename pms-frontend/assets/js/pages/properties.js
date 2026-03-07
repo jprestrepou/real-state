@@ -47,7 +47,7 @@ export async function renderProperties(container) {
             <th>Valor Comercial</th>
             <th>Estado</th>
             <th>Creada</th>
-            <th></th>
+            <th>Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -64,12 +64,17 @@ export async function renderProperties(container) {
               <td><span class="badge ${statusBadge(p.status)}">${p.status}</span></td>
               <td class="text-surface-500 text-xs">${formatDate(p.created_at)}</td>
               <td>
-                <button class="btn-ghost text-xs py-1 px-2 edit-property" data-id="${p.id}" title="Editar">
-                  <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
-                </button>
-                <button class="btn-ghost text-xs py-1 px-2 delete-property text-rose-500 hover:bg-rose-50" data-id="${p.id}" title="Eliminar">
-                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-                </button>
+                <div class="flex items-center gap-1">
+                  <button class="btn-ghost text-xs py-1 px-2 view-property" data-id="${p.id}" title="Detalles">
+                    <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button class="btn-ghost text-xs py-1 px-2 edit-property" data-id="${p.id}" title="Editar">
+                    <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button class="btn-ghost text-xs py-1 px-2 delete-property text-rose-500 hover:bg-rose-50" data-id="${p.id}" title="Eliminar">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
               </td>
             </tr>
           `).join('') : `
@@ -91,8 +96,11 @@ export async function renderProperties(container) {
 
   // Event Delegation for Table Actions (Edit/Delete)
   document.getElementById('properties-table').addEventListener('click', async (e) => {
+    const viewBtn = e.target.closest('.view-property');
     const editBtn = e.target.closest('.edit-property');
     const deleteBtn = e.target.closest('.delete-property');
+
+    if (viewBtn) openPropertyDetailModal(viewBtn.dataset.id);
 
     if (editBtn) {
       const id = editBtn.dataset.id;
@@ -152,12 +160,17 @@ function renderPropertiesTable(properties) {
       <td><span class="badge ${statusBadge(p.status)}">${p.status}</span></td>
       <td class="text-surface-500 text-xs">${formatDate(p.created_at)}</td>
       <td>
-        <button class="btn-ghost text-xs py-1 px-2 edit-property" data-id="${p.id}" title="Editar">
-          <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
-        </button>
-        <button class="btn-ghost text-xs py-1 px-2 delete-property text-rose-500 hover:bg-rose-50" data-id="${p.id}" title="Eliminar">
-          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-        </button>
+        <div class="flex items-center gap-1">
+          <button class="btn-ghost text-xs py-1 px-2 view-property" data-id="${p.id}" title="Detalles">
+            <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+          </button>
+          <button class="btn-ghost text-xs py-1 px-2 edit-property" data-id="${p.id}" title="Editar">
+            <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+          </button>
+          <button class="btn-ghost text-xs py-1 px-2 delete-property text-rose-500 hover:bg-rose-50" data-id="${p.id}" title="Eliminar">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
       </td>
     </tr>
   `).join('');
@@ -276,5 +289,107 @@ function openPropertyModal(property = null) {
       const content = document.getElementById('page-content');
       await renderProperties(content);
     },
+  });
+}
+
+async function openPropertyDetailModal(propertyId) {
+  const [property, occupants] = await Promise.all([
+    api.get(`/properties/${propertyId}`),
+    api.get(`/occupants?property_id=${propertyId}`)
+  ]);
+
+  const renderOccupantsList = (list) => {
+    if (!list.length) return '<p class="text-sm text-surface-400 py-4 text-center">No hay ocupantes registrados.</p>';
+    return `
+      <div class="space-y-3 mt-4">
+        ${list.map(o => `
+          <div class="flex items-center justify-between p-3 bg-surface-50 rounded-xl border border-surface-100 animate-fade-in">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-xs">
+                ${o.full_name.charAt(0)}
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-surface-900">${o.full_name} ${o.is_primary ? '<span class="badge badge-blue text-[10px] ml-1">Principal</span>' : ''}</p>
+                <p class="text-xs text-surface-500">${o.phone || o.email || 'Sin contacto'}</p>
+              </div>
+            </div>
+            <button class="delete-occupant-btn text-rose-400 hover:text-rose-600 p-1" data-id="${o.id}">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  };
+
+  showModal(`Detalle: ${property.name}`, `
+    <div class="space-y-6 max-h-[75vh] overflow-y-auto pr-1">
+      <div class="grid grid-cols-2 gap-4">
+        <div class="glass-card-static p-4">
+          <h4 class="text-xs font-bold text-surface-400 uppercase mb-3 flex items-center gap-1"><i data-lucide="info" class="w-3 h-3"></i> Información Básica</h4>
+          <p class="text-sm"><strong>Dirección:</strong> ${property.address}</p>
+          <p class="text-sm"><strong>Tipo:</strong> ${property.property_type}</p>
+          <p class="text-sm"><strong>Área:</strong> ${property.area_sqm} m²</p>
+          <p class="text-sm"><strong>Estado:</strong> <span class="badge ${statusBadge(property.status)}">${property.status}</span></p>
+        </div>
+        <div class="glass-card-static p-4">
+          <h4 class="text-xs font-bold text-surface-400 uppercase mb-3 flex items-center gap-1"><i data-lucide="users" class="w-3 h-3"></i> Ocupantes (Viven aquí)</h4>
+          <div id="occupants-container">
+            ${renderOccupantsList(occupants)}
+          </div>
+          <button id="add-occupant-btn" class="btn-ghost text-xs w-full mt-4 border-dashed border-2 border-surface-200 hover:border-primary-300">
+            <i data-lucide="plus" class="w-3 h-3 mr-1"></i> Agregar Ocupante
+          </button>
+        </div>
+      </div>
+    </div>
+  `, { showCancel: true, confirmText: null });
+
+  if (window.lucide) lucide.createIcons();
+
+  // Add Occupant Event
+  document.getElementById('add-occupant-btn').addEventListener('click', () => {
+    showModal('Nuevo Ocupante', `
+      <form id="occupant-form" class="space-y-4">
+        <div><label class="label">Nombre Completo *</label><input class="input" name="full_name" required /></div>
+        <div class="grid grid-cols-2 gap-4">
+          <div><label class="label">DNI / Cédula</label><input class="input" name="dni" /></div>
+          <div><label class="label">Teléfono</label><input class="input" name="phone" /></div>
+        </div>
+        <div><label class="label">Email</label><input class="input" name="email" type="email" /></div>
+        <div class="flex items-center gap-2">
+          <input type="checkbox" name="is_primary" id="is_primary" class="w-4 h-4 rounded text-primary-600" />
+          <label for="is_primary" class="text-sm cursor-pointer">Es ocupante principal</label>
+        </div>
+      </form>
+    `, {
+      confirmText: 'Agregar',
+      onConfirm: async () => {
+        const fd = new FormData(document.getElementById('occupant-form'));
+        const payload = {
+          property_id: propertyId,
+          full_name: fd.get('full_name'),
+          dni: fd.get('dni') || null,
+          phone: fd.get('phone') || null,
+          email: fd.get('email') || null,
+          is_primary: document.getElementById('is_primary').checked
+        };
+        await api.post('/occupants', payload);
+        showToast('Ocupante agregado', 'success');
+        // Refresh detail modal
+        openPropertyDetailModal(propertyId);
+      }
+    });
+  });
+
+  // Delete Occupant Event
+  document.querySelectorAll('.delete-occupant-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (confirm('¿Eliminar este ocupante?')) {
+        await api.delete(`/occupants/${btn.dataset.id}`);
+        showToast('Ocupante eliminado', 'success');
+        openPropertyDetailModal(propertyId);
+      }
+    });
   });
 }

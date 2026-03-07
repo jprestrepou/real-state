@@ -49,7 +49,7 @@ os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 # ── Routers ──────────────────────────────────────────────
-from app.routers import auth, users, properties, financial, maintenance, contracts, budgets, contacts, assets, inspections  # noqa: E402
+from app.routers import auth, users, properties, financial, maintenance, contracts, budgets, contacts, assets, inspections, occupants  # noqa: E402
 
 API_PREFIX = "/api/v1"
 
@@ -63,6 +63,7 @@ app.include_router(budgets.router, prefix=API_PREFIX)
 app.include_router(contacts.router, prefix=API_PREFIX)
 app.include_router(assets.router, prefix=API_PREFIX)
 app.include_router(inspections.router, prefix=API_PREFIX)
+app.include_router(occupants.router, prefix=API_PREFIX)
 
 
 # ── Health check ─────────────────────────────────────────

@@ -78,6 +78,7 @@ class Property(Base):
     contracts = relationship("Contract", back_populates="property")
     assets = relationship("Asset", back_populates="property")
     inspections = relationship("Inspection", back_populates="property")
+    occupants = relationship("PropertyOccupant", back_populates="property", cascade="all, delete-orphan")
     budgets = relationship("Budget", back_populates="property_rel")
     sub_units = relationship("Property", backref="parent", remote_side=[id])
 

@@ -28,6 +28,7 @@ export async function renderBudgets(container) {
               <div class="flex gap-2 mt-2">
                 <a href="#/budget-report?property_id=${b.property_id}&year=${b.year}&month=${b.month}" class="text-xs text-primary-600 hover:underline inline-block">Ver Reporte</a>
                 <button class="duplicate-btn text-[10px] bg-slate-100 px-2 py-0.5 rounded hover:bg-slate-200 transition" data-id="${b.id}">Duplicar</button>
+                <button class="delete-budget-btn text-[10px] bg-rose-50 text-rose-600 px-2 py-0.5 rounded hover:bg-rose-100 transition" data-id="${b.id}"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
               </div>
             </div>
             <div class="flex items-center gap-2">
@@ -71,6 +72,16 @@ export async function renderBudgets(container) {
 
   document.querySelectorAll('.duplicate-btn').forEach(btn => {
     btn.addEventListener('click', () => openDuplicateModal(btn.dataset.id));
+  });
+
+  document.querySelectorAll('.delete-budget-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      if (confirm('¿Eliminar este presupuesto?')) {
+        await api.delete(`/budgets/${btn.dataset.id}`);
+        showToast('Presupuesto eliminado', 'success');
+        await renderBudgets(container);
+      }
+    });
   });
 }
 

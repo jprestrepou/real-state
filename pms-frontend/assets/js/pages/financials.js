@@ -26,6 +26,9 @@ export async function renderFinancials(container) {
   const accounts = accountsData || [];
   const transactions = txData.items || [];
   const properties = propertiesData.items || [];
+  let currentPage = 1;
+  let isLoading = false;
+  let hasMore = transactions.length >= 30;
 
   container.innerHTML = `
     <div class="flex items-center justify-between mb-6 animate-fade-in">
@@ -145,6 +148,10 @@ export async function renderFinancials(container) {
               `}
             </tbody>
           </table>
+          <div id="infinite-scroll-sentinel" class="h-4 w-full"></div>
+          <div id="loading-spinner" class="hidden py-4 flex justify-center">
+            <div class="animate-spin rounded-full h-6 w-6 border-2 border-primary-500 border-t-transparent"></div>
+          </div>
         </div>
       </div>
 
@@ -270,6 +277,82 @@ export async function renderFinancials(container) {
       if (tab === 'analysis') loadReports();
     });
   });
+
+  // ── Infinite Scroll Logic ─────────────────────────────
+  const sentinel = document.getElementById('infinite-scroll-sentinel');
+  const spinner = document.getElementById('loading-spinner');
+  const tbody = document.querySelector('#operations-tab tbody');
+
+  const observer = new IntersectionObserver(async (entries) => {
+    if (entries[0].isIntersecting && hasMore && !isLoading) {
+      isLoading = true;
+      spinner.classList.remove('hidden');
+      currentPage++;
+
+      try {
+        const newData = await api.get(`/transactions?limit=30&page=${currentPage}`);
+        const items = newData.items || [];
+
+        if (items.length === 0) {
+          hasMore = false;
+        } else {
+          items.forEach(tx => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td class="text-xs text-surface-500">${formatDate(tx.transaction_date)}</td>
+              <td><div class="font-medium text-surface-900 text-sm">${tx.description}</div></td>
+              <td><span class="badge badge-gray text-xs">${tx.category}</span></td>
+              <td class="text-xs text-surface-500">
+                ${tx.property_id ? `<span class="badge badge-blue text-xs">Propiedad</span>` : `<span class="badge badge-amber text-xs">General</span>`}
+              </td>
+              <td class="text-xs text-surface-500">${tx.transaction_type}</td>
+              <td class="font-semibold ${tx.direction === 'Debit' ? 'text-accent-600' : 'text-rose-600'}">
+                ${tx.direction === 'Debit' ? '+' : '-'}${formatCurrency(tx.amount)}
+              </td>
+              <td>
+                <span class="badge ${tx.direction === 'Debit' ? 'badge-green' : 'badge-red'} text-xs">
+                  ${tx.direction === 'Debit' ? 'Ingreso' : 'Egreso'}
+                </span>
+              </td>
+              <td>
+                <div class="flex items-center gap-1">
+                  <button class="edit-tx-btn p-1.5 rounded-lg hover:bg-primary-50 text-surface-400 hover:text-primary-600 transition" 
+                    data-id="${tx.id}" data-desc="${tx.description}" data-cat="${tx.category}" 
+                    data-amount="${tx.amount}" data-type="${tx.transaction_type}" data-date="${tx.transaction_date}">
+                    <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                  </button>
+                  <button class="delete-tx-btn p-1.5 rounded-lg hover:bg-rose-50 text-surface-400 hover:text-rose-600 transition" 
+                    data-id="${tx.id}" data-desc="${tx.description}">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+              </td>
+            `;
+            tbody.appendChild(tr);
+
+            // Re-attach event listeners for new buttons
+            tr.querySelector('.edit-tx-btn').addEventListener('click', () => {
+              const btn = tr.querySelector('.edit-tx-btn');
+              openEditTransactionModal(btn.dataset.id, btn.dataset.desc, btn.dataset.cat, btn.dataset.amount, btn.dataset.type, btn.dataset.date);
+            });
+            tr.querySelector('.delete-tx-btn').addEventListener('click', () => {
+              const btn = tr.querySelector('.delete-tx-btn');
+              confirmDeleteTransaction(btn.dataset.id, btn.dataset.desc);
+            });
+          });
+          if (window.lucide) lucide.createIcons();
+          if (items.length < 30) hasMore = false;
+        }
+      } catch (err) {
+        console.error('Error loading more transactions:', err);
+      } finally {
+        isLoading = false;
+        spinner.classList.add('hidden');
+      }
+    }
+  }, { threshold: 0.1 });
+
+  if (sentinel) observer.observe(sentinel);
 }
 
 // ══════════════════════════════════════════════════════════

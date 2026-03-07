@@ -188,7 +188,14 @@ def get_budget_vs_actual_report(
         return {"property_id": property_id, "year": year, "month": month, "rows": []}
 
     dist_keys = calculate_distribution_keys(db, property_id)
+    
+    # Check if this property is indeed the 'Gastos Generales' one
+    stmt_gen = select(Property).where(Property.name == GENERAL_PROPERTY_NAME).limit(1)
+    gen_prop = db.execute(stmt_gen).scalar_one_or_none()
+    
     all_prop_ids = list(dist_keys.keys()) + [property_id]
+    if gen_prop and property_id == gen_prop.id:
+        all_prop_ids.append(None) # Include transactions with NO property_id
     
     rows = []
     from sqlalchemy import func
@@ -226,3 +233,13 @@ def get_budget_vs_actual_report(
         "month": month,
         "rows": rows
     }
+
+def delete_budget(db: Session, budget_id: str):
+    budget = get_budget(db, budget_id)
+    if budget:
+        # Delete categories first (though they might be cascade)
+        for cat in budget.categories:
+            db.delete(cat)
+        db.delete(budget)
+        db.commit()
+    return True

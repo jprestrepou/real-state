@@ -62,3 +62,12 @@ def duplicate_budget(
 ):
     """Duplicar presupuesto para otro periodo con incremento opcional."""
     return budget_service.duplicate_budget(db, budget_id, data)
+@router.delete("/{budget_id}", status_code=204)
+def delete_budget(
+    budget_id: str,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
+):
+    """Eliminar presupuesto."""
+    budget_service.delete_budget(db, budget_id)
+    return None
