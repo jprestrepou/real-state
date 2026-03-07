@@ -13,6 +13,7 @@ import { renderMaintenance } from './pages/maintenance.js';
 import { renderContracts } from './pages/contracts.js';
 import { renderBudgets } from './pages/budgets.js';
 import { renderBudgetReport } from './pages/budget_report.js';
+import { renderFacility } from './pages/facility.js';
 
 // ── Global State ────────────────────────────────────────
 const state = {
@@ -29,6 +30,7 @@ const pages = {
     contracts: { title: 'Contratos', subtitle: 'Gestión de arrendamientos', render: renderContracts },
     budgets: { title: 'Presupuestos', subtitle: 'Control presupuestario y semáforo', render: renderBudgets },
     'budget-report': { title: 'Reporte de Presupuesto', subtitle: 'Distribución y cumplimiento detallado', render: renderBudgetReport },
+    facility: { title: 'Facility Management', subtitle: 'Gestión de activos e inspecciones', render: renderFacility },
 };
 
 // ── Router ──────────────────────────────────────────────

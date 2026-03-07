@@ -66,9 +66,9 @@ export async function renderBudgets(container) {
     </div>`;
 
   if (window.lucide) lucide.createIcons();
-  
+
   document.getElementById('add-budget-btn').addEventListener('click', () => openBudgetModal(properties));
-  
+
   document.querySelectorAll('.duplicate-btn').forEach(btn => {
     btn.addEventListener('click', () => openDuplicateModal(btn.dataset.id));
   });
@@ -77,9 +77,9 @@ export async function renderBudgets(container) {
 function openBudgetModal(properties) {
   const year = new Date().getFullYear();
   const month = new Date().getMonth() + 1;
-  
+
   const propertyOptions = properties.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-  
+
   showModal('Nuevo Presupuesto', `<form id="bf" class="space-y-4">
     <div>
       <label class="label">Propiedad *</label>
@@ -88,10 +88,10 @@ function openBudgetModal(properties) {
         ${propertyOptions}
       </select>
     </div>
-    <div class="grid grid-cols-3 gap-4">
+    <div class="grid grid-cols-3 gap-4 items-end">
       <div><label class="label">Año *</label><input class="input" name="year" type="number" value="${year}" required /></div>
       <div><label class="label">Mes *</label><input class="input" name="month" type="number" min="1" max="12" value="${month}" required /></div>
-      <div><label class="label">Total Presupuestado *</label><input class="input" name="total_budget" type="number" step="0.01" required /></div>
+      <div><label class="label">Presupuesto *</label><input class="input" name="total_budget" type="number" step="0.01" required /></div>
     </div>
     <div class="flex items-center gap-2 bg-primary-50 p-3 rounded-xl">
       <input type="checkbox" id="is_annual" name="is_annual" class="w-4 h-4 rounded text-primary-600" />
@@ -115,12 +115,12 @@ function openBudgetModal(properties) {
         const d = r.querySelector('[name="cat_dist"]').checked;
         if (n && a) cats.push({ category_name: n, budgeted_amount: parseFloat(a), is_distributable: d });
       });
-      
-      const payload = { 
-        property_id: fd.get('property_id'), 
-        year: parseInt(fd.get('year')), 
-        month: parseInt(fd.get('month')), 
-        total_budget: parseFloat(fd.get('total_budget')), 
+
+      const payload = {
+        property_id: fd.get('property_id'),
+        year: parseInt(fd.get('year')),
+        month: parseInt(fd.get('month')),
+        total_budget: parseFloat(fd.get('total_budget')),
         categories: cats,
         is_annual: document.getElementById('is_annual').checked
       };
@@ -132,7 +132,7 @@ function openBudgetModal(properties) {
   });
 
   if (window.lucide) lucide.createIcons();
-  
+
   document.getElementById('add-cat-btn').addEventListener('click', () => {
     const list = document.getElementById('cats-list');
     const row = document.createElement('div');
@@ -151,7 +151,7 @@ function openBudgetModal(properties) {
 
 function openDuplicateModal(budgetId) {
   const year = new Date().getFullYear();
-  
+
   showModal('Duplicar Presupuesto', `
     <form id="df" class="space-y-4">
       <p class="text-sm text-surface-500">Duplica los valores de este presupuesto para un nuevo periodo, aplicando un incremento opcional.</p>

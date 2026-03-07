@@ -76,6 +76,8 @@ class Property(Base):
     transactions = relationship("Transaction", back_populates="property")
     maintenance_orders = relationship("MaintenanceOrder", back_populates="property")
     contracts = relationship("Contract", back_populates="property")
+    assets = relationship("Asset", back_populates="property")
+    inspections = relationship("Inspection", back_populates="property")
     budgets = relationship("Budget", back_populates="property_rel")
     sub_units = relationship("Property", backref="parent", remote_side=[id])
 
