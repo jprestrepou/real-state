@@ -41,6 +41,47 @@ def _ensure_general_property(db: Session) -> str:
         db.refresh(prop)
     return prop.id
 
+def _refresh_budget_totals(db: Session, budget: Budget):
+    """
+    Calculates execution totals for a budget and its categories in real-time.
+    """
+    dist_keys = calculate_distribution_keys(db, budget.property_id)
+    stmt_gen = select(Property).where(Property.name == GENERAL_PROPERTY_NAME).limit(1)
+    gen_prop = db.execute(stmt_gen).scalar_one_or_none()
+    
+    all_prop_ids = list(dist_keys.keys()) + [budget.property_id]
+    if gen_prop and budget.property_id == gen_prop.id:
+        all_prop_ids.append(None)
+
+    from sqlalchemy import func
+    total_exec = 0.0
+    for cat in budget.categories:
+        cat_search_terms = [cat.category_name]
+        lower_cat = cat.category_name.lower()
+        if "mantenimiento" in lower_cat:
+            cat_search_terms.extend(["Gastos Mantenimiento", "Mantenimiento General", "Mantenimiento"])
+        elif "administracion" in lower_cat or "administración" in lower_cat:
+            cat_search_terms.extend(["Cuotas de Administración", "Gastos Administrativos", "Honorarios Gestión"])
+        elif "servicio" in lower_cat:
+            cat_search_terms.extend(["Servicios Públicos"])
+        
+        cat_search_terms = list(set(cat_search_terms))
+
+        trans_stmt = select(func.sum(Transaction.amount)).where(
+            and_(
+                Transaction.category.in_(cat_search_terms),
+                Transaction.property_id.in_(all_prop_ids),
+                func.strftime('%Y', Transaction.transaction_date) == str(budget.year),
+                func.strftime('%m', Transaction.transaction_date) == f"{budget.month:02d}"
+            )
+        )
+        cat_actual = float(db.execute(trans_stmt).scalar() or 0.0)
+        cat.executed_amount = cat_actual
+        total_exec += cat_actual
+
+    budget.total_executed = total_exec
+    db.flush()
+
 def list_budgets(db: Session, property_id: Optional[str] = None, year: Optional[int] = None, month: Optional[int] = None):
     stmt = select(Budget)
     filters = []
@@ -54,7 +95,10 @@ def list_budgets(db: Session, property_id: Optional[str] = None, year: Optional[
     if filters:
         stmt = stmt.where(and_(*filters))
     
-    return db.execute(stmt).scalars().all()
+    budgets = db.execute(stmt).scalars().all()
+    for b in budgets:
+        _refresh_budget_totals(db, b)
+    return budgets
 
 def create_budget(db: Session, data: BudgetCreate):
     property_id = data.property_id
@@ -126,7 +170,10 @@ def duplicate_budget(db: Session, budget_id: str, data: BudgetDuplicate):
 
 def get_budget(db: Session, budget_id: str):
     stmt = select(Budget).where(Budget.id == budget_id)
-    return db.execute(stmt).scalar_one_or_none()
+    budget = db.execute(stmt).scalar_one_or_none()
+    if budget:
+        _refresh_budget_totals(db, budget)
+    return budget
 
 def calculate_distribution_keys(db: Session, parent_property_id: str) -> Dict[str, float]:
     """
