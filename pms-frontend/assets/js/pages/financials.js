@@ -587,16 +587,17 @@ function openTransactionModal(accounts, properties = [], isGeneralExpense = fals
         const budget = budgets[0];
         const budgetCats = budget.categories.map(c => c.category_name);
 
-        // Update main category select if it's a Gasto
-        if (form.querySelector('[name="transaction_type"]').value === 'Gasto') {
-          let html = budgetCats.map(c => `<option value="${c}">${c} (Presupuestado)</option>`).join('');
-          html += '<option disabled>──────────</option>';
-          html += categories.map(c => `<option value="${c}">${c}</option>`).join('');
-          catSelect.innerHTML = html;
-        }
+        let html = budgetCats.map(c => `<option value="${c}">${c} (Presupuestado)</option>`).join('');
+        html += '<option disabled>──────────</option>';
+        html += categories.map(c => `<option value="${c}">${c}</option>`).join('');
+        catSelect.innerHTML = html;
+      } else {
+        // Reset to defaults if no budget found
+        catSelect.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
       }
     } catch (err) {
       console.warn('Could not fetch budget categories:', err);
+      catSelect.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
     }
   };
 

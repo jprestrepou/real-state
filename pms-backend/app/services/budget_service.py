@@ -200,9 +200,23 @@ def get_budget_vs_actual_report(
     rows = []
     from sqlalchemy import func
     for cat in budget.categories:
+        # Flexible matching for common categories (like Maintenance)
+        cat_search_terms = [cat.category_name]
+        lower_cat = cat.category_name.lower()
+        if "mantenimiento" in lower_cat:
+            # If the budget says "Mantenimiento", catch "Gastos Mantenimiento" and "Mantenimiento General"
+            cat_search_terms.extend(["Gastos Mantenimiento", "Mantenimiento General", "Mantenimiento"])
+        elif "administracion" in lower_cat or "administración" in lower_cat:
+            cat_search_terms.extend(["Cuotas de Administración", "Gastos Administrativos", "Honorarios Gestión"])
+        elif "servicio" in lower_cat:
+            cat_search_terms.extend(["Servicios Públicos"])
+        
+        # Remove duplicates
+        cat_search_terms = list(set(cat_search_terms))
+
         trans_stmt = select(func.sum(Transaction.amount)).where(
             and_(
-                Transaction.category == cat.category_name,
+                Transaction.category.in_(cat_search_terms),
                 Transaction.property_id.in_(all_prop_ids),
                 # Note: This is simplified. In a real DB, use extract('year', date) or between
                 # Assuming SQLite format YYYY-MM-DD

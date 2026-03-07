@@ -6,10 +6,14 @@ import { formatCurrency, formatDate, statusBadge } from '../utils/formatters.js'
 import { showToast, showModal } from '../components/modal.js';
 
 export async function renderContracts(container) {
-    const data = await api.get('/contracts?limit=50');
-    const contracts = data.items || [];
+  const [contractsData, propertiesData] = await Promise.all([
+    api.get('/contracts?limit=50'),
+    api.get('/properties?limit=100')
+  ]);
+  const contracts = contractsData.items || [];
+  const properties = propertiesData.items || [];
 
-    container.innerHTML = `
+  container.innerHTML = `
     <div class="flex items-center justify-between mb-6 animate-fade-in">
       <select id="fc-status" class="select text-sm py-2 w-40">
         <option value="">Todos</option>
@@ -37,28 +41,34 @@ export async function renderContracts(container) {
       </tr>`).join('') : '<tr><td colspan="7" class="text-center py-12 text-surface-400">No hay contratos</td></tr>'}
       </tbody></table>
     </div>`;
-    if (window.lucide) lucide.createIcons();
+  if (window.lucide) lucide.createIcons();
 
-    document.getElementById('add-contract-btn').addEventListener('click', () => openContractModal());
-    document.querySelectorAll('.activate-btn').forEach(b => b.addEventListener('click', async () => {
-        await api.post(`/contracts/${b.dataset.id}/activate`, {});
-        showToast('Contrato activado', 'success');
-        await renderContracts(container);
-    }));
-    document.querySelectorAll('.payments-btn').forEach(b => b.addEventListener('click', async () => {
-        const payments = await api.get(`/contracts/${b.dataset.id}/payments`);
-        showModal('Cronograma de Pagos', `<div class="max-h-64 overflow-y-auto">
+  document.getElementById('add-contract-btn').addEventListener('click', () => openContractModal(properties));
+  document.querySelectorAll('.activate-btn').forEach(b => b.addEventListener('click', async () => {
+    await api.post(`/contracts/${b.dataset.id}/activate`, {});
+    showToast('Contrato activado', 'success');
+    await renderContracts(container);
+  }));
+  document.querySelectorAll('.payments-btn').forEach(b => b.addEventListener('click', async () => {
+    const payments = await api.get(`/contracts/${b.dataset.id}/payments`);
+    showModal('Cronograma de Pagos', `<div class="max-h-64 overflow-y-auto">
       <table class="data-table text-xs"><thead><tr><th>Fecha</th><th>Monto</th><th>Estado</th></tr></thead><tbody>
       ${payments.map(p => `<tr><td>${formatDate(p.due_date)}</td><td class="font-medium">${formatCurrency(p.amount)}</td>
         <td><span class="badge ${statusBadge(p.status)} text-xs">${p.status}</span></td></tr>`).join('')}
       </tbody></table></div>`, { showCancel: false });
-    }));
+  }));
 }
 
-function openContractModal() {
-    const today = new Date().toISOString().split('T')[0];
-    showModal('Nuevo Contrato', `<form id="cf" class="space-y-4">
-    <div><label class="label">Propiedad ID *</label><input class="input" name="property_id" required /></div>
+function openContractModal(properties = []) {
+  const today = new Date().toISOString().split('T')[0];
+  showModal('Nuevo Contrato', `<form id="cf" class="space-y-4">
+    <div>
+      <label class="label">Propiedad *</label>
+      <select class="select" name="property_id" required>
+        <option value="">Seleccione propiedad...</option>
+        ${properties.map(p => `<option value="${p.id}">${p.name} (${p.property_type})</option>`).join('')}
+      </select>
+    </div>
     <div class="grid grid-cols-2 gap-4">
       <div><label class="label">Arrendatario *</label><input class="input" name="tenant_name" required /></div>
       <div><label class="label">Email</label><input class="input" name="tenant_email" type="email" /></div>
@@ -80,12 +90,12 @@ function openContractModal() {
       <div><label class="label">Incremento Anual %</label><input class="input" name="annual_increment_pct" type="number" step="0.01" value="5" /></div>
     </div>
   </form>`, {
-        confirmText: 'Crear', onConfirm: async () => {
-            const fd = new FormData(document.getElementById('cf')); const p = {};
-            fd.forEach((v, k) => { if (!v) return; p[k] = ['monthly_rent', 'deposit_amount', 'annual_increment_pct'].includes(k) ? parseFloat(v) : v; });
-            p.auto_renewal = false;
-            await api.post('/contracts', p); showToast('Contrato creado', 'success');
-            await renderContracts(document.getElementById('page-content'));
-        }
-    });
+    confirmText: 'Crear', onConfirm: async () => {
+      const fd = new FormData(document.getElementById('cf')); const p = {};
+      fd.forEach((v, k) => { if (!v) return; p[k] = ['monthly_rent', 'deposit_amount', 'annual_increment_pct'].includes(k) ? parseFloat(v) : v; });
+      p.auto_renewal = false;
+      await api.post('/contracts', p); showToast('Contrato creado', 'success');
+      await renderContracts(document.getElementById('page-content'));
+    }
+  });
 }
