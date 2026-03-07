@@ -54,33 +54,55 @@ def _refresh_budget_totals(db: Session, budget: Budget):
     if gen_prop and budget.property_id == gen_prop.id:
         all_prop_ids.append(None)
 
-    from sqlalchemy import func
+    from sqlalchemy import func, extract
+    from app.models.financial import TransactionDirection
+
+    # Optimized: One query for all relevant transactions in the period
+    all_prop_ids_filtered = [pid for pid in all_prop_ids if pid is not None]
+    
+    # Base query for all credit transactions in this period
+    query = select(Transaction.category, func.sum(Transaction.amount)).where(
+        and_(
+            Transaction.direction == TransactionDirection.CREDIT.value,
+            extract('year', Transaction.transaction_date) == budget.year,
+            extract('month', Transaction.transaction_date) == budget.month
+        )
+    )
+
+    # Handle property IDs (including NULL for general expenses if applicable)
+    if None in all_prop_ids:
+        query = query.where(
+            (Transaction.property_id.in_(all_prop_ids_filtered)) | (Transaction.property_id == None)
+        )
+    else:
+        query = query.where(Transaction.property_id.in_(all_prop_ids_filtered))
+
+    query = query.group_by(Transaction.category)
+    results = db.execute(query).all()
+    
+    # Map category names to their sums
+    cat_actuals = {row[0].lower(): float(row[1]) for row in results}
+    
     total_exec = 0.0
     total_budget_sum = 0.0
+
     for cat in budget.categories:
         total_budget_sum += float(cat.budgeted_amount)
-        cat_search_terms = [cat.category_name]
+        
+        # Match transaction categories to budget categories (using search logic)
+        cat_search_terms = {cat.category_name.lower()}
         lower_cat = cat.category_name.lower()
         if "mantenimiento" in lower_cat:
-            cat_search_terms.extend(["Gastos Mantenimiento", "Mantenimiento General", "Mantenimiento"])
+            cat_search_terms.update(["gastos mantenimiento", "mantenimiento general", "mantenimiento"])
         elif "administracion" in lower_cat or "administración" in lower_cat:
-            cat_search_terms.extend(["Cuotas de Administración", "Gastos Administrativos", "Honorarios Gestión"])
+            cat_search_terms.update(["cuotas de administración", "gastos administrativos", "honorarios gestión"])
         elif "servicio" in lower_cat:
-            cat_search_terms.extend(["Servicios Públicos"])
+            cat_search_terms.add("servicios públicos")
         
-        cat_search_terms = list(set(cat_search_terms))
-
-        from app.models.financial import TransactionDirection
-        trans_stmt = select(func.sum(Transaction.amount)).where(
-            and_(
-                Transaction.category.in_(cat_search_terms),
-                Transaction.property_id.in_(all_prop_ids),
-                Transaction.direction == TransactionDirection.CREDIT.value, # Only Expenses
-                func.strftime('%Y', Transaction.transaction_date) == str(budget.year),
-                func.strftime('%m', Transaction.transaction_date) == f"{budget.month:02d}"
-            )
-        )
-        cat_actual = float(db.execute(trans_stmt).scalar() or 0.0)
+        cat_actual = 0.0
+        for term in cat_search_terms:
+            cat_actual += cat_actuals.get(term, 0.0)
+            
         cat.executed_amount = cat_actual
         total_exec += cat_actual
 

@@ -221,7 +221,7 @@ function renderTable(container, budgets, properties, generalPropId, onReload, so
         }
         return (valA > valB ? 1 : -1) * sortDir;
       });
-      renderTable(container, sorted, properties, generalPropId, onReload, field, dir);
+      renderTable(container, sorted, properties, generalPropId, onReload, field, sortDir);
     });
   });
 
@@ -286,6 +286,16 @@ function openBudgetModal(properties, existingBudget = null, onSuccess) {
           <p class="text-[10px] text-primary-600">El total será la suma de los montos de cada categoría configurada.</p>
         </div>
       </div>
+
+      ${!isEdit ? `
+      <div class="flex items-center gap-2 bg-indigo-50 p-3 rounded-xl border border-indigo-100">
+        <input type="checkbox" id="is_annual" name="is_annual" class="w-4 h-4 rounded text-indigo-600" />
+        <div class="flex-1">
+          <label for="is_annual" class="text-sm font-bold text-indigo-900 cursor-pointer">Presupuesto Anualizado</label>
+          <p class="text-[10px] text-indigo-600">Se crearán 12 presupuestos (uno por mes) dividiendo los montos.</p>
+        </div>
+      </div>
+      ` : ''}
       <div id="cats-container" class="pt-4 border-t border-surface-100">
         <div class="flex items-center justify-between mb-2">
           <label class="label mb-0">Categorías Detalladas</label>
