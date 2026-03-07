@@ -131,7 +131,8 @@ def analyze_csv(db: Session, file_content: str) -> dict:
         is_transfer = row.get("transfer", "").strip().lower() == "true"
         if is_transfer:
             transfers_skipped += 1
-            continue
+            # We used to continue here, but that misses account detection and correct row totals.
+            # We will now process them as normal movements.
 
         total_rows += 1
 
@@ -284,10 +285,9 @@ def process_import(
             if not account_name:
                 continue
 
-            # Skip transfers
+            # Process transfers (don't skip them, otherwise balances won't match)
             is_transfer = row.get("transfer", "").strip().lower() == "true"
-            if is_transfer:
-                continue
+            # We don't continue anymore.
 
             csv_category = row.get("category", "General").strip()
             amount_str = row.get("amount", "0").replace(",", ".")
@@ -324,15 +324,18 @@ def process_import(
                 tx_date = date.today()
 
             # Map category
-            mapped_category = map_category(csv_category, note, csv_type)
+            if is_transfer:
+                mapped_category = TransactionCategory.TRANSFERENCIA_INTERNA.value
+                tx_type_val = TransactionType.TRANSFERENCIA.value
+            else:
+                mapped_category = map_category(csv_category, note, csv_type)
+                tx_type_val = TransactionType.INGRESO.value if csv_type.lower() == "ingreso" else TransactionType.GASTO.value
 
             # Map direction
             if csv_type.lower() == "ingreso":
                 direction = TransactionDirection.DEBIT.value
-                tx_type_val = TransactionType.INGRESO.value
             else:
                 direction = TransactionDirection.CREDIT.value
-                tx_type_val = TransactionType.GASTO.value
 
             # Build description with context
             desc_parts = []

@@ -190,19 +190,23 @@ def list_transactions(
     return transactions, total
 
 
+from app.models.financial import TransactionCategory
+
 def get_financial_summary(db: Session, property_id: str | None = None) -> dict:
-    """Get financial summary — total income, expenses, net."""
-    # Income
+    """Get financial summary — total income, expenses, net. Excludes internal transfers."""
+    # Income (Exclude internal transfers)
     income_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
-        Transaction.direction == TransactionDirection.DEBIT.value
+        Transaction.direction == TransactionDirection.DEBIT.value,
+        Transaction.category != TransactionCategory.TRANSFERENCIA_INTERNA.value
     )
     if property_id:
         income_stmt = income_stmt.where(Transaction.property_id == property_id)
     total_income = float(db.execute(income_stmt).scalar() or 0)
 
-    # Expenses
+    # Expenses (Exclude internal transfers)
     expense_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
-        Transaction.direction == TransactionDirection.CREDIT.value
+        Transaction.direction == TransactionDirection.CREDIT.value,
+        Transaction.category != TransactionCategory.TRANSFERENCIA_INTERNA.value
     )
     if property_id:
         expense_stmt = expense_stmt.where(Transaction.property_id == property_id)
@@ -246,9 +250,10 @@ def get_cashflow_report(db: Session, property_id: str | None = None, months: int
         else:
             month_end = month_start.replace(month=month_start.month + 1, day=1) - timedelta(days=1)
 
-        # Income for the month
+        # Income for the month (Exclude transfers)
         inc_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
             Transaction.direction == TransactionDirection.DEBIT.value,
+            Transaction.category != TransactionCategory.TRANSFERENCIA_INTERNA.value,
             Transaction.transaction_date >= month_start,
             Transaction.transaction_date <= month_end,
         )
@@ -256,9 +261,10 @@ def get_cashflow_report(db: Session, property_id: str | None = None, months: int
             inc_stmt = inc_stmt.where(Transaction.property_id == property_id)
         income = float(db.execute(inc_stmt).scalar() or 0)
 
-        # Expenses for the month
+        # Expenses for the month (Exclude transfers)
         exp_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
             Transaction.direction == TransactionDirection.CREDIT.value,
+            Transaction.category != TransactionCategory.TRANSFERENCIA_INTERNA.value,
             Transaction.transaction_date >= month_start,
             Transaction.transaction_date <= month_end,
         )
@@ -402,7 +408,7 @@ def get_balance_sheet(db: Session) -> dict:
 
 def get_income_statement(db: Session, start_date: date, end_date: date) -> dict:
     """P&L for a specific period."""
-    # Group by category
+    # Group by category (Exclude internal transfers)
     stmt = select(
         Transaction.category,
         Transaction.direction,
@@ -410,6 +416,7 @@ def get_income_statement(db: Session, start_date: date, end_date: date) -> dict:
     ).where(
         Transaction.transaction_date >= start_date,
         Transaction.transaction_date <= end_date,
+        Transaction.category != TransactionCategory.TRANSFERENCIA_INTERNA.value
     ).group_by(Transaction.category, Transaction.direction)
 
     results = db.execute(stmt).all()
