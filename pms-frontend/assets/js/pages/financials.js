@@ -488,7 +488,11 @@ async function openAccountDetailModal(accountId, filters = {}) {
         </div>
       </div>
     </div>
-  `, { showCancel: true, confirmText: null });
+  `;
+
+  // Update modal title to account name
+  const modalTitle = document.querySelector('.modal-content h3');
+  if (modalTitle) modalTitle.textContent = `Movimientos: ${account.account_name}`;
 
   if (window.lucide) lucide.createIcons();
 

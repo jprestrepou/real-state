@@ -343,10 +343,8 @@ def get_budget_vs_actual_report(
             and_(
                 Transaction.category.in_(cat_search_terms),
                 Transaction.property_id.in_(all_prop_ids),
-                # Note: This is simplified. In a real DB, use extract('year', date) or between
-                # Assuming SQLite format YYYY-MM-DD
-                func.strftime('%Y', Transaction.transaction_date) == str(year),
-                func.strftime('%m', Transaction.transaction_date) == f"{month:02d}"
+                func.extract('year', Transaction.transaction_date) == year,
+                func.extract('month', Transaction.transaction_date) == month
             )
         )
         actual_total = db.execute(trans_stmt).scalar() or 0.0

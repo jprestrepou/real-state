@@ -586,8 +586,14 @@ def get_account_history(db: Session, account_id: str, months: int = 12, date_fro
     txs_stmt = txs_stmt.order_by(Transaction.transaction_date.desc()).limit(100)
     recent_txs = db.execute(txs_stmt).scalars().all()
 
-    # Balance history (Daily for last 30 days)
-    balance_history = get_account_balance_history(db, account_id, days=30)
+    # Balance history (Dynamic based on date_from, default 30 days)
+    days_bal = 30
+    if date_from and isinstance(date_from, date):
+        days_bal = (today - date_from).days
+        if days_bal < 1: days_bal = 30
+        if days_bal > 365: days_bal = 365
+        
+    balance_history = get_account_balance_history(db, account_id, days=days_bal)
 
     return {
         "account": account,

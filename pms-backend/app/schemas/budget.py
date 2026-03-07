@@ -18,7 +18,7 @@ class BudgetCreate(BaseModel):
     property_id: str
     year: int = Field(ge=2020, le=2100)
     month: int = Field(ge=1, le=12, default=1)
-    total_budget: float = Field(gt=0, default=0.0) # Can be 0 if auto-calculating
+    total_budget: float = Field(ge=0, default=0.0) # Can be 0 if auto-calculating
     categories: list[BudgetCategoryCreate] = []
     notes: Optional[str] = None
     is_annual: bool = False
