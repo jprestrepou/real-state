@@ -36,7 +36,8 @@ const pages = {
 // ── Router ──────────────────────────────────────────────
 function getRouteFromHash() {
     const hash = window.location.hash.replace('#/', '') || 'dashboard';
-    return hash.split('/')[0]; // Get base page name
+    // Remove query params and sub-routes to get the base page name
+    return hash.split('?')[0].split('/')[0];
 }
 
 async function navigate(pageName) {

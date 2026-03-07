@@ -476,7 +476,54 @@ function openTransactionModal(accounts, properties = [], isGeneralExpense = fals
       await renderFinancials(document.getElementById('page-content'));
     },
   });
+
   if (window.lucide) lucide.createIcons();
+
+  const form = document.getElementById('tx-form');
+  const propSelect = form.querySelector('[name="property_id"]');
+  const dateInput = form.querySelector('[name="transaction_date"]');
+  const catSelect = form.querySelector('[name="category"]');
+
+  const updateBudgetCats = async () => {
+    const propId = isGeneralExpense ? 'GENERAL' : propSelect.value;
+    const dateVal = dateInput.value;
+    if (!propId || !dateVal) return;
+
+    const [year, month] = dateVal.split('-').map(Number);
+    try {
+      // Find property ID for general if needed
+      let targetPropId = propId;
+      if (propId === 'GENERAL') {
+        const props = await api.get('/properties?limit=100');
+        const genProp = props.items.find(p => p.name === 'Gastos Generales');
+        if (genProp) targetPropId = genProp.id;
+      }
+
+      const budgets = await api.get(`/budgets?property_id=${targetPropId}&year=${year}&month=${month}`);
+      if (budgets && budgets.length > 0) {
+        const budget = budgets[0];
+        const budgetCats = budget.categories.map(c => c.category_name);
+
+        // Update main category select if it's a Gasto
+        if (form.querySelector('[name="transaction_type"]').value === 'Gasto') {
+          let html = budgetCats.map(c => `<option value="${c}">${c} (Presupuestado)</option>`).join('');
+          html += '<option disabled>──────────</option>';
+          html += categories.map(c => `<option value="${c}">${c}</option>`).join('');
+          catSelect.innerHTML = html;
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch budget categories:', err);
+    }
+  };
+
+  if (propSelect) propSelect.addEventListener('change', updateBudgetCats);
+  dateInput.addEventListener('change', updateBudgetCats);
+  form.querySelector('[name="transaction_type"]').addEventListener('change', updateBudgetCats);
+
+  if (isGeneralExpense || (propSelect && propSelect.value)) {
+    updateBudgetCats();
+  }
 }
 
 function openEditTransactionModal(id, desc, cat, amount, type, txDate) {

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetReport
+from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetReport, BudgetDuplicate
 from app.services import budget_service
 from app.utils.security import get_current_user, require_role
 
