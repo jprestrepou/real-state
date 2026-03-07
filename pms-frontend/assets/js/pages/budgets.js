@@ -19,15 +19,18 @@ export async function renderBudgets(container) {
       <button id="add-budget-btn" class="btn-primary"><i data-lucide="plus" class="w-4 h-4"></i> Nuevo Presupuesto</button>
     </div>
     <div class="grid grid-cols-1 xl:grid-cols-2 gap-6 animate-fade-in">
-      ${budgets.length ? budgets.map(b => `
+      ${budgets.length ? budgets.map(b => {
+    const prop = properties.find(p => p.id === b.property_id);
+    const propName = b.property_id === 'GENERAL' ? 'Gastos Generales' : (prop ? prop.name : b.property_id.slice(0, 8) + '...');
+    return `
         <div class="glass-card-static p-6">
           <div class="flex items-center justify-between mb-4">
             <div>
               <h4 class="font-bold text-surface-900">Año ${b.year} - Mes ${b.month}</h4>
-              <p class="text-xs text-surface-400">Propiedad: ${b.property_id.slice(0, 8)}...</p>
+              <p class="text-xs text-primary-600 font-medium">Propiedad: ${propName}</p>
               <div class="flex gap-2 mt-2">
-                <a href="#/budget-report?property_id=${b.property_id}&year=${b.year}&month=${b.month}" class="text-xs text-primary-600 hover:underline inline-block">Ver Reporte</a>
-                <button class="duplicate-btn text-[10px] bg-slate-100 px-2 py-0.5 rounded hover:bg-slate-200 transition" data-id="${b.id}">Duplicar</button>
+                <a href="#/budget-report?property_id=${b.property_id}&year=${b.year}&month=${b.month}" class="text-xs text-primary-600 hover:underline inline-block font-semibold">Ver Reporte</a>
+                <button class="duplicate-btn text-[10px] bg-slate-100 px-2 py-0.5 rounded hover:bg-slate-200 transition font-medium" data-id="${b.id}">Duplicar</button>
                 <button class="delete-budget-btn text-[10px] bg-rose-50 text-rose-600 px-2 py-0.5 rounded hover:bg-rose-100 transition" data-id="${b.id}"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
               </div>
             </div>
@@ -61,9 +64,10 @@ export async function renderBudgets(container) {
                 </div>
               `).join('')}
             </div>
-          `: ''}
+          ` : ''}
         </div>
-      `).join('') : '<p class="text-surface-400 col-span-2 text-center py-12">No hay presupuestos. Cree uno para empezar.</p>'}
+      `;
+  }).join('') : '<p class="text-surface-400 col-span-2 text-center py-12">No hay presupuestos. Cree uno para empezar.</p>'}
     </div>`;
 
   if (window.lucide) lucide.createIcons();
