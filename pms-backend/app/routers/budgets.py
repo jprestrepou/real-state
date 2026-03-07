@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetReport, BudgetDuplicate
+from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetReport, BudgetDuplicate, BudgetUpdate
 from app.services import budget_service
 from app.utils.security import get_current_user, require_role
 
@@ -42,7 +42,6 @@ def get_budget(
     current_user=Depends(get_current_user),
 ):
     """Obtener detalle de presupuesto con semáforo."""
-    return budget_service.get_budget(db, budget_id)
     return budget_service.get_budget(db, budget_id)
 
 

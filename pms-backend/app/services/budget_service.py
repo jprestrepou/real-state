@@ -157,12 +157,14 @@ def duplicate_budget(db: Session, budget_id: str, data: BudgetDuplicate):
         raise Exception("Presupuesto origen no encontrado")
 
     multiplier = 1 + (data.percentage_increase / 100.0)
+    target_prop = data.target_property_id or source.property_id
     
     new_budget = Budget(
-        property_id=source.property_id,
+        property_id=target_prop,
         year=data.target_year,
         month=data.target_month,
         total_budget=float(source.total_budget) * multiplier,
+        auto_calculate_total=source.auto_calculate_total,
         notes=source.notes
     )
     db.add(new_budget)

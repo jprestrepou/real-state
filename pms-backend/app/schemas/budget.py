@@ -35,6 +35,7 @@ class BudgetUpdate(BaseModel):
 class BudgetDuplicate(BaseModel):
     target_year: int = Field(ge=2020, le=2100)
     target_month: int = Field(ge=1, le=12)
+    target_property_id: Optional[str] = None
     percentage_increase: float = Field(default=0.0)
 
 

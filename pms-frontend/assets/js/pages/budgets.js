@@ -109,7 +109,7 @@ export async function renderBudgets(container) {
   loadContent();
 }
 
-function renderTable(container, budgets, properties, generalPropId, onReload) {
+function renderTable(container, budgets, properties, generalPropId, onReload, sortField = '', sortDir = 1) {
   if (!budgets.length) {
     container.innerHTML = `<div class="py-20 text-center text-surface-400">No se encontraron presupuestos con los filtros seleccionados.</div>`;
     return;
@@ -119,12 +119,22 @@ function renderTable(container, budgets, properties, generalPropId, onReload) {
     <table class="data-table">
       <thead>
         <tr>
-          <th>Propiedad</th>
-          <th>Periodo</th>
-          <th>Estado</th>
-          <th>Presupuesto</th>
+          <th class="sortable cursor-pointer hover:bg-surface-100" data-sort="property">
+            Propiedad ${sortField === 'property' ? `<i data-lucide="chevron-${sortDir === 1 ? 'up' : 'down'}" class="w-3 h-3 inline ml-1"></i>` : '<i data-lucide="chevrons-up-down" class="w-3 h-3 inline ml-1 opacity-50"></i>'}
+          </th>
+          <th class="sortable cursor-pointer hover:bg-surface-100" data-sort="date">
+            Periodo ${sortField === 'date' ? `<i data-lucide="chevron-${sortDir === 1 ? 'up' : 'down'}" class="w-3 h-3 inline ml-1"></i>` : '<i data-lucide="chevrons-up-down" class="w-3 h-3 inline ml-1 opacity-50"></i>'}
+          </th>
+          <th class="sortable cursor-pointer hover:bg-surface-100" data-sort="status">
+            Estado ${sortField === 'status' ? `<i data-lucide="chevron-${sortDir === 1 ? 'up' : 'down'}" class="w-3 h-3 inline ml-1"></i>` : '<i data-lucide="chevrons-up-down" class="w-3 h-3 inline ml-1 opacity-50"></i>'}
+          </th>
+          <th class="sortable cursor-pointer hover:bg-surface-100" data-sort="budget">
+            Presupuesto ${sortField === 'budget' ? `<i data-lucide="chevron-${sortDir === 1 ? 'up' : 'down'}" class="w-3 h-3 inline ml-1"></i>` : '<i data-lucide="chevrons-up-down" class="w-3 h-3 inline ml-1 opacity-50"></i>'}
+          </th>
           <th>Ejecutado</th>
-          <th>% Ejecución</th>
+          <th class="sortable cursor-pointer hover:bg-surface-100" data-sort="pct">
+            % Ejecución ${sortField === 'pct' ? `<i data-lucide="chevron-${sortDir === 1 ? 'up' : 'down'}" class="w-3 h-3 inline ml-1"></i>` : '<i data-lucide="chevrons-up-down" class="w-3 h-3 inline ml-1 opacity-50"></i>'}
+          </th>
           <th class="text-right">Acciones</th>
         </tr>
       </thead>
@@ -187,6 +197,37 @@ function renderTable(container, budgets, properties, generalPropId, onReload) {
 
   if (window.lucide) lucide.createIcons();
 
+  // Sorting logic
+  let sortField = '';
+  let sortDir = 1;
+
+  container.querySelectorAll('th.sortable').forEach(th => {
+    th.addEventListener('click', () => {
+      const field = th.dataset.sort;
+      if (sortField === field) sortDir *= -1;
+      else { sortField = field; sortDir = 1; }
+
+      const sorted = [...budgets].sort((a, b) => {
+        let valA, valB;
+        if (field === 'property') {
+          valA = properties.find(p => p.id === a.property_id)?.name || '';
+          valB = properties.find(p => p.id === b.property_id)?.name || '';
+        } else if (field === 'date') {
+          valA = a.year * 100 + a.month;
+          valB = b.year * 100 + b.month;
+        } else if (field === 'status') {
+          valA = a.semaphore; valB = b.semaphore;
+        } else if (field === 'budget') {
+          valA = a.total_budget; valB = b.total_budget;
+        } else if (field === 'pct') {
+          valA = a.execution_pct; valB = b.execution_pct;
+        }
+        return (valA > valB ? 1 : -1) * sortDir;
+      });
+      renderTable(container, sorted, properties, generalPropId, onReload, field, dir);
+    });
+  });
+
   // Attach event listeners
   container.querySelectorAll('.edit-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -196,7 +237,10 @@ function renderTable(container, budgets, properties, generalPropId, onReload) {
   });
 
   container.querySelectorAll('.duplicate-btn').forEach(btn => {
-    btn.addEventListener('click', () => openDuplicateModal(btn.dataset.id, onReload));
+    btn.addEventListener('click', () => {
+      const budget = budgets.find(x => x.id === btn.dataset.id);
+      openDuplicateModal(properties, budget, onReload);
+    });
   });
 
   container.querySelectorAll('.delete-budget-btn').forEach(btn => {
@@ -365,14 +409,25 @@ document.addEventListener('catChange', () => {
   }
 });
 
-function openDuplicateModal(budgetId, onSuccess) {
+function openDuplicateModal(properties, sourceBudget, onSuccess) {
   const year = new Date().getFullYear();
+  const propertyOptions = properties.map(p => `<option value="${p.id}" ${sourceBudget.property_id === p.id ? 'selected' : ''}>${p.name}</option>`).join('');
+
   showModal('Duplicar Periodo', `
     <form id="df" class="space-y-4">
       <div class="bg-indigo-50 p-3 rounded-xl border border-indigo-100 mb-4 flex gap-3 items-center">
         <i data-lucide="copy" class="w-5 h-5 text-indigo-600"></i>
         <p class="text-xs text-indigo-700">Copia este presupuesto a un nuevo mes/año con un ajuste opcional.</p>
       </div>
+      
+      <div>
+        <label class="label">Propiedad Destino *</label>
+        <select class="select" name="target_property_id" required>
+          <option value="GENERAL" ${sourceBudget.property_id === 'GENERAL' ? 'selected' : ''}>Gastos Generales (Distribuible)</option>
+          ${propertyOptions}
+        </select>
+      </div>
+
       <div class="grid grid-cols-2 gap-4">
         <div><label class="label">Año Destino *</label><input class="input" name="target_year" type="number" value="${year}" required /></div>
         <div><label class="label">Mes Destino *</label><input class="input" name="target_month" type="number" min="1" max="12" value="1" required /></div>
@@ -392,9 +447,10 @@ function openDuplicateModal(budgetId, onSuccess) {
       const payload = {
         target_year: parseInt(fd.get('target_year')),
         target_month: parseInt(fd.get('target_month')),
+        target_property_id: fd.get('target_property_id'),
         percentage_increase: parseFloat(fd.get('percentage_increase') || 0)
       };
-      await api.post(`/budgets/${budgetId}/duplicate`, payload);
+      await api.post(`/budgets/${sourceBudget.id}/duplicate`, payload);
       showToast('Presupuesto duplicado', 'success');
       if (onSuccess) onSuccess();
     }
