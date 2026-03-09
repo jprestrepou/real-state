@@ -20,7 +20,7 @@ def _format_currency(value: float) -> str:
     """Basic currency formatter: $ X.XXX.XXX,XX"""
     return "${:,.2f}".format(value).replace(",", "X").replace(".", ",").replace("X", ".")
 
-def generate_contract_pdf(contract: Contract) -> str:
+async def generate_contract_pdf(contract: Contract) -> str:
     """
     Generates a professional formal PDF for the contract using Platypus.
     """
@@ -36,7 +36,6 @@ def generate_contract_pdf(contract: Contract) -> str:
 
     styles = getSampleStyleSheet()
     
-    # Custom styles
     title_style = ParagraphStyle(
         'TitleStyle',
         parent=styles['Heading1'],
@@ -63,11 +62,9 @@ def generate_contract_pdf(contract: Contract) -> str:
 
     story = []
 
-    # ── Header ───────────────────────────────────────────
     story.append(Paragraph("CONTRATO DE ARRENDAMIENTO DE VIVIENDA URBANA", title_style))
     story.append(Spacer(1, 0.2 * inch))
 
-    # ── General Info ─────────────────────────────────────
     prop = contract.property
     landlord_name = prop.owner.full_name if prop.owner else "ADMINISTRADOR"
     
@@ -92,7 +89,6 @@ def generate_contract_pdf(contract: Contract) -> str:
     story.append(t)
     story.append(Spacer(1, 0.3 * inch))
 
-    # ── Clauses ──────────────────────────────────────────
     clauses = [
         ("PRIMERA - OBJETO:", f"El Arrendador entrega al Arrendatario el uso y goce de la propiedad ubicada en {prop.address}, {prop.city}, destinada exclusivamente a vivienda urbana."),
         ("SEGUNDA - CANON DE ARRENDAMIENTO:", f"El precio mensual del arrendamiento es la suma de {_format_currency(float(contract.monthly_rent))} moneda corriente, pagaderos anticipadamente dentro de los primeros (5) días de cada periodo mensual."),
@@ -110,7 +106,6 @@ def generate_contract_pdf(contract: Contract) -> str:
 
     story.append(Spacer(1, 0.5 * inch))
 
-    # ── Signatures ───────────────────────────────────────
     sig_data = [
         ["__________________________", "__________________________"],
         ["EL ARRENDADOR", "EL ARRENDATARIO"],
@@ -126,12 +121,11 @@ def generate_contract_pdf(contract: Contract) -> str:
     ]))
     story.append(sig_table)
 
-    # ── Build PDF ────────────────────────────────────────
     doc.build(story)
 
     return filepath
 
-def generate_termination_letter(contract: Contract, reason: str, termination_date: date) -> str:
+async def generate_termination_letter(contract: Contract, reason: str, termination_date: date) -> str:
     """
     Generates a formal contract termination letter.
     """
@@ -151,7 +145,6 @@ def generate_termination_letter(contract: Contract, reason: str, termination_dat
 
     story = []
     
-    # Header
     today_str = date.today().strftime('%d de %B de %Y')
     story.append(Paragraph(f"Ciudad y Fecha: {contract.property.city}, {today_str}", body_style))
     story.append(Spacer(1, 0.3 * inch))
@@ -160,7 +153,6 @@ def generate_termination_letter(contract: Contract, reason: str, termination_dat
     story.append(Paragraph(f"Ref: <b>Aviso de Terminación de Contrato de Arrendamiento</b>", body_style))
     story.append(Spacer(1, 0.3 * inch))
 
-    # Body
     text = (
         f"Respetado(a) Señor(a):<br/><br/>"
         f"Por medio de la presente, actuando en calidad de arrendador del inmueble ubicado en la "
@@ -183,7 +175,6 @@ def generate_termination_letter(contract: Contract, reason: str, termination_dat
     story.append(Paragraph(closing, body_style))
     story.append(Spacer(1, 0.5 * inch))
 
-    # Signatures
     story.append(Paragraph("Cordialmente,", body_style))
     story.append(Spacer(1, 0.4 * inch))
     story.append(Paragraph("_________________________<br/><b>EL ARRENDADOR</b>", body_style))
@@ -192,7 +183,7 @@ def generate_termination_letter(contract: Contract, reason: str, termination_dat
     return filepath
 
 
-def generate_inventory_report(prop: Property, check_type: str, items: list[dict], notes: str) -> str:
+async def generate_inventory_report(prop: Property, check_type: str, items: list[dict], notes: str) -> str:
     """
     Generates a Check-In / Check-Out inventory report.
     check_type is expected to be "Check-In" or "Check-Out"
@@ -249,7 +240,6 @@ def generate_inventory_report(prop: Property, check_type: str, items: list[dict]
         story.append(Paragraph(notes, body_style))
         story.append(Spacer(1, 0.3 * inch))
 
-    # Signatures
     story.append(Paragraph("Con la firma de este documento, las partes aceptan el estado reportado del inmueble.", body_style))
     story.append(Spacer(1, 0.5 * inch))
     

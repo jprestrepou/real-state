@@ -8,6 +8,13 @@ from app.models.notification import Notification
 from app.models.contact import Contact, ContactType
 from app.models.work_group import WorkGroup, WorkGroupMember, WorkGroupProperty, WorkGroupRole
 from app.models.audit import AuditLog
+from app.models.occupant import PropertyOccupant
+from app.models.asset import Asset
+from app.models.inspection import Inspection
+from app.models.insurance import InsurancePolicy
+from app.models.inventory import PropertyInventory, InventoryItem, InventoryPhoto
+from app.models.scoring import TenantScoring
+from app.models.contract_components import ContractSignature, TerminationLetter
 
 __all__ = [
     "User",
@@ -27,4 +34,14 @@ __all__ = [
     "WorkGroupProperty",
     "WorkGroupRole",
     "AuditLog",
+    "PropertyOccupant",
+    "Asset",
+    "Inspection",
+    "InsurancePolicy",
+    "PropertyInventory",
+    "InventoryItem",
+    "InventoryPhoto",
+    "TenantScoring",
+    "ContractSignature",
+    "TerminationLetter",
 ]

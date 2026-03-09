@@ -15,6 +15,11 @@ _is_sqlite = settings.DATABASE_URL.startswith("sqlite")
 # Adjust URL for async driver
 if _is_sqlite:
     async_database_url = settings.DATABASE_URL.replace("sqlite://", "sqlite+aiosqlite://")
+elif settings.DATABASE_URL.startswith("postgres://"):
+    # Fix for Render/Heroku postgres URLs + asyncpg
+    async_database_url = settings.DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+elif settings.DATABASE_URL.startswith("postgresql://"):
+    async_database_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 else:
     async_database_url = settings.DATABASE_URL
 

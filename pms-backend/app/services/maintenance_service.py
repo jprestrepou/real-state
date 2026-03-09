@@ -3,7 +3,7 @@ Maintenance service — lifecycle management for work orders.
 """
 
 from datetime import date
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from fastapi import HTTPException, status
 
@@ -13,8 +13,8 @@ from app.schemas.financial import TransactionCreate
 from app.models.financial import TransactionDirection, TransactionType
 
 
-def list_maintenance(
-    db: Session,
+async def list_maintenance(
+    db: AsyncSession,
     property_id: str | None = None,
     status_filter: str | None = None,
     maintenance_type: str | None = None,
@@ -30,68 +30,71 @@ def list_maintenance(
         stmt = stmt.where(MaintenanceOrder.maintenance_type == maintenance_type)
 
     count_stmt = select(func.count()).select_from(stmt.subquery())
-    total = db.execute(count_stmt).scalar() or 0
+    result = await db.execute(count_stmt)
+    total = result.scalar() or 0
 
     stmt = stmt.order_by(MaintenanceOrder.created_at.desc()).offset((page - 1) * limit).limit(limit)
-    orders = db.execute(stmt).scalars().all()
+    result = await db.execute(stmt)
+    orders = result.scalars().all()
     return orders, total
 
 
-def get_maintenance(db: Session, order_id: str) -> MaintenanceOrder:
+async def get_maintenance(db: AsyncSession, order_id: str) -> MaintenanceOrder:
     stmt = select(MaintenanceOrder).where(MaintenanceOrder.id == order_id)
-    order = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Orden de mantenimiento no encontrada")
     return order
 
 
-def create_maintenance(db: Session, data: MaintenanceCreate, user_id: str) -> MaintenanceOrder:
+async def create_maintenance(db: AsyncSession, data: MaintenanceCreate, user_id: str) -> MaintenanceOrder:
     order = MaintenanceOrder(
         **data.model_dump(),
         created_by=user_id,
     )
     db.add(order)
-    db.commit()
-    db.refresh(order)
+    await db.commit()
+    await db.refresh(order)
     return order
 
 
-def update_maintenance(db: Session, order_id: str, data: MaintenanceUpdate) -> MaintenanceOrder:
-    order = get_maintenance(db, order_id)
+async def update_maintenance(db: AsyncSession, order_id: str, data: MaintenanceUpdate) -> MaintenanceOrder:
+    order = await get_maintenance(db, order_id)
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(order, key, value)
-    db.commit()
-    db.refresh(order)
+    await db.commit()
+    await db.refresh(order)
     return order
 
 
-def update_status(db: Session, order_id: str, new_status: str, notes: str | None = None) -> MaintenanceOrder:
-    order = get_maintenance(db, order_id)
+async def update_status(db: AsyncSession, order_id: str, new_status: str, notes: str | None = None) -> MaintenanceOrder:
+    order = await get_maintenance(db, order_id)
     order.status = new_status
     if notes:
         order.notes = (order.notes or "") + f"\n[{date.today()}] {notes}"
     if new_status == MaintenanceStatus.COMPLETADO.value:
         order.completed_date = date.today()
-    db.commit()
-    db.refresh(order)
+    await db.commit()
+    await db.refresh(order)
     return order
 
 
-def complete_maintenance(
-    db: Session, order_id: str, actual_cost: float, account_id: str, user_id: str, notes: str | None = None
+async def complete_maintenance(
+    db: AsyncSession, order_id: str, actual_cost: float, account_id: str, user_id: str, notes: str | None = None
 ) -> MaintenanceOrder:
     """Complete a maintenance order and register expense in ledger."""
     from app.services.ledger_service import register_transaction
 
-    order = get_maintenance(db, order_id)
+    order = await get_maintenance(db, order_id)
     order.status = MaintenanceStatus.COMPLETADO.value
     order.actual_cost = actual_cost
     order.completed_date = date.today()
     if notes:
         order.notes = (order.notes or "") + f"\n[{date.today()}] Completado: {notes}"
 
-    # Auto-register expense in ledger
+    # Auto-register expense in ledger - ATOMIC (Rule #5)
     tx_data = TransactionCreate(
         account_id=account_id,
         property_id=order.property_id,
@@ -104,15 +107,14 @@ def complete_maintenance(
         reference_type="maintenance",
         transaction_date=date.today(),
     )
-    # Auto-register expense in ledger - ATOMIC (Rule #5)
-    register_transaction(db, tx_data, user_id, commit=False)
+    await register_transaction(db, tx_data, user_id, commit=False)
 
-    db.commit()
-    db.refresh(order)
+    await db.commit()
+    await db.refresh(order)
     return order
 
 
-def get_calendar(db: Session, property_id: str | None = None) -> list[dict]:
+async def get_calendar(db: AsyncSession, property_id: str | None = None) -> list[dict]:
     """Get maintenance calendar (scheduled/preventive orders)."""
     stmt = select(MaintenanceOrder).where(
         MaintenanceOrder.status.in_([
@@ -124,7 +126,9 @@ def get_calendar(db: Session, property_id: str | None = None) -> list[dict]:
     if property_id:
         stmt = stmt.where(MaintenanceOrder.property_id == property_id)
 
-    orders = db.execute(stmt).scalars().all()
+    result = await db.execute(stmt)
+    orders = result.scalars().all()
+    
     return [
         {
             "id": o.id,

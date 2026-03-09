@@ -4,7 +4,7 @@ Contract service — lease management + payment schedule generation.
 
 from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from fastapi import HTTPException
 
@@ -15,11 +15,10 @@ from app.tasks.email_tasks import send_contract_revision_email, send_contract_si
 import hashlib
 from datetime import datetime
 
-
 from app.models.property import Property
 
-def list_contracts(
-    db: Session,
+async def list_contracts(
+    db: AsyncSession,
     property_id: str | None = None,
     status_filter: str | None = None,
     page: int = 1,
@@ -32,49 +31,55 @@ def list_contracts(
         stmt = stmt.where(Contract.status == status_filter)
 
     count_stmt = select(func.count()).select_from(stmt.subquery())
-    total = db.execute(count_stmt).scalar() or 0
+    result = await db.execute(count_stmt)
+    total = result.scalar() or 0
 
     stmt = stmt.order_by(Contract.created_at.desc()).offset((page - 1) * limit).limit(limit)
-    # We want the objects, but with property attributes accessible
-    contracts = db.execute(stmt).scalars().all()
+    result = await db.execute(stmt)
+    contracts = result.scalars().all()
+    
+    # Enrich with property info
     for c in contracts:
-        c.property_name = c.property.name
-        c.property_address = c.property.address
+        # Load property if not already loaded (though join helped)
+        # In async, we should be careful with lazy loading
+        c.property_name = c.property.name if c.property else "Sin asignar"
+        c.property_address = c.property.address if c.property else ""
     return contracts, total
 
 
-def get_contract(db: Session, contract_id: str) -> Contract:
+async def get_contract(db: AsyncSession, contract_id: str) -> Contract:
     stmt = select(Contract).where(Contract.id == contract_id)
-    contract = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    contract = result.scalar_one_or_none()
     if not contract:
         raise HTTPException(status_code=404, detail="Contrato no encontrado")
     
-    # Enrich with property info
-    contract.property_name = contract.property.name
-    contract.property_address = contract.property.address
+    # Enrich
+    contract.property_name = contract.property.name if contract.property else "Sin asignar"
+    contract.property_address = contract.property.address if contract.property else ""
     return contract
 
 
-def create_contract(db: Session, data: ContractCreate, user_id: str) -> Contract:
+async def create_contract(db: AsyncSession, data: ContractCreate, user_id: str) -> Contract:
     contract = Contract(
         **data.model_dump(),
         created_by=user_id,
     )
     db.add(contract)
-    db.flush()
+    await db.flush()
 
     # Generate payment schedule if contract is active
     if contract.status == ContractStatus.ACTIVO.value:
-        _generate_payment_schedule(db, contract)
+        await _generate_payment_schedule(db, contract)
 
-    db.commit()
-    db.refresh(contract)
+    await db.commit()
+    await db.refresh(contract)
     return contract
 
 
-def activate_contract(db: Session, contract_id: str) -> Contract:
+async def activate_contract(db: AsyncSession, contract_id: str) -> Contract:
     """Activate a contract (must be Firmado) and generate payment schedule."""
-    contract = get_contract(db, contract_id)
+    contract = await get_contract(db, contract_id)
     if contract.status != ContractStatus.FIRMADO.value:
         raise HTTPException(status_code=400, detail="Solo se pueden activar contratos firmados")
 
@@ -82,18 +87,20 @@ def activate_contract(db: Session, contract_id: str) -> Contract:
 
     # Update property status to Arrendada
     from app.models.property import Property, PropertyStatus
-    prop = db.execute(select(Property).where(Property.id == contract.property_id)).scalar_one_or_none()
+    stmt = select(Property).where(Property.id == contract.property_id)
+    result = await db.execute(stmt)
+    prop = result.scalar_one_or_none()
     if prop:
         prop.status = PropertyStatus.ARRENDADA.value
 
-    _generate_payment_schedule(db, contract)
+    await _generate_payment_schedule(db, contract)
 
-    db.commit()
-    db.refresh(contract)
+    await db.commit()
+    await db.refresh(contract)
     return contract
 
-def send_contract_for_signature(db: Session, contract_id: str) -> Contract:
-    contract = get_contract(db, contract_id)
+async def send_contract_for_signature(db: AsyncSession, contract_id: str) -> Contract:
+    contract = await get_contract(db, contract_id)
     if contract.status != ContractStatus.BORRADOR.value:
         raise HTTPException(status_code=400, detail="Solo se pueden enviar a firma contratos en borrador")
     
@@ -101,7 +108,7 @@ def send_contract_for_signature(db: Session, contract_id: str) -> Contract:
     
     try:
         if not contract.pdf_file:
-            pdf_path = generate_contract_pdf(contract)
+            pdf_path = await generate_contract_pdf(contract)
             contract.pdf_file = pdf_path
             
         recipients = [contract.tenant_email] if contract.tenant_email else []
@@ -112,12 +119,12 @@ def send_contract_for_signature(db: Session, contract_id: str) -> Contract:
     except Exception as e:
         print(f"Error sending signature request: {e}")
 
-    db.commit()
-    db.refresh(contract)
+    await db.commit()
+    await db.refresh(contract)
     return contract
 
-def sign_contract(db: Session, contract_id: str, data: ContractSignRequest, ip_address: str) -> Contract:
-    contract = get_contract(db, contract_id)
+async def sign_contract(db: AsyncSession, contract_id: str, data: ContractSignRequest, ip_address: str) -> Contract:
+    contract = await get_contract(db, contract_id)
     if contract.status != ContractStatus.ENVIADO_A_FIRMA.value:
         raise HTTPException(status_code=400, detail="El contrato no está pendiente de firma")
         
@@ -132,30 +139,30 @@ def sign_contract(db: Session, contract_id: str, data: ContractSignRequest, ip_a
     base_string = f"{contract.id}|{data.tenant_email}|{contract.signed_at.isoformat()}"
     contract.signature_hash = hashlib.sha256(base_string.encode()).hexdigest()
     
-    db.commit()
-    db.refresh(contract)
+    await db.commit()
+    await db.refresh(contract)
     return contract
 
 
-
-def update_contract(db: Session, contract_id: str, data: ContractUpdate) -> Contract:
-    contract = get_contract(db, contract_id)
+async def update_contract(db: AsyncSession, contract_id: str, data: ContractUpdate) -> Contract:
+    contract = await get_contract(db, contract_id)
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(contract, key, value)
-    db.commit()
-    db.refresh(contract)
+    await db.commit()
+    await db.refresh(contract)
     return contract
 
 
-def get_payment_schedules(db: Session, contract_id: str) -> list[PaymentSchedule]:
+async def get_payment_schedules(db: AsyncSession, contract_id: str) -> list[PaymentSchedule]:
     stmt = select(PaymentSchedule).where(
         PaymentSchedule.contract_id == contract_id
     ).order_by(PaymentSchedule.due_date)
-    return list(db.execute(stmt).scalars().all())
+    result = await db.execute(stmt)
+    return list(result.scalars().all())
 
 
-def _generate_payment_schedule(db: Session, contract: Contract) -> None:
+async def _generate_payment_schedule(db: AsyncSession, contract: Contract) -> None:
     """Generate monthly payment rows from contract start to end date."""
     current = contract.start_date
     end = contract.end_date
@@ -182,12 +189,13 @@ def _generate_payment_schedule(db: Session, contract: Contract) -> None:
         current = current + relativedelta(months=1)
 
 
-def mark_payment_as_paid(db: Session, payment_id: str, account_id: str) -> PaymentSchedule:
+async def mark_payment_as_paid(db: AsyncSession, payment_id: str, account_id: str) -> PaymentSchedule:
     """
     Mark a payment as paid and register a transaction in the financial module.
     """
     stmt = select(PaymentSchedule).where(PaymentSchedule.id == payment_id)
-    payment = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    payment = result.scalar_one_or_none()
     if not payment:
         raise HTTPException(status_code=404, detail="Pago no encontrado")
         
@@ -204,7 +212,7 @@ def mark_payment_as_paid(db: Session, payment_id: str, account_id: str) -> Payme
     
     contract = payment.contract
     
-    transaction = ledger_service.register_transaction(
+    transaction = await ledger_service.register_transaction(
         db,
         data=TransactionCreate(
             account_id=account_id,
@@ -226,6 +234,6 @@ def mark_payment_as_paid(db: Session, payment_id: str, account_id: str) -> Payme
     payment.paid_date = date.today()
     payment.transaction_id = transaction.id
     
-    db.commit()
-    db.refresh(payment)
+    await db.commit()
+    await db.refresh(payment)
     return payment

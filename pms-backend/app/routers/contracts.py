@@ -3,7 +3,9 @@ Contracts router — /api/v1/contracts endpoints.
 """
 
 from fastapi import APIRouter, Depends, Query, Request, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.responses import StreamingResponse
+import io
 
 from app.database import get_db
 from pydantic import BaseModel
@@ -18,16 +20,16 @@ router = APIRouter(prefix="/contracts", tags=["Contratos"])
 
 
 @router.get("", response_model=dict)
-def list_contracts(
+async def list_contracts(
     property_id: str | None = None,
     status: str | None = None,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Listar contratos."""
-    contracts, total = contract_service.list_contracts(db, property_id, status, page, limit)
+    contracts, total = await contract_service.list_contracts(db, property_id, status, page, limit)
     return {
         "items": [ContractResponse.model_validate(c) for c in contracts],
         "total": total,
@@ -37,66 +39,95 @@ def list_contracts(
 
 
 @router.post("", response_model=ContractResponse, status_code=201)
-def create_contract(
+async def create_contract(
     data: ContractCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
 ):
     """Crear nuevo contrato."""
-    return contract_service.create_contract(db, data, current_user.id)
+    return await contract_service.create_contract(db, data, current_user.id)
 
 
 @router.get("/{contract_id}", response_model=ContractResponse)
-def get_contract(
+async def get_contract(
     contract_id: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Obtener detalle de un contrato."""
-    return contract_service.get_contract(db, contract_id)
+    return await contract_service.get_contract(db, contract_id)
+
+@router.get("/{contract_id}/download")
+async def download_contract_pdf(
+    contract_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Descargar el PDF original del contrato."""
+    contract = await contract_service.get_contract(db, contract_id)
+    if not contract.pdf_file:
+        from app.services.pdf_service import generate_contract_pdf
+        contract.pdf_file = await generate_contract_pdf(contract)
+        # Update db if needed, but for now just serve
+        
+    import os
+    if not os.path.exists(contract.pdf_file):
+         from app.services.pdf_service import generate_contract_pdf
+         contract.pdf_file = await generate_contract_pdf(contract)
+
+    with open(contract.pdf_file, "rb") as f:
+        pdf_bytes = f.read()
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="contrato_{contract_id}.pdf"'
+        }
+    )
 
 
 @router.put("/{contract_id}", response_model=ContractResponse)
-def update_contract(
+async def update_contract(
     contract_id: str,
     data: ContractUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario")),
 ):
     """Actualizar contrato."""
-    return contract_service.update_contract(db, contract_id, data)
+    return await contract_service.update_contract(db, contract_id, data)
 
 
 @router.post("/{contract_id}/activate", response_model=ContractResponse)
-def activate_contract(
+async def activate_contract(
     contract_id: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario")),
 ):
     """Activar contrato firmado y generar cronograma de pagos."""
-    return contract_service.activate_contract(db, contract_id)
+    return await contract_service.activate_contract(db, contract_id)
 
 
 @router.post("/{contract_id}/send-signature", response_model=ContractResponse)
-def send_for_signature(
+async def send_for_signature(
     contract_id: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
 ):
     """Enviar contrato a firma (simula envío de notificaciones)."""
-    return contract_service.send_contract_for_signature(db, contract_id)
+    return await contract_service.send_contract_for_signature(db, contract_id)
 
 
 @router.post("/{contract_id}/sign", response_model=ContractResponse)
-def sign_contract(
+async def sign_contract(
     contract_id: str,
     data: ContractSignRequest,
     request: Request,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """Simular la firma de un contrato aportando validaciones del inquilino."""
     client_ip = request.client.host if request.client else "unknown"
-    return contract_service.sign_contract(db, contract_id, data, client_ip)
+    return await contract_service.sign_contract(db, contract_id, data, client_ip)
 
 
 class TerminationRequest(BaseModel):
@@ -104,38 +135,38 @@ class TerminationRequest(BaseModel):
     termination_date: date
 
 @router.post("/{contract_id}/termination-letter", response_model=dict)
-def generate_termination(
+async def generate_termination(
     contract_id: str,
     data: TerminationRequest,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
 ):
     """Generar carta de terminación de contrato (PDF)."""
-    contract = contract_service.get_contract(db, contract_id)
+    contract = await contract_service.get_contract(db, contract_id)
     if not contract:
         raise HTTPException(status_code=404, detail="Contrato no encontrado")
         
     from app.services.pdf_service import generate_termination_letter
-    pdf_path = generate_termination_letter(contract, data.reason, data.termination_date)
+    pdf_path = await generate_termination_letter(contract, data.reason, data.termination_date)
     return {"message": "Carta generada", "pdf_url": f"/{pdf_path}"}
 
 @router.get("/{contract_id}/payments", response_model=list[PaymentScheduleResponse])
-def get_payment_schedules(
+async def get_payment_schedules(
     contract_id: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Obtener cronograma de pagos de un contrato."""
-    return contract_service.get_payment_schedules(db, contract_id)
+    return await contract_service.get_payment_schedules(db, contract_id)
 
 
 @router.post("/{contract_id}/payments/{payment_id}/pay", response_model=PaymentScheduleResponse)
-def mark_payment_as_paid(
+async def mark_payment_as_paid(
     contract_id: str,
     payment_id: str,
     account_id: str = Query(..., description="ID de la cuenta donde se recibe el pago"),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
 ):
     """Marcar un pago como pagado y registrar movimiento financiero."""
-    return contract_service.mark_payment_as_paid(db, payment_id, account_id)
+    return await contract_service.mark_payment_as_paid(db, payment_id, account_id)
