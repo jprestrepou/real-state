@@ -9,9 +9,11 @@ from sqlalchemy import select, func
 from fastapi import HTTPException
 
 from app.models.contract import Contract, PaymentSchedule, ContractStatus, PaymentStatus
-from app.schemas.contract import ContractCreate, ContractUpdate
+from app.schemas.contract import ContractCreate, ContractUpdate, ContractSignRequest
 from app.services.pdf_service import generate_contract_pdf
-from app.tasks.email_tasks import send_contract_revision_email
+from app.tasks.email_tasks import send_contract_revision_email, send_contract_signature_request_email
+import hashlib
+from datetime import datetime
 
 
 from app.models.property import Property
@@ -71,10 +73,10 @@ def create_contract(db: Session, data: ContractCreate, user_id: str) -> Contract
 
 
 def activate_contract(db: Session, contract_id: str) -> Contract:
-    """Activate a draft contract and generate payment schedule."""
+    """Activate a contract (must be Firmado) and generate payment schedule."""
     contract = get_contract(db, contract_id)
-    if contract.status != ContractStatus.BORRADOR.value:
-        raise HTTPException(status_code=400, detail="Solo se pueden activar contratos en borrador")
+    if contract.status != ContractStatus.FIRMADO.value:
+        raise HTTPException(status_code=400, detail="Solo se pueden activar contratos firmados")
 
     contract.status = ContractStatus.ACTIVO.value
 
@@ -85,27 +87,55 @@ def activate_contract(db: Session, contract_id: str) -> Contract:
         prop.status = PropertyStatus.ARRENDADA.value
 
     _generate_payment_schedule(db, contract)
-    
-    # PDF and Email integration
-    try:
-        pdf_path = generate_contract_pdf(contract)
-        contract.pdf_file = pdf_path
-        
-        # Trigger email revision task (async)
-        # Assuming we have tenant email and maybe a landlord email (manager email)
-        recipients = []
-        if contract.tenant_email:
-            recipients.append(contract.tenant_email)
-        
-        if recipients:
-            send_contract_revision_email.delay(contract.id, pdf_path, recipients)
-            
-    except Exception as e:
-        print(f"Error in contract post-activation logic: {e}")
 
     db.commit()
     db.refresh(contract)
     return contract
+
+def send_contract_for_signature(db: Session, contract_id: str) -> Contract:
+    contract = get_contract(db, contract_id)
+    if contract.status != ContractStatus.BORRADOR.value:
+        raise HTTPException(status_code=400, detail="Solo se pueden enviar a firma contratos en borrador")
+    
+    contract.status = ContractStatus.ENVIADO_A_FIRMA.value
+    
+    try:
+        if not contract.pdf_file:
+            pdf_path = generate_contract_pdf(contract)
+            contract.pdf_file = pdf_path
+            
+        recipients = [contract.tenant_email] if contract.tenant_email else []
+        if recipients:
+            signing_url = f"https://app.example.com/sign/{contract.id}" # Simulated URL
+            send_contract_signature_request_email.delay(contract.id, signing_url, recipients)
+            
+    except Exception as e:
+        print(f"Error sending signature request: {e}")
+
+    db.commit()
+    db.refresh(contract)
+    return contract
+
+def sign_contract(db: Session, contract_id: str, data: ContractSignRequest, ip_address: str) -> Contract:
+    contract = get_contract(db, contract_id)
+    if contract.status != ContractStatus.ENVIADO_A_FIRMA.value:
+        raise HTTPException(status_code=400, detail="El contrato no está pendiente de firma")
+        
+    if contract.tenant_email != data.tenant_email:
+        raise HTTPException(status_code=400, detail="Credenciales de firma inválidas")
+        
+    contract.status = ContractStatus.FIRMADO.value
+    contract.signed_at = datetime.now()
+    contract.signed_ip = ip_address
+    
+    # Simple hash of contract ID + email + timestamp
+    base_string = f"{contract.id}|{data.tenant_email}|{contract.signed_at.isoformat()}"
+    contract.signature_hash = hashlib.sha256(base_string.encode()).hexdigest()
+    
+    db.commit()
+    db.refresh(contract)
+    return contract
+
 
 
 def update_contract(db: Session, contract_id: str, data: ContractUpdate) -> Contract:

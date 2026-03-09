@@ -15,6 +15,8 @@ import { renderBudgets } from './pages/budgets.js';
 import { renderBudgetReport } from './pages/budget_report.js';
 import { renderFacility } from './pages/facility.js';
 import { renderAccountDetail } from './pages/account_detail.js';
+import { renderWorkGroups } from './pages/work_groups.js';
+import { renderAudits } from './pages/audits.js';
 
 // ── Global State ────────────────────────────────────────
 const state = {
@@ -33,6 +35,8 @@ const pages = {
     'budget-report': { title: 'Reporte de Presupuesto', subtitle: 'Distribución y cumplimiento detallado', render: renderBudgetReport },
     facility: { title: 'Facility Management', subtitle: 'Gestión de activos e inspecciones', render: renderFacility },
     'account-detail': { title: 'Detalle de Cuenta', subtitle: 'Historial de movimientos y análisis de saldo', render: renderAccountDetail },
+    'work-groups': { title: 'Grupos de Trabajo', subtitle: 'Gestión de equipos de mantenimiento', render: renderWorkGroups },
+    audits: { title: 'Auditoría', subtitle: 'Registro de actividades y log del sistema', render: renderAudits },
 };
 
 // ── Router ──────────────────────────────────────────────

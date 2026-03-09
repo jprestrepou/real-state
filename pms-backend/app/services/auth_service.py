@@ -2,7 +2,7 @@
 Auth service — business logic for registration, login, token refresh.
 """
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from fastapi import HTTPException, status
 
@@ -17,10 +17,11 @@ from app.utils.security import (
 )
 
 
-def register_user(db: Session, data: UserRegister) -> User:
+async def register_user(db: AsyncSession, data: UserRegister) -> User:
     """Register a new user — validates unique email, hashes password."""
     stmt = select(User).where(User.email == data.email)
-    existing = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    existing = result.scalar_one_or_none()
 
     if existing:
         raise HTTPException(
@@ -36,15 +37,16 @@ def register_user(db: Session, data: UserRegister) -> User:
         phone=data.phone,
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
     return user
 
 
-def login_user(db: Session, data: UserLogin) -> TokenResponse:
+async def login_user(db: AsyncSession, data: UserLogin) -> TokenResponse:
     """Authenticate user — returns access + refresh tokens."""
     stmt = select(User).where(User.email == data.email, User.is_active == True)  # noqa: E712
-    user = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
 
     if not user or not verify_password(data.password, user.password_hash):
         raise HTTPException(
@@ -59,7 +61,7 @@ def login_user(db: Session, data: UserLogin) -> TokenResponse:
     return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 
 
-def refresh_access_token(db: Session, data: TokenRefresh) -> TokenResponse:
+async def refresh_access_token(db: AsyncSession, data: TokenRefresh) -> TokenResponse:
     """Refresh access token using a valid refresh token."""
     payload = decode_token(data.refresh_token)
 
@@ -71,7 +73,8 @@ def refresh_access_token(db: Session, data: TokenRefresh) -> TokenResponse:
 
     user_id = payload.get("sub")
     stmt = select(User).where(User.id == user_id, User.is_active == True)  # noqa: E712
-    user = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
 
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no encontrado")

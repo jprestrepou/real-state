@@ -23,6 +23,8 @@ class ContractType(str, enum.Enum):
 
 class ContractStatus(str, enum.Enum):
     BORRADOR = "Borrador"
+    ENVIADO_A_FIRMA = "Enviado a Firma"
+    FIRMADO = "Firmado"
     ACTIVO = "Activo"
     FINALIZADO = "Finalizado"
     CANCELADO = "Cancelado"
@@ -62,6 +64,9 @@ class Contract(Base):
         default=ContractStatus.BORRADOR.value,
     )
     pdf_file: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    signed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    signed_ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    signature_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id"), nullable=False

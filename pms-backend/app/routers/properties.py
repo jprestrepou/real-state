@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.schemas.property import PropertyCreate, PropertyUpdate, PropertyResponse, PropertyMapItem
+from app.schemas.property import PropertyCreate, PropertyUpdate, PropertyResponse, PropertyMapItem, RentSimulationRequest, RentSimulationResponse
 from app.services import property_service
 from app.utils.security import get_current_user, require_role
 

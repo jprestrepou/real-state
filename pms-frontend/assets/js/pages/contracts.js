@@ -14,7 +14,39 @@ export async function renderContracts(container) {
   const properties = propertiesData.items || [];
 
   container.innerHTML = `
-    <div class="flex flex-wrap items-center justify-between gap-4 mb-8 animate-fade-in glass-card-static p-4 !rounded-2xl border-white/40 shadow-sm">
+    <div class="space-y-6 animate-fade-in">
+        <div class="flex border-b border-surface-200 mb-4">
+            <button class="tab-btn active px-4 py-2 text-primary-600 border-b-2 border-primary-600 font-medium" data-tab="list">Contratos</button>
+            <button class="tab-btn px-4 py-2 text-surface-500 hover:text-surface-700 font-medium" data-tab="tenants">Inquilinos</button>
+        </div>
+        <div id="contracts-tab-content">
+            <!-- Content -->
+        </div>
+    </div>
+  `;
+
+  const tabContent = container.querySelector('#contracts-tab-content');
+  const tabs = container.querySelectorAll('.tab-btn');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => { t.classList.remove('active', 'text-primary-600', 'border-primary-600', 'border-b-2'); t.classList.add('text-surface-500'); });
+      tab.classList.remove('text-surface-500');
+      tab.classList.add('active', 'text-primary-600', 'border-primary-600', 'border-b-2');
+      if (tab.dataset.tab === 'list') {
+        renderContractsList(tabContent, contracts, properties);
+      } else {
+        renderTenantsList(tabContent, contracts);
+      }
+    });
+  });
+
+  renderContractsList(tabContent, contracts, properties);
+}
+
+function renderContractsList(container, contracts, properties) {
+  container.innerHTML = `
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-6 animate-fade-in glass-card-static p-4 !rounded-2xl border-white/40 shadow-sm">
       <div class="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-xl border border-white/20 shadow-sm">
         <i data-lucide="filter" class="w-3.5 h-3.5 text-surface-400"></i>
         <select id="fc-status" class="bg-transparent text-sm font-medium focus:outline-none min-w-[140px] appearance-none">
@@ -56,6 +88,7 @@ export async function renderContracts(container) {
         <td><span class="badge ${statusBadge(c.status)} text-[10px] font-bold">${c.status}</span></td>
         <td class="text-right"><div class="flex justify-end gap-1">
           ${c.status === 'Borrador' ? `<button class="btn-ghost text-xs p-1.5 activate-btn hover:bg-accent-50 rounded-lg group" data-id="${c.id}" title="Activar"><i data-lucide="check-circle" class="w-4 h-4 text-accent-500 group-hover:scale-110 transition-transform"></i></button>` : ''}
+          <button class="btn-ghost text-xs p-1.5 pdf-btn hover:bg-red-50 rounded-lg group" data-id="${c.id}" title="Generar Carta"><i data-lucide="file-text" class="w-4 h-4 text-rose-500 group-hover:scale-110 transition-transform"></i></button>
           <button class="btn-ghost text-xs p-1.5 payments-btn hover:bg-primary-50 rounded-lg group" data-id="${c.id}" title="Pagos"><i data-lucide="calendar" class="w-4 h-4 text-primary-500 group-hover:scale-110 transition-transform"></i></button>
         </div></td>
       </tr>`).join('') : '<tr><td colspan="6" class="text-center py-20 text-surface-400 font-medium italic">No hay contratos registrados</td></tr>'}
@@ -67,8 +100,38 @@ export async function renderContracts(container) {
   document.querySelectorAll('.activate-btn').forEach(b => b.addEventListener('click', async () => {
     await api.post(`/contracts/${b.dataset.id}/activate`, {});
     showToast('Contrato activado', 'success');
-    await renderContracts(container);
+    renderContractsList(container, contracts, properties); // Simplified refresh for demonstration
   }));
+
+  // PDF Termination Letter
+  document.querySelectorAll('.pdf-btn').forEach(b => b.addEventListener('click', () => {
+    const today = new Date().toISOString().split('T')[0];
+    showModal('Generar Carta de Terminación', `
+        <form id="pdf-form" class="space-y-4">
+            <div>
+                <label class="label">Motivo</label>
+                <input class="input" name="reason" value="Terminación por mutuo acuerdo" required />
+            </div>
+            <div>
+                <label class="label">Fecha de Terminación</label>
+                <input class="input" type="date" name="termination_date" value="${today}" required />
+            </div>
+        </form>
+      `, {
+      confirmText: 'Generar PDF',
+      onConfirm: async () => {
+        const fd = new FormData(document.getElementById('pdf-form'));
+        const payload = Object.fromEntries(fd);
+        const res = await api.post(`/contracts/${b.dataset.id}/termination-letter`, payload);
+        showToast('PDF Generado', 'success');
+        if (res.pdf_url) {
+          // Reconstruct full API url if it's relative
+          window.open(api.opts.baseUrl.replace('/api/v1', '') + res.pdf_url, '_blank');
+        }
+      }
+    });
+  }));
+
   document.querySelectorAll('.payments-btn').forEach(b => b.addEventListener('click', async () => {
     const [payments, accountsData] = await Promise.all([
       api.get(`/contracts/${b.dataset.id}/payments`),
@@ -185,4 +248,49 @@ function openContractModal(properties = []) {
       await renderContracts(document.getElementById('page-content'));
     }
   });
+}
+
+function renderTenantsList(container, contracts) {
+  // Unique tenants
+  const tenantsMap = {};
+  contracts.forEach(c => {
+    if (!tenantsMap[c.tenant_name]) {
+      tenantsMap[c.tenant_name] = {
+        name: c.tenant_name,
+        email: c.tenant_email,
+        phone: c.tenant_phone,
+        document: c.tenant_document,
+        active_contracts: 0
+      };
+    }
+    if (c.status === 'Activo') {
+      tenantsMap[c.tenant_name].active_contracts++;
+    }
+  });
+
+  const tenants = Object.values(tenantsMap);
+
+  container.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
+        ${tenants.length ? tenants.map(t => `
+            <div class="glass-card-static p-5 flex items-start gap-4">
+                <div class="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-lg shrink-0">
+                    ${t.name.charAt(0)}
+                </div>
+                <div class="min-w-0 flex-1">
+                    <h4 class="font-bold text-surface-900 truncate">${t.name}</h4>
+                    <p class="text-xs text-surface-500 mt-1"><i data-lucide="mail" class="w-3 h-3 inline mr-1"></i>${t.email || '-'}</p>
+                    <p class="text-xs text-surface-500 mt-1"><i data-lucide="phone" class="w-3 h-3 inline mr-1"></i>${t.phone || '-'}</p>
+                    <p class="text-xs text-surface-500 mt-1"><i data-lucide="credit-card" class="w-3 h-3 inline mr-1"></i>${t.document || '-'}</p>
+                    <div class="mt-3">
+                        <span class="badge ${t.active_contracts > 0 ? 'badge-green' : 'badge-gray'} text-xs">
+                            ${t.active_contracts} Contratos Activos
+                        </span>
+                    </div>
+                </div>
+            </div>
+        `).join('') : '<div class="col-span-full py-12 text-center text-surface-500">No hay inquilinos registrados.</div>'}
+        </div>
+    `;
+  if (window.lucide) lucide.createIcons();
 }

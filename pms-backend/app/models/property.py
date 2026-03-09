@@ -66,6 +66,9 @@ class Property(Base):
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    has_insurance: Mapped[bool] = mapped_column(Boolean, default=False)
+    risk_score_avg: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    telegram_unit_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     parent_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("properties.id"), nullable=True, index=True
     )
@@ -82,6 +85,7 @@ class Property(Base):
     occupants = relationship("PropertyOccupant", back_populates="property", cascade="all, delete-orphan")
     budgets = relationship("Budget", back_populates="property_rel")
     sub_units = relationship("Property", backref="parent", remote_side=[id])
+    work_group_assignments = relationship("WorkGroupProperty", back_populates="property")
 
     def __repr__(self) -> str:
         return f"<Property {self.name} ({self.status})>"

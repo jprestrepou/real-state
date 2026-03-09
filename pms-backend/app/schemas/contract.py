@@ -52,6 +52,9 @@ class ContractResponse(BaseModel):
     annual_increment_pct: Optional[float] = None
     status: str
     pdf_file: Optional[str] = None
+    signed_at: Optional[datetime] = None
+    signed_ip: Optional[str] = None
+    signature_hash: Optional[str] = None
     notes: Optional[str] = None
     created_by: str
     created_at: datetime
@@ -73,3 +76,6 @@ class PaymentScheduleResponse(BaseModel):
     paid_date: Optional[date] = None
 
     model_config = {"from_attributes": True}
+
+class ContractSignRequest(BaseModel):
+    tenant_email: str = Field(..., description="Email del inquilino para validación")

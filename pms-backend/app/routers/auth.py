@@ -3,7 +3,7 @@ Auth router — /api/v1/auth endpoints.
 """
 
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.schemas.user import (
@@ -20,21 +20,21 @@ router = APIRouter(prefix="/auth", tags=["Autenticación"])
 
 
 @router.post("/register", response_model=UserResponse, status_code=201)
-def register(data: UserRegister, db: Session = Depends(get_db)):
+async def register(data: UserRegister, db: AsyncSession = Depends(get_db)):
     """Registrar nuevo usuario."""
-    return register_user(db, data)
+    return await register_user(db, data)
 
 
 @router.post("/login", response_model=TokenResponse)
-def login(data: UserLogin, db: Session = Depends(get_db)):
+async def login(data: UserLogin, db: AsyncSession = Depends(get_db)):
     """Iniciar sesión — retorna access + refresh token."""
-    return login_user(db, data)
+    return await login_user(db, data)
 
 
 @router.post("/refresh", response_model=TokenResponse)
-def refresh(data: TokenRefresh, db: Session = Depends(get_db)):
+async def refresh(data: TokenRefresh, db: AsyncSession = Depends(get_db)):
     """Renovar access token con refresh token válido."""
-    return refresh_access_token(db, data)
+    return await refresh_access_token(db, data)
 
 
 @router.get("/me", response_model=UserResponse)

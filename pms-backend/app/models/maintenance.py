@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, date
 
 from sqlalchemy import (
-    String, Text, Numeric, Date,
+    String, Text, Numeric, Date, Boolean,
     Enum as SAEnum, DateTime, ForeignKey, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -19,6 +19,11 @@ class MaintenanceType(str, enum.Enum):
     CORRECTIVO = "Correctivo"
     PREVENTIVO = "Preventivo"
     MEJORA = "Mejora"
+
+
+class MaintenanceSource(str, enum.Enum):
+    MANUAL = "Manual"
+    TELEGRAM = "Telegram"
 
 
 class MaintenanceStatus(str, enum.Enum):
@@ -65,9 +70,16 @@ class MaintenanceOrder(Base):
     completed_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     invoice_file: Mapped[str | None] = mapped_column(String(500), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_by: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id"), nullable=False
+    created_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=True
     )
+    source: Mapped[str] = mapped_column(
+        SAEnum(MaintenanceSource, values_callable=lambda e: [x.value for x in e]),
+        default=MaintenanceSource.MANUAL.value,
+    )
+    telegram_chat_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    telegram_message_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    has_photos: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships

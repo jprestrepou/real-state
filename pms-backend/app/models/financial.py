@@ -113,6 +113,12 @@ class Transaction(Base):
     recorded_by: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id"), nullable=False
     )
+    work_group_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("work_groups.id"), nullable=True, index=True
+    )
+    audit_log_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("audit_logs.id"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships
