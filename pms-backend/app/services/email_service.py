@@ -6,19 +6,29 @@ from email.message import EmailMessage
 import logging
 from app.config import settings
 
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.services import config_service
+
 logger = logging.getLogger(__name__)
 
 class EmailService:
     @staticmethod
-    def send_email(to_email: str, subject: str, body: str, html_body: str = None, attachment_path: str = None):
-        """Send an email using configured SMTP settings."""
-        if not settings.SMTP_HOST or settings.SMTP_HOST == "smtp.example.com":
+    async def send_email(db: AsyncSession, to_email: str, subject: str, body: str, html_body: str = None, attachment_path: str = None):
+        """Send an email using dynamic SMTP settings from DB or ENV."""
+        smtp_conf = await config_service.get_smtp_config(db)
+        
+        host = smtp_conf["host"]
+        port = smtp_conf["port"]
+        user = smtp_conf["user"]
+        password = smtp_conf["pass"]
+
+        if not host or host == "smtp.example.com":
             logger.info(f"Email mock send to {to_email}. Subject: {subject}")
             return True
 
         msg = EmailMessage()
         msg['Subject'] = subject
-        msg['From'] = settings.SMTP_USER
+        msg['From'] = user
         msg['To'] = to_email
         msg.set_content(body)
 
@@ -40,10 +50,21 @@ class EmailService:
                 logger.error(f"Failed to attach file {attachment_path}: {str(e)}")
 
         try:
-            with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-                server.starttls()
-                server.login(settings.SMTP_USER, settings.SMTP_PASS)
-                server.send_message(msg)
+            # Note: smtplib is sync. For full async we'd use aiosmtplib, 
+            # but standard smtplib is fine if we are okay with blocking the thread briefly.
+            # To be 100% async-safe in FastAPI, we use a loop.run_in_executor or aiosmtplib.
+            import asyncio
+            from functools import partial
+
+            def _sync_send():
+                with smtplib.SMTP(host, port) as server:
+                    server.starttls()
+                    server.login(user, password)
+                    server.send_message(msg)
+            
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, _sync_send)
+            
             logger.info(f"Email sent successfully to {to_email}")
             return True
         except Exception as e:

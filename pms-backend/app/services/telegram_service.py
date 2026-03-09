@@ -10,21 +10,27 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.models.maintenance import MaintenanceOrder, MaintenanceSource, MaintenanceStatus
+from app.services import config_service
 
 logger = logging.getLogger(__name__)
 
 
 class TelegramService:
-    BASE_URL = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}"
+    @classmethod
+    async def get_base_url(cls, db: AsyncSession) -> str:
+        conf = await config_service.get_telegram_config(db)
+        token = conf["token"]
+        return f"https://api.telegram.org/bot{token}"
 
     @classmethod
-    async def send_message(cls, chat_id: str, text: str) -> Optional[Dict[str, Any]]:
+    async def send_message(cls, db: AsyncSession, chat_id: str, text: str) -> Optional[Dict[str, Any]]:
         """Sends a text message to a specific Telegram chat_id."""
-        if not settings.TELEGRAM_BOT_TOKEN:
+        base_url = await cls.get_base_url(db)
+        if "/botNone" in base_url or "/bot" == base_url:
             logger.warning("TELEGRAM_BOT_TOKEN not set, skipping message.")
             return None
             
-        url = f"{cls.BASE_URL}/sendMessage"
+        url = f"{base_url}/sendMessage"
         payload = {"chat_id": chat_id, "text": text, "parse_mode": "Markdown"}
         
         async with httpx.AsyncClient() as client:
@@ -37,12 +43,13 @@ class TelegramService:
                 return None
 
     @classmethod
-    async def set_webhook(cls, webhook_url: str) -> bool:
+    async def set_webhook(cls, db: AsyncSession, webhook_url: str) -> bool:
         """Configures the webhook URL for the bot."""
-        if not settings.TELEGRAM_BOT_TOKEN:
+        base_url = await cls.get_base_url(db)
+        if "/botNone" in base_url or "/bot" == base_url:
             return False
             
-        url = f"{cls.BASE_URL}/setWebhook"
+        url = f"{base_url}/setWebhook"
         payload = {"url": webhook_url}
         async with httpx.AsyncClient() as client:
             try:
@@ -51,7 +58,7 @@ class TelegramService:
             except httpx.HTTPError as e:
                 logger.error(f"Telegram webhook error: {e}")
                 return False
-        return False # Fallback explicitly
+        return False
 
     @classmethod
     async def process_update(cls, db: AsyncSession, update: Dict[str, Any]):
@@ -87,18 +94,17 @@ class TelegramService:
                     telegram_message_id=message_id
                 )
                 db.add(order)
+                await db.flush() # flush to get order.id before commit
+                await cls.send_message(db, chat_id, f"✅ Orden de mantenimiento registrada con ID: {order.id}")
                 await db.commit()
-                await cls.send_message(chat_id, f"✅ Orden de mantenimiento registrada con ID: {order.id}")
                 return
 
         # Handle photos (e.g. attaching to a known chat_id session)
         if "photo" in message:
-            # We would normally match the chat_id to an active maintenance order
-            # and download the file.
             stmt = select(MaintenanceOrder).filter_by(telegram_chat_id=chat_id, status=MaintenanceStatus.PENDIENTE.value)
             result = await db.execute(stmt)
             order = result.scalar_one_or_none()
             if order:
                 order.has_photos = True
                 await db.commit()
-                await cls.send_message(chat_id, f"✅ Foto recibida para la orden {order.id}")
+                await cls.send_message(db, chat_id, f"✅ Foto recibida para la orden {order.id}")

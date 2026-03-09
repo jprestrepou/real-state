@@ -15,6 +15,8 @@ from app.models.insurance import InsurancePolicy
 from app.models.inventory import PropertyInventory, InventoryItem, InventoryPhoto
 from app.models.scoring import TenantScoring
 from app.models.contract_components import ContractSignature, TerminationLetter
+from app.models.config import GlobalConfig
+
 
 __all__ = [
     "User",
@@ -44,4 +46,6 @@ __all__ = [
     "TenantScoring",
     "ContractSignature",
     "TerminationLetter",
+    "GlobalConfig",
 ]
+

@@ -24,15 +24,25 @@ logger = logging.getLogger("pms-backend")
 async def lifespan(app: FastAPI):
     """Startup / shutdown events."""
     # ── Startup ──────────────────────────────────────────
-    init_db()
+    logger.info("Initializing database...")
+    try:
+        init_db()
+        logger.info("Database initialized successfully.")
+    except Exception as e:
+        logger.error(f"Failed to initialize database: {e}", exc_info=True)
+        raise
 
     # Create upload directories
+    logger.info(f"Ensuring upload directory exists: {settings.UPLOAD_DIR}")
     os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
     os.makedirs(os.path.join(settings.UPLOAD_DIR, "invoices"), exist_ok=True)
     os.makedirs(os.path.join(settings.UPLOAD_DIR, "images"), exist_ok=True)
+    os.makedirs(os.path.join(settings.UPLOAD_DIR, "contracts"), exist_ok=True)
 
+    logger.info("Application startup complete.")
     yield
     # ── Shutdown ─────────────────────────────────────────
+    logger.info("Application shutting down...")
 
 
 app = FastAPI(
@@ -73,7 +83,7 @@ os.makedirs(settings.UPLOAD_DIR, exist_ok=True)
 app.mount("/uploads", StaticFiles(directory=settings.UPLOAD_DIR), name="uploads")
 
 # ── Routers ──────────────────────────────────────────────
-from app.routers import auth, users, properties, financial, maintenance, contracts, budgets, contacts, assets, inspections, occupants, work_groups, audits, telegram, insurance, inventories, scoring  # noqa: E402
+from app.routers import auth, users, properties, financial, maintenance, contracts, budgets, contacts, assets, inspections, occupants, work_groups, audits, telegram, insurance, inventories, scoring, config  # noqa: E402
 
 API_PREFIX = "/api/v1"
 
@@ -94,6 +104,7 @@ app.include_router(telegram.router, prefix=API_PREFIX)
 app.include_router(insurance.router, prefix=API_PREFIX)
 app.include_router(inventories.router, prefix=API_PREFIX)
 app.include_router(scoring.router, prefix=API_PREFIX)
+app.include_router(config.router, prefix=API_PREFIX)
 
 
 # ── Health check ─────────────────────────────────────────
