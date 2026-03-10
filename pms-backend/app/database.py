@@ -60,7 +60,8 @@ async def get_db():
             await session.close()
 
 
-def init_db():
+async def init_db():
     """Create all tables (dev only — use Alembic in prod)."""
     import app.models  # noqa: F401 — ensure models are imported
-    Base.metadata.create_all(bind=engine.sync_engine)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
