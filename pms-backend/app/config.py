@@ -36,7 +36,8 @@ class Settings(BaseSettings):
         "http://localhost:3000", 
         "http://localhost:5173", 
         "http://127.0.0.1:5173",
-        "https://real-state-1-2qpr.onrender.com"
+        "https://real-state-1-2qpr.onrender.com",
+        "https://real-state-xd5o.onrender.com"
     ]
 
     # ── Uploads ──────────────────────────────────────────

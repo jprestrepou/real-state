@@ -16,4 +16,4 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: CORS_ORIGINS
-        value: '["*"]'
+        value: '["https://real-state-1-2qpr.onrender.com"]'
