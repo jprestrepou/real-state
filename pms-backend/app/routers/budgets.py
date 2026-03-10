@@ -3,7 +3,7 @@ Budgets router — /api/v1/budgets endpoints.
 """
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetReport, BudgetDuplicate, BudgetUpdate
@@ -14,46 +14,46 @@ router = APIRouter(prefix="/budgets", tags=["Presupuestos"])
 
 
 @router.get("", response_model=list[BudgetResponse])
-def list_budgets(
+async def list_budgets(
     property_id: str | None = None,
     year: int | None = None,
     month: int | None = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Listar presupuestos."""
-    return budget_service.list_budgets(db, property_id, year, month)
+    return await budget_service.list_budgets(db, property_id, year, month)
 
 
 @router.post("", response_model=BudgetResponse, status_code=201)
-def create_budget(
+async def create_budget(
     data: BudgetCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
 ):
     """Crear presupuesto con categorías."""
-    return budget_service.create_budget(db, data)
+    return await budget_service.create_budget(db, data)
 
 
 @router.get("/{budget_id}", response_model=BudgetResponse)
-def get_budget(
+async def get_budget(
     budget_id: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Obtener detalle de presupuesto con semáforo."""
-    return budget_service.get_budget(db, budget_id)
+    return await budget_service.get_budget(db, budget_id)
 
 
 @router.put("/{budget_id}", response_model=BudgetResponse)
-def update_budget(
+async def update_budget(
     budget_id: str,
     data: BudgetUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
 ):
     """Actualizar presupuesto y categorías."""
-    budget = budget_service.update_budget(db, budget_id, data)
+    budget = await budget_service.update_budget(db, budget_id, data)
     if not budget:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
@@ -61,30 +61,30 @@ def update_budget(
 
 
 @router.get("/report/{property_id}", response_model=BudgetReport)
-def get_budget_report(
+async def get_budget_report(
     property_id: str,
     year: int = Query(..., ge=2020),
     month: int = Query(..., ge=1, le=12),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Obtener reporte presupuesto vs real con distribución."""
-    return budget_service.get_budget_vs_actual_report(db, property_id, year, month)
+    return await budget_service.get_budget_vs_actual_report(db, property_id, year, month)
 @router.post("/{budget_id}/duplicate", response_model=list[BudgetResponse])
-def duplicate_budget(
+async def duplicate_budget(
     budget_id: str,
     data: BudgetDuplicate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
 ):
     """Duplicar presupuesto para otro periodo con incremento opcional."""
-    return budget_service.duplicate_budget(db, budget_id, data)
+    return await budget_service.duplicate_budget(db, budget_id, data)
 @router.delete("/{budget_id}", status_code=204)
-def delete_budget(
+async def delete_budget(
     budget_id: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
 ):
     """Eliminar presupuesto."""
-    budget_service.delete_budget(db, budget_id)
+    await budget_service.delete_budget(db, budget_id)
     return None

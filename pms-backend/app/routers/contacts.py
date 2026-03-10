@@ -3,7 +3,7 @@ Contacts Router — Endpoints for managing providers, clients, and tenants.
 """
 
 from fastapi import APIRouter, Depends, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.user import User
@@ -15,15 +15,15 @@ router = APIRouter(prefix="/contacts", tags=["Contactos"])
 
 
 @router.get("/", response_model=dict)
-def get_contacts(
+async def get_contacts(
     contact_type: str | None = Query(None, description="Filtrar por tipo (Proveedor, Cliente, etc)"),
     search: str | None = Query(None, description="Buscar por nombre"),
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    contacts, total = contact_service.list_contacts(
+    contacts, total = await contact_service.list_contacts(
         db, contact_type=contact_type, search=search, page=page, limit=limit
     )
     return {
@@ -35,37 +35,37 @@ def get_contacts(
 
 
 @router.get("/{contact_id}", response_model=ContactResponse)
-def get_single_contact(
+async def get_single_contact(
     contact_id: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return contact_service.get_contact(db, contact_id)
+    return await contact_service.get_contact(db, contact_id)
 
 
 @router.post("/", response_model=ContactResponse, status_code=status.HTTP_201_CREATED)
-def create_new_contact(
+async def create_new_contact(
     contact_in: ContactCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return contact_service.create_contact(db, contact_in)
+    return await contact_service.create_contact(db, contact_in)
 
 
 @router.patch("/{contact_id}", response_model=ContactResponse)
-def update_existing_contact(
+async def update_existing_contact(
     contact_id: str,
     contact_in: ContactUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    return contact_service.update_contact(db, contact_id, contact_in)
+    return await contact_service.update_contact(db, contact_id, contact_in)
 
 
 @router.delete("/{contact_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_contact(
+async def delete_contact(
     contact_id: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    contact_service.delete_contact(db, contact_id)
+    await contact_service.delete_contact(db, contact_id)

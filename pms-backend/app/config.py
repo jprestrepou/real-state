@@ -3,8 +3,9 @@ PMS Configuration — Pydantic BaseSettings
 Loads from .env file or environment variables.
 """
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, List
 
 
 class Settings(BaseSettings):
@@ -39,6 +40,15 @@ class Settings(BaseSettings):
         "https://real-state-1-2qpr.onrender.com",
         "https://real-state-xd5o.onrender.com"
     ]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def assemble_cors_origins(cls, v: str | list[str]) -> list[str]:
+        if isinstance(v, str) and not v.startswith("["):
+            return [i.strip() for i in v.split(",")]
+        elif isinstance(v, (list, str)):
+            return v
+        return v
 
     # ── Uploads ──────────────────────────────────────────
     UPLOAD_DIR: str = "uploads"

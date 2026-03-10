@@ -9,6 +9,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -57,9 +58,9 @@ def decode_token(token: str) -> dict:
 
 
 # ── Dependencies ─────────────────────────────────────────
-def get_current_user(
+async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """FastAPI dependency — extracts and validates the current user from JWT."""
     if credentials is None:
@@ -79,7 +80,8 @@ def get_current_user(
 
     from app.models.user import User
     stmt = select(User).where(User.id == user_id, User.is_active == True)  # noqa: E712
-    user = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    user = result.scalar_one_or_none()
 
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario no encontrado")

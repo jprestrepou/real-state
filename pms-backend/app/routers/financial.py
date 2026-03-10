@@ -4,7 +4,7 @@ Financial router — /api/v1/accounts + /api/v1/transactions + /api/v1/reports e
 
 from datetime import date
 from fastapi import APIRouter, Depends, Query, Response
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.schemas.financial import (
@@ -21,68 +21,68 @@ router = APIRouter(tags=["Financiero"])
 
 # ── Accounts ─────────────────────────────────────────────
 @router.get("/accounts", response_model=list[AccountResponse])
-def list_accounts(
-    db: Session = Depends(get_db),
+async def list_accounts(
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Listar cuentas bancarias."""
-    return ledger_service.list_accounts(db)
+    return await ledger_service.list_accounts(db)
 
 
 @router.post("/accounts", response_model=AccountResponse, status_code=201)
-def create_account(
+async def create_account(
     data: AccountCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario")),
 ):
     """Crear nueva cuenta bancaria."""
-    return ledger_service.create_account(db, data.model_dump())
+    return await ledger_service.create_account(db, data.model_dump())
 
 
 @router.get("/accounts/{account_id}", response_model=AccountResponse)
-def get_account(
+async def get_account(
     account_id: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Obtener saldo y datos de una cuenta."""
-    return ledger_service.get_account(db, account_id)
+    return await ledger_service.get_account(db, account_id)
 
 
 @router.put("/accounts/{account_id}", response_model=AccountResponse)
-def update_account(
+async def update_account(
     account_id: str,
     data: AccountUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario")),
 ):
     """Editar una cuenta bancaria."""
-    return ledger_service.update_account(db, account_id, data.model_dump(exclude_unset=True))
+    return await ledger_service.update_account(db, account_id, data.model_dump(exclude_unset=True))
 
 
 @router.delete("/accounts/{account_id}", status_code=204)
-def delete_account(
+async def delete_account(
     account_id: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario")),
 ):
     """Eliminar (desactivar) una cuenta bancaria."""
-    ledger_service.delete_account(db, account_id)
+    await ledger_service.delete_account(db, account_id)
     return None
 
 
 @router.get("/accounts/{account_id}/history")
-def get_account_history(
+async def get_account_history(
     account_id: str,
     months: int = Query(12, ge=1, le=24),
     date_from: date | None = Query(None),
     date_to: date | None = Query(None),
     tx_type: str | None = Query(None),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Obtener historial mensual y transacciones recientes de una cuenta."""
-    result = ledger_service.get_account_history(db, account_id, months, date_from, date_to, tx_type)
+    result = await ledger_service.get_account_history(db, account_id, months, date_from, date_to, tx_type)
     return {
         "account": AccountResponse.model_validate(result["account"]),
         "monthly_cashflow": result["monthly_cashflow"],
@@ -92,13 +92,13 @@ def get_account_history(
 
 
 @router.post("/accounts/transfer", status_code=201)
-def transfer_funds(
+async def transfer_funds(
     data: TransferCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario")),
 ):
     """Transferir fondos entre dos cuentas."""
-    source_tx, dest_tx = ledger_service.transfer_funds(db, data, current_user.id)
+    source_tx, dest_tx = await ledger_service.transfer_funds(db, data, current_user.id)
     return {
         "message": "Transferencia realizada con éxito",
         "source_transaction": source_tx,
@@ -108,44 +108,44 @@ def transfer_funds(
 
 # ── Transactions ─────────────────────────────────────────
 @router.get("/properties/{property_id}/performance", response_model=PropertyPerformanceResponse)
-def get_property_performance(
+async def get_property_performance(
     property_id: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Obtener análisis detallado de desempeño de una propiedad."""
-    return ledger_service.get_property_performance(db, property_id)
+    return await ledger_service.get_property_performance(db, property_id)
 
 
 @router.get("/reports/balance-sheet", response_model=BalanceSheetResponse)
-def get_balance_sheet(
-    db: Session = Depends(get_db),
+async def get_balance_sheet(
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin")),
 ):
     """Balance General Corporativo."""
-    return ledger_service.get_balance_sheet(db)
+    return await ledger_service.get_balance_sheet(db)
 
 
 @router.get("/reports/income-statement", response_model=IncomeStatementResponse)
-def get_income_statement(
+async def get_income_statement(
     start_date: date,
     end_date: date,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin")),
 ):
     """Estado de Resultados (P&L) Corporativo."""
-    return ledger_service.get_income_statement(db, start_date, end_date)
+    return await ledger_service.get_income_statement(db, start_date, end_date)
 
 
 @router.get("/reports/export")
-def export_transactions(
+async def export_transactions(
     property_id: str | None = Query(None),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Gestor")),
 ):
     """Exportar transacciones a CSV."""
-    transactions, _ = ledger_service.list_transactions(db, property_id=property_id, limit=1000)
-    csv_data = financial_reports.export_transactions_to_csv(db, transactions)
+    transactions, _ = await ledger_service.list_transactions(db, property_id=property_id, limit=1000)
+    csv_data = await financial_reports.export_transactions_to_csv(db, transactions)
     
     return Response(
         content=csv_data,
@@ -155,10 +155,10 @@ def export_transactions(
 
 
 @router.get("/reports/eeff", response_model=dict)
-def get_eeff_report(
+async def get_eeff_report(
     property_id: str | None = Query(None),
     year: int = Query(default_factory=lambda: date.today().year),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
 ):
     """Generar reporte matricial EEFF (Estado de Resultados Mensual)."""
@@ -190,7 +190,8 @@ def get_eeff_report(
     if property_id:
         stmt = stmt.where(Transaction.property_id == property_id)
         
-    transactions = db.execute(stmt).scalars().all()
+    result = await db.execute(stmt)
+    transactions = result.scalars().all()
     
     for tx in transactions:
         m = tx.transaction_date.month
@@ -227,28 +228,28 @@ from app.services import import_service
 @router.post("/transactions/import/analyze")
 async def analyze_csv_import(
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario")),
 ):
     """Paso 1: Analizar CSV y retornar cuentas, labels y categorías detectadas."""
     content = (await file.read()).decode("utf-8-sig")
-    return import_service.analyze_csv(db, content)
+    return await import_service.analyze_csv(db, content)
 
 
 @router.post("/transactions/import/confirm", status_code=201)
 async def confirm_csv_import(
     file: UploadFile = File(...),
     confirmed_labels: str = Query(""),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario")),
 ):
     """Paso 2: Importar transacciones con labels confirmadas como apartamentos."""
     content = (await file.read()).decode("utf-8-sig")
     labels_list = [l.strip() for l in confirmed_labels.split(",") if l.strip()]
-    return import_service.process_import(db, content, labels_list, current_user.id)
+    return await import_service.process_import(db, content, labels_list, current_user.id)
 
 @router.get("/transactions", response_model=dict)
-def list_transactions(
+async def list_transactions(
     property_id: str | None = None,
     account_id: str | None = None,
     category: str | None = None,
@@ -256,11 +257,11 @@ def list_transactions(
     date_to: date | None = None,
     page: int = Query(1, ge=1),
     limit: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    """Listar transacciones del ledger con filtros."""
-    transactions, total = ledger_service.list_transactions(
+    """Listar transacciones del ledger with filtros."""
+    transactions, total = await ledger_service.list_transactions(
         db, property_id, account_id, category, date_from, date_to, page, limit,
     )
     return {
@@ -272,54 +273,54 @@ def list_transactions(
 
 
 @router.post("/transactions", response_model=TransactionResponse, status_code=201)
-def create_transaction(
+async def create_transaction(
     data: TransactionCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Gestor")),
 ):
     """Registrar transacción en el ledger (actualiza saldo automáticamente)."""
-    return ledger_service.register_transaction(db, data, current_user.id)
+    return await ledger_service.register_transaction(db, data, current_user.id)
 
 
 @router.put("/transactions/{transaction_id}", response_model=TransactionResponse)
-def update_transaction(
+async def update_transaction(
     transaction_id: str,
     data: TransactionUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Gestor")),
 ):
     """Editar una transacción (ajusta balance si cambia el monto)."""
-    return ledger_service.update_transaction(db, transaction_id, data)
+    return await ledger_service.update_transaction(db, transaction_id, data)
 
 
 @router.delete("/transactions/{transaction_id}", status_code=204)
-def delete_transaction(
+async def delete_transaction(
     transaction_id: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Gestor")),
 ):
     """Eliminar una transacción (revierte el efecto en el saldo)."""
-    ledger_service.delete_transaction(db, transaction_id)
+    await ledger_service.delete_transaction(db, transaction_id)
     return None
 
 
 # ── Reports ──────────────────────────────────────────────
 @router.get("/reports/cashflow", response_model=CashFlowReport)
-def cashflow_report(
+async def cashflow_report(
     property_id: str | None = None,
     months: int = Query(12, ge=1, le=24),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Cash flow de los últimos N meses."""
-    return ledger_service.get_cashflow_report(db, property_id, months)
+    return await ledger_service.get_cashflow_report(db, property_id, months)
 
 
 @router.get("/reports/summary", response_model=FinancialSummary)
-def financial_summary(
+async def financial_summary(
     property_id: str | None = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Resumen financiero general o por propiedad."""
-    return ledger_service.get_financial_summary(db, property_id)
+    return await ledger_service.get_financial_summary(db, property_id)

@@ -3,7 +3,7 @@ Budget Service — CRUD operations + Allocation logic and budget vs actual repor
 """
 
 from typing import Dict, List, Any, Optional
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from app.models.property import Property
 from app.models.contract import Contract, ContractStatus
@@ -13,15 +13,17 @@ from app.schemas.budget import BudgetCreate, BudgetDuplicate
 
 GENERAL_PROPERTY_NAME = "Gastos Generales"
 
-def _ensure_general_property(db: Session) -> str:
+async def _ensure_general_property(db: AsyncSession) -> str:
     """Ensures the 'Gastos Generales' property exists and returns its ID."""
     stmt = select(Property).where(Property.name == GENERAL_PROPERTY_NAME)
-    prop = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    prop = result.scalar_one_or_none()
     if not prop:
         # We need an owner_id. Let's find an admin or the first user.
         from app.models.user import User
         user_stmt = select(User).limit(1)
-        user = db.execute(user_stmt).scalar_one_or_none()
+        user_result = await db.execute(user_stmt)
+        user = user_result.scalar_one_or_none()
         if not user:
             raise Exception("No user found to assign Gastos Generales property")
         
@@ -37,18 +39,19 @@ def _ensure_general_property(db: Session) -> str:
             status="Disponible"
         )
         db.add(prop)
-        db.commit()
-        db.refresh(prop)
+        await db.commit()
+        await db.refresh(prop)
     return prop.id
 
-def _refresh_budget_totals(db: Session, budget: Budget):
+async def _refresh_budget_totals(db: AsyncSession, budget: Budget):
     """
     Calculates execution totals for a budget and its categories in real-time.
     Also updates total_budget if auto_calculate_total is True.
     """
-    dist_keys = calculate_distribution_keys(db, budget.property_id)
+    dist_keys = await calculate_distribution_keys(db, budget.property_id)
     stmt_gen = select(Property).where(Property.name == GENERAL_PROPERTY_NAME).limit(1)
-    gen_prop = db.execute(stmt_gen).scalar_one_or_none()
+    gen_result = await db.execute(stmt_gen)
+    gen_prop = gen_result.scalar_one_or_none()
     
     all_prop_ids = list(dist_keys.keys()) + [budget.property_id]
     if gen_prop and budget.property_id == gen_prop.id:
@@ -79,7 +82,8 @@ def _refresh_budget_totals(db: Session, budget: Budget):
         query = query.where(Transaction.property_id.in_(all_prop_ids_filtered))
 
     query = query.group_by(Transaction.category)
-    results = db.execute(query).all()
+    result = await db.execute(query)
+    results = result.all()
     
     # Map category names to their sums
     cat_actuals = {row[0].lower(): float(row[1]) for row in results}
@@ -113,7 +117,7 @@ def _refresh_budget_totals(db: Session, budget: Budget):
     
     # No longer committing here for performance
 
-def list_budgets(db: Session, property_id: Optional[str] = None, year: Optional[int] = None, month: Optional[int] = None):
+async def list_budgets(db: AsyncSession, property_id: Optional[str] = None, year: Optional[int] = None, month: Optional[int] = None):
     stmt = select(Budget)
     filters = []
     if property_id:
@@ -126,18 +130,19 @@ def list_budgets(db: Session, property_id: Optional[str] = None, year: Optional[
     if filters:
         stmt = stmt.where(and_(*filters))
     
-    budgets = db.execute(stmt).scalars().all()
+    result = await db.execute(stmt)
+    budgets = result.scalars().all()
     for b in budgets:
-        _refresh_budget_totals(db, b)
+        await _refresh_budget_totals(db, b)
     
     # Commit once for all refreshed budgets
     db.commit()
     return budgets
 
-def create_budget(db: Session, data: BudgetCreate):
+async def create_budget(db: AsyncSession, data: BudgetCreate):
     property_id = data.property_id
     if property_id == "GENERAL":
-        property_id = _ensure_general_property(db)
+        property_id = await _ensure_general_property(db)
 
     # If annual, we create 12 budgets
     months_to_create = range(1, 13) if data.is_annual else [data.month]
@@ -158,7 +163,7 @@ def create_budget(db: Session, data: BudgetCreate):
             notes=data.notes
         )
         db.add(new_budget)
-        db.flush()
+        await db.flush()
 
         for cat_data in data.categories:
             cat_amount = cat_data.budgeted_amount / 12 if data.is_annual else cat_data.budgeted_amount
@@ -171,14 +176,14 @@ def create_budget(db: Session, data: BudgetCreate):
             db.add(cat)
         created_budgets.append(new_budget)
     
-    db.commit()
+    await db.commit()
     for b in created_budgets:
-        db.refresh(b)
+        await db.refresh(b)
     
     return created_budgets[0] if not data.is_annual else created_budgets
 
-def duplicate_budget(db: Session, budget_id: str, data: BudgetDuplicate):
-    source = get_budget(db, budget_id)
+async def duplicate_budget(db: AsyncSession, budget_id: str, data: BudgetDuplicate):
+    source = await get_budget(db, budget_id)
     if not source:
         raise Exception("Presupuesto origen no encontrado")
 
@@ -194,7 +199,7 @@ def duplicate_budget(db: Session, budget_id: str, data: BudgetDuplicate):
         notes=source.notes
     )
     db.add(new_budget)
-    db.flush()
+    await db.flush()
 
     for cat in source.categories:
         new_cat = BudgetCategory(
@@ -205,12 +210,12 @@ def duplicate_budget(db: Session, budget_id: str, data: BudgetDuplicate):
         )
         db.add(new_cat)
     
-    db.commit()
-    db.refresh(new_budget)
+    await db.commit()
+    await db.refresh(new_budget)
     return [new_budget] # Return as list for compatibility
 
-def update_budget(db: Session, budget_id: str, data: Any): # Using Any to handle BudgetUpdate
-    budget = get_budget(db, budget_id)
+async def update_budget(db: AsyncSession, budget_id: str, data: Any): # Using Any to handle BudgetUpdate
+    budget = await get_budget(db, budget_id)
     if not budget:
         return None
     
@@ -224,8 +229,8 @@ def update_budget(db: Session, budget_id: str, data: Any): # Using Any to handle
         # Complex update: replace categories
         # For simplicity, clear and re-add
         for c in budget.categories:
-            db.delete(c)
-        db.flush()
+            await db.delete(c)
+        await db.flush()
         
         for cat_data in data.categories:
             new_cat = BudgetCategory(
@@ -243,23 +248,25 @@ def update_budget(db: Session, budget_id: str, data: Any): # Using Any to handle
     if data.total_budget is not None and not budget.auto_calculate_total:
         budget.total_budget = data.total_budget
 
-    db.commit()
-    return get_budget(db, budget_id)
+    await db.commit()
+    return await get_budget(db, budget_id)
 
-def get_budget(db: Session, budget_id: str):
+async def get_budget(db: AsyncSession, budget_id: str):
     stmt = select(Budget).where(Budget.id == budget_id)
-    budget = db.execute(stmt).scalar_one_or_none()
+    result = await db.execute(stmt)
+    budget = result.scalar_one_or_none()
     if budget:
-        _refresh_budget_totals(db, budget)
-        db.commit()
+        await _refresh_budget_totals(db, budget)
+        await db.commit()
     return budget
 
-def calculate_distribution_keys(db: Session, parent_property_id: str) -> Dict[str, float]:
+async def calculate_distribution_keys(db: AsyncSession, parent_property_id: str) -> Dict[str, float]:
     """
     Calculates allocation percentages for sub-properties based on their active contract rent.
     """
     stmt = select(Property).where(Property.parent_id == parent_property_id)
-    sub_units = db.execute(stmt).scalars().all()
+    result = await db.execute(stmt)
+    sub_units = result.scalars().all()
     
     if not sub_units:
         return {}
@@ -276,7 +283,8 @@ def calculate_distribution_keys(db: Session, parent_property_id: str) -> Dict[st
             )
         ).order_by(Contract.created_at.desc()).limit(1)
         
-        contract = db.execute(contract_stmt).scalar_one_or_none()
+        contract_result = await db.execute(contract_stmt)
+        contract = contract_result.scalar_one_or_none()
         rent = float(contract.monthly_rent) if contract else 0.0
         unit_rents[unit.id] = rent
         total_rent += rent
@@ -293,8 +301,8 @@ def calculate_distribution_keys(db: Session, parent_property_id: str) -> Dict[st
 
     return allocation
 
-def get_budget_vs_actual_report(
-    db: Session, 
+async def get_budget_vs_actual_report(
+    db: AsyncSession, 
     property_id: str, 
     year: int, 
     month: int
@@ -309,15 +317,17 @@ def get_budget_vs_actual_report(
             Budget.month == month
         )
     )
-    budget = db.execute(budget_stmt).scalar_one_or_none()
+    result = await db.execute(budget_stmt)
+    budget = result.scalar_one_or_none()
     if not budget:
         return {"property_id": property_id, "year": year, "month": month, "rows": []}
 
-    dist_keys = calculate_distribution_keys(db, property_id)
+    dist_keys = await calculate_distribution_keys(db, property_id)
     
     # Check if this property is indeed the 'Gastos Generales' one
     stmt_gen = select(Property).where(Property.name == GENERAL_PROPERTY_NAME).limit(1)
-    gen_prop = db.execute(stmt_gen).scalar_one_or_none()
+    gen_result = await db.execute(stmt_gen)
+    gen_prop = gen_result.scalar_one_or_none()
     
     all_prop_ids = list(dist_keys.keys()) + [property_id]
     if gen_prop and property_id == gen_prop.id:
@@ -349,7 +359,8 @@ def get_budget_vs_actual_report(
                 cast(func.extract('month', Transaction.transaction_date), Integer) == month
             )
         )
-        actual_total = db.execute(trans_stmt).scalar() or 0.0
+        result = await db.execute(trans_stmt)
+        actual_total = result.scalar() or 0.0
         
         row: Dict[str, Any] = {
             "category": cat.category_name,
@@ -373,12 +384,12 @@ def get_budget_vs_actual_report(
         "rows": rows
     }
 
-def delete_budget(db: Session, budget_id: str):
-    budget = get_budget(db, budget_id)
+async def delete_budget(db: AsyncSession, budget_id: str):
+    budget = await get_budget(db, budget_id)
     if budget:
         # Delete categories first (though they might be cascade)
         for cat in budget.categories:
-            db.delete(cat)
-        db.delete(budget)
-        db.commit()
+            await db.delete(cat)
+        await db.delete(budget)
+        await db.commit()
     return True

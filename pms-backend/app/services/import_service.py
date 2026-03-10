@@ -7,7 +7,7 @@ import io
 import csv
 from datetime import date
 
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from dateutil import parser as date_parser
 
@@ -98,7 +98,7 @@ def _parse_csv(file_content: str) -> list[dict]:
 
 # ── Step 1: Analyze ──────────────────────────────────────
 
-def analyze_csv(db: Session, file_content: str) -> dict:
+async def analyze_csv(db: AsyncSession, file_content: str) -> dict:
     """
     Analyze a CSV file and return detected accounts, labels, and stats.
     Does NOT modify the database.
@@ -106,13 +106,15 @@ def analyze_csv(db: Session, file_content: str) -> dict:
     rows = _parse_csv(file_content)
 
     # Existing data
+    result_acc = await db.execute(select(BankAccount))
     existing_accounts = {
         a.account_name.lower(): a.account_name
-        for a in db.execute(select(BankAccount)).scalars().all()
+        for a in result_acc.scalars().all()
     }
+    result_prop = await db.execute(select(Property))
     existing_properties = {
         p.name.lower(): p.name
-        for p in db.execute(select(Property)).scalars().all()
+        for p in result_prop.scalars().all()
     }
 
     detected_accounts: dict[str, int] = {}  # name -> count
@@ -205,8 +207,8 @@ def _looks_like_apartment(label: str) -> bool:
 
 # ── Step 2: Process Import ───────────────────────────────
 
-def process_import(
-    db: Session,
+async def process_import(
+    db: AsyncSession,
     file_content: str,
     confirmed_apartment_labels: list[str],
     user_id: str,
@@ -220,9 +222,10 @@ def process_import(
     rows = _parse_csv(file_content)
 
     # ── 1. Build / refresh account lookup ─────────────────
+    result_acc = await db.execute(select(BankAccount))
     accounts_cache = {
         a.account_name.lower(): a.id
-        for a in db.execute(select(BankAccount)).scalars().all()
+        for a in result_acc.scalars().all()
     }
     accounts_created = []
 
@@ -236,7 +239,7 @@ def process_import(
     # Create missing accounts
     for name in csv_account_names:
         if name.lower() not in accounts_cache:
-            new_account = ledger_service.create_account(db, {
+            new_account = await ledger_service.create_account(db, {
                 "account_name": name,
                 "account_type": AccountType.AHORROS.value,
                 "bank_name": name,
@@ -247,9 +250,10 @@ def process_import(
             accounts_created.append(name)
 
     # ── 2. Build / refresh property lookup ────────────────
+    result_prop = await db.execute(select(Property))
     properties_cache = {
         p.name.lower(): p.id
-        for p in db.execute(select(Property)).scalars().all()
+        for p in result_prop.scalars().all()
     }
     properties_created = []
 
@@ -377,13 +381,14 @@ def process_import(
 
     # ── 4. Apply accumulated balance deltas to accounts ───
     for account_id, delta in balance_deltas.items():
-        account = db.execute(
+        result_acc = await db.execute(
             select(BankAccount).where(BankAccount.id == account_id)
-        ).scalar_one_or_none()
+        )
+        account = result_acc.scalar_one_or_none()
         if account:
             account.current_balance = float(account.current_balance) + delta
 
-    db.commit()
+    await db.commit()
 
     return {
         "imported": imported_count,
