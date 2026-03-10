@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
 
     # ── Database ─────────────────────────────────────────
-    DATABASE_URL: str = "sqlite:///./pms_dev.db"
+    DATABASE_URL: str = "sqlite:///./pms_prod.db"
 
     # ── JWT ──────────────────────────────────────────────
     SECRET_KEY: str = "CHANGE-ME-in-production-use-openssl-rand-hex-32"
