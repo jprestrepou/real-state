@@ -108,6 +108,10 @@ app.include_router(config.router, prefix=API_PREFIX)
 
 
 # ── Health check ─────────────────────────────────────────
+@app.get("/", tags=["Sistema"])
+def root():
+    return {"message": "PMS Backend API is running", "version": settings.APP_VERSION}
+
 @app.get("/health", tags=["Sistema"])
 def health_check():
     return {"status": "ok", "version": settings.APP_VERSION}

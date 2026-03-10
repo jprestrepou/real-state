@@ -36,3 +36,6 @@ fastapi-mail==1.4.1
 # ── Database Drivers (PostgreSQL) ─────────────────────────
 asyncpg==0.29.0
 psycopg2-binary==2.9.9
+
+# ── Production Server ─────────────────────────────────────
+gunicorn==23.0.0
