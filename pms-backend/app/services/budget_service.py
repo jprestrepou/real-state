@@ -136,7 +136,7 @@ async def list_budgets(db: AsyncSession, property_id: Optional[str] = None, year
         await _refresh_budget_totals(db, b)
     
     # Commit once for all refreshed budgets
-    db.commit()
+    await db.commit()
     return budgets
 
 async def create_budget(db: AsyncSession, data: BudgetCreate):

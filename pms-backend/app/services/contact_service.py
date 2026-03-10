@@ -64,8 +64,8 @@ async def update_contact(db: AsyncSession, contact_id: str, data: ContactUpdate)
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(contact, key, value)
-    db.commit()
-    db.refresh(contact)
+    await db.commit()
+    await db.refresh(contact)
     return contact
 
 

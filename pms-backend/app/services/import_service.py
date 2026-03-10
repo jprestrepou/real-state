@@ -274,7 +274,7 @@ async def process_import(
                 status=PropertyStatus.DISPONIBLE.value,
             )
             db.add(new_prop)
-            db.flush()  # Get the ID without full commit
+            await db.flush()  # Get the ID without full commit
             properties_cache[label.lower()] = new_prop.id
             properties_created.append(label)
 
