@@ -17,3 +17,8 @@ services:
         generateValue: true
       - key: CORS_ORIGINS
         value: '["https://real-state-1-2qpr.onrender.com"]'
+
+databases:
+  - name: pms-db
+    databaseName: pms_prod
+    plan: free
