@@ -5,6 +5,7 @@ Budget Service — CRUD operations + Allocation logic and budget vs actual repor
 from typing import Dict, List, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
+from sqlalchemy.orm import selectinload
 from app.models.property import Property
 from app.models.contract import Contract, ContractStatus
 from app.models.budget import Budget, BudgetCategory
@@ -119,7 +120,7 @@ async def _refresh_budget_totals(db: AsyncSession, budget: Budget):
     # No longer committing here for performance
 
 async def list_budgets(db: AsyncSession, property_id: Optional[str] = None, year: Optional[int] = None, month: Optional[int] = None):
-    stmt = select(Budget)
+    stmt = select(Budget).options(selectinload(Budget.categories))
     filters = []
     if property_id:
         filters.append(Budget.property_id == property_id)
@@ -178,10 +179,15 @@ async def create_budget(db: AsyncSession, data: BudgetCreate):
         created_budgets.append(new_budget)
     
     await db.commit()
+
+    # Re-query with eager-loaded categories (db.refresh won't load relationships)
+    loaded_budgets = []
     for b in created_budgets:
-        await db.refresh(b)
+        stmt = select(Budget).options(selectinload(Budget.categories)).where(Budget.id == b.id)
+        result = await db.execute(stmt)
+        loaded_budgets.append(result.scalar_one())
     
-    return created_budgets[0] if not data.is_annual else created_budgets
+    return loaded_budgets[0] if not data.is_annual else loaded_budgets
 
 async def duplicate_budget(db: AsyncSession, budget_id: str, data: BudgetDuplicate):
     source = await get_budget(db, budget_id)
@@ -212,8 +218,12 @@ async def duplicate_budget(db: AsyncSession, budget_id: str, data: BudgetDuplica
         db.add(new_cat)
     
     await db.commit()
-    await db.refresh(new_budget)
-    return [new_budget] # Return as list for compatibility
+
+    # Re-query with eager-loaded categories
+    stmt = select(Budget).options(selectinload(Budget.categories)).where(Budget.id == new_budget.id)
+    result = await db.execute(stmt)
+    loaded = result.scalar_one()
+    return [loaded]  # Return as list for compatibility
 
 async def update_budget(db: AsyncSession, budget_id: str, data: Any): # Using Any to handle BudgetUpdate
     budget = await get_budget(db, budget_id)
@@ -253,7 +263,7 @@ async def update_budget(db: AsyncSession, budget_id: str, data: Any): # Using An
     return await get_budget(db, budget_id)
 
 async def get_budget(db: AsyncSession, budget_id: str):
-    stmt = select(Budget).where(Budget.id == budget_id)
+    stmt = select(Budget).options(selectinload(Budget.categories)).where(Budget.id == budget_id)
     result = await db.execute(stmt)
     budget = result.scalar_one_or_none()
     if budget:
@@ -311,7 +321,7 @@ async def get_budget_vs_actual_report(
     """
     Generates a report comparing Budgeted vs Actual amounts.
     """
-    budget_stmt = select(Budget).where(
+    budget_stmt = select(Budget).options(selectinload(Budget.categories)).where(
         and_(
             Budget.property_id == property_id,
             Budget.year == year,
