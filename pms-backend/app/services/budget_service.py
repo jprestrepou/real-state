@@ -57,19 +57,20 @@ async def _refresh_budget_totals(db: AsyncSession, budget: Budget):
     if gen_prop and budget.property_id == gen_prop.id:
         all_prop_ids.append(None)
 
-    from sqlalchemy import func, extract
+    from sqlalchemy import func, cast, Integer
     from app.models.financial import TransactionDirection
 
     # Optimized: One query for all relevant transactions in the period
     all_prop_ids_filtered = [pid for pid in all_prop_ids if pid is not None]
     
     # Base query for all credit transactions in this period
+    # Use strftime for SQLite compatibility (extract() is not supported)
     from sqlalchemy import func as sa_func, cast, Integer
     query = select(Transaction.category, sa_func.coalesce(sa_func.sum(Transaction.amount), 0.0)).where(
         and_(
             Transaction.direction == TransactionDirection.CREDIT.value,
-            cast(sa_func.extract('year', Transaction.transaction_date), Integer) == budget.year,
-            cast(sa_func.extract('month', Transaction.transaction_date), Integer) == budget.month
+            cast(sa_func.strftime('%Y', Transaction.transaction_date), Integer) == budget.year,
+            cast(sa_func.strftime('%m', Transaction.transaction_date), Integer) == budget.month
         )
     )
 
@@ -355,8 +356,8 @@ async def get_budget_vs_actual_report(
             and_(
                 Transaction.category.in_(cat_search_terms),
                 Transaction.property_id.in_(all_prop_ids),
-                cast(func.extract('year', Transaction.transaction_date), Integer) == year,
-                cast(func.extract('month', Transaction.transaction_date), Integer) == month
+                cast(func.strftime('%Y', Transaction.transaction_date), Integer) == year,
+                cast(func.strftime('%m', Transaction.transaction_date), Integer) == month
             )
         )
         result = await db.execute(trans_stmt)

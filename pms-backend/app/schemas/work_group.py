@@ -8,7 +8,7 @@ class WorkGroupBase(BaseModel):
     description: Optional[str] = None
 
 class WorkGroupCreate(WorkGroupBase):
-    super_admin_id: str
+    super_admin_id: Optional[str] = None
 
 class WorkGroupResponse(WorkGroupBase):
     id: str

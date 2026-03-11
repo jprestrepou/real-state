@@ -23,8 +23,9 @@ async def create_work_group(
     current_user: User = Depends(get_current_user)
 ):
     """Create a new work group. The creator is assigned as Super Admin."""
+    super_admin_id = data.super_admin_id or current_user.id
     return await work_group_service.create_work_group(
-        db, name=data.name, description=data.description, super_admin_id=data.super_admin_id
+        db, name=data.name, description=data.description, super_admin_id=super_admin_id
     )
 
 

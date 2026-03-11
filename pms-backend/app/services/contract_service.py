@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
 
 from app.models.contract import Contract, PaymentSchedule, ContractStatus, PaymentStatus
@@ -24,7 +25,7 @@ async def list_contracts(
     page: int = 1,
     limit: int = 20,
 ) -> tuple[list[Contract], int]:
-    stmt = select(Contract).join(Property, Contract.property_id == Property.id)
+    stmt = select(Contract).options(selectinload(Contract.property)).join(Property, Contract.property_id == Property.id)
     if property_id:
         stmt = stmt.where(Contract.property_id == property_id)
     if status_filter:
@@ -48,7 +49,7 @@ async def list_contracts(
 
 
 async def get_contract(db: AsyncSession, contract_id: str) -> Contract:
-    stmt = select(Contract).where(Contract.id == contract_id)
+    stmt = select(Contract).options(selectinload(Contract.property)).where(Contract.id == contract_id)
     result = await db.execute(stmt)
     contract = result.scalar_one_or_none()
     if not contract:
