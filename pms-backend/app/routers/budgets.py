@@ -25,14 +25,17 @@ async def list_budgets(
     return await budget_service.list_budgets(db, property_id, year, month)
 
 
-@router.post("", response_model=BudgetResponse, status_code=201)
+@router.post("", status_code=201)
 async def create_budget(
     data: BudgetCreate,
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
 ):
     """Crear presupuesto con categorías."""
-    return await budget_service.create_budget(db, data)
+    result = await budget_service.create_budget(db, data)
+    if isinstance(result, list):
+        return [BudgetResponse.model_validate(b) for b in result]
+    return BudgetResponse.model_validate(result)
 
 
 @router.get("/{budget_id}", response_model=BudgetResponse)
