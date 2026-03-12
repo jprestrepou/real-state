@@ -208,41 +208,65 @@ async def mark_payment_as_paid(db: AsyncSession, payment_id: str, account_id: st
     if payment.status == PaymentStatus.PAGADO.value:
         raise HTTPException(status_code=400, detail="El pago ya está registrado como pagado")
 
-    payment.status = PaymentStatus.PAGADO.value
-    payment.paid_date = date.today()
-
     # Load contract explicitly (cannot use payment.contract — lazy-load fails in async)
-    contract_stmt = select(Contract).options(selectinload(Contract.property)).where(Contract.id == payment.contract_id)
+    contract_stmt = select(Contract).where(Contract.id == payment.contract_id)
     contract_result = await db.execute(contract_stmt)
     contract = contract_result.scalar_one_or_none()
     if not contract:
         raise HTTPException(status_code=404, detail="Contrato asociado no encontrado")
 
+    # Mark as paid
+    payment.status = PaymentStatus.PAGADO.value
+    payment.paid_date = date.today()
+
     # Create financial transaction using standardized service
     from app.services import ledger_service
     from app.models.financial import TransactionDirection, TransactionType, TransactionCategory
     from app.schemas.financial import TransactionCreate
-    
-    transaction = await ledger_service.register_transaction(
-        db,
-        data=TransactionCreate(
-            account_id=account_id,
-            property_id=contract.property_id,
-            transaction_type=TransactionType.INGRESO.value,
-            category=TransactionCategory.ARRIENDO.value,
-            amount=float(payment.amount),
-            direction=TransactionDirection.DEBIT.value,
-            description=f"Pago Canon - {contract.tenant_name} - {payment.due_date}",
-            transaction_date=date.today(),
-            reference_id=payment.id,
-            reference_type="payment_schedule",
-        ),
-        recorded_by="SYSTEM",
-        commit=False
-    )
-    
-    payment.transaction_id = transaction.id
-    
+
+    try:
+        transaction = await ledger_service.register_transaction(
+            db,
+            data=TransactionCreate(
+                account_id=account_id,
+                property_id=contract.property_id,  # may be None if property inactive
+                transaction_type=TransactionType.INGRESO.value,
+                category=TransactionCategory.ARRIENDO.value,
+                amount=float(payment.amount),
+                direction=TransactionDirection.DEBIT.value,
+                description=f"Pago Canon - {contract.tenant_name} - {payment.due_date}",
+                transaction_date=date.today(),
+                reference_id=payment.id,
+                reference_type="payment_schedule",
+            ),
+            recorded_by="SYSTEM",
+            commit=False,
+        )
+        payment.transaction_id = transaction.id
+    except HTTPException as e:
+        if e.status_code == 404 and "Propiedad" in str(e.detail):
+            # Property not found or inactive — retry without property_id
+            transaction = await ledger_service.register_transaction(
+                db,
+                data=TransactionCreate(
+                    account_id=account_id,
+                    property_id=None,
+                    transaction_type=TransactionType.INGRESO.value,
+                    category=TransactionCategory.ARRIENDO.value,
+                    amount=float(payment.amount),
+                    direction=TransactionDirection.DEBIT.value,
+                    description=f"Pago Canon - {contract.tenant_name} - {payment.due_date}",
+                    transaction_date=date.today(),
+                    reference_id=payment.id,
+                    reference_type="payment_schedule",
+                ),
+                recorded_by="SYSTEM",
+                commit=False,
+            )
+            payment.transaction_id = transaction.id
+        else:
+            raise
+
     await db.commit()
     await db.refresh(payment)
     return payment

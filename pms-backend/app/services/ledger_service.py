@@ -54,16 +54,13 @@ async def register_transaction(
     Atomic operation: updates account balance + creates transaction record.
     """
     if data.property_id:
-        prop_stmt = select(Property).where(
-            Property.id == data.property_id,
-            Property.is_active == True,  # noqa: E712
-        )
+        prop_stmt = select(Property).where(Property.id == data.property_id)
         result_prop = await db.execute(prop_stmt)
         prop = result_prop.scalar_one_or_none()
         if not prop:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Propiedad con ID {data.property_id} no encontrada o inactiva",
+                detail=f"Propiedad con ID {data.property_id} no encontrada",
             )
 
     account = await get_account(db, data.account_id)
