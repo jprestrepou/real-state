@@ -3,7 +3,14 @@ import { showToast, showModal } from '../components/modal.js';
 import { formatDate } from '../utils/formatters.js';
 
 export async function renderWorkGroups(container, state) {
-    const workGroups = await api.get('/work-groups');
+    // Fetch work groups, properties, and users in parallel
+    const [workGroups, propertiesData, usersData] = await Promise.all([
+        api.get('/work-groups'),
+        api.get('/properties?limit=100'),
+        api.get('/users?limit=100').catch(() => ({ items: [] }))
+    ]);
+    const properties = propertiesData.items || [];
+    const users = usersData.items || [];
 
     container.innerHTML = `
         <div class="flex justify-between items-center mb-6 animate-fade-in">
@@ -77,23 +84,37 @@ export async function renderWorkGroups(container, state) {
 
     // Attach to window so onclick works
     window.addMemberModal = async (wgId) => {
-        // Optionals: fetch users to select users instead of a free text ID, but for simplicity assuming free text input
+        const userOptions = users.length
+            ? users.map(u => `<option value="${u.id}">${u.full_name || u.email} (${u.role})</option>`).join('')
+            : '<option value="" disabled>No se encontraron usuarios</option>';
+
         showModal('Añadir Miembro', `
             <form id="wm-form" class="space-y-4">
                 <div>
-                    <label class="label">ID de Usuario *</label>
-                    <input class="input" type="text" name="user_id" required placeholder="UUID del usuario" />
+                    <label class="label">Usuario *</label>
+                    <select class="select" name="user_id" required>
+                        <option value="">Seleccione un usuario...</option>
+                        ${userOptions}
+                    </select>
                 </div>
                 <div>
-                    <label class="label">Rol en el grupo</label>
-                    <input class="input" type="text" name="role_in_group" value="Técnico" />
+                    <label class="label">Rol en el grupo *</label>
+                    <select class="select" name="role">
+                        <option value="Admin">Admin</option>
+                        <option value="Analista">Analista</option>
+                    </select>
                 </div>
             </form>
         `, {
             confirmText: 'Añadir',
             onConfirm: async () => {
                 const fd = new FormData(document.getElementById('wm-form'));
-                await api.post(`/work-groups/${wgId}/members`, Object.fromEntries(fd));
+                const payload = Object.fromEntries(fd);
+                if (!payload.user_id) {
+                    showToast('Seleccione un usuario', 'error');
+                    return;
+                }
+                await api.post(`/work-groups/${wgId}/members`, payload);
                 showToast('Miembro añadido', 'success');
                 renderWorkGroups(container, state);
             }
@@ -101,18 +122,30 @@ export async function renderWorkGroups(container, state) {
     };
 
     window.addPropertyModal = async (wgId) => {
+        const propOptions = properties.length
+            ? properties.map(p => `<option value="${p.id}">${p.name} (${p.property_type})</option>`).join('')
+            : '<option value="" disabled>No se encontraron propiedades</option>';
+
         showModal('Asignar Propiedad', `
             <form id="wp-form" class="space-y-4">
                 <div>
-                    <label class="label">ID de Propiedad *</label>
-                    <input class="input" type="text" name="property_id" required placeholder="UUID de la propiedad" />
+                    <label class="label">Propiedad *</label>
+                    <select class="select" name="property_id" required>
+                        <option value="">Seleccione una propiedad...</option>
+                        ${propOptions}
+                    </select>
                 </div>
             </form>
         `, {
             confirmText: 'Asignar',
             onConfirm: async () => {
                 const fd = new FormData(document.getElementById('wp-form'));
-                await api.post(`/work-groups/${wgId}/properties`, Object.fromEntries(fd));
+                const payload = Object.fromEntries(fd);
+                if (!payload.property_id) {
+                    showToast('Seleccione una propiedad', 'error');
+                    return;
+                }
+                await api.post(`/work-groups/${wgId}/properties`, payload);
                 showToast('Propiedad asignada', 'success');
                 renderWorkGroups(container, state);
             }
