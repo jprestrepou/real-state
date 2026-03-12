@@ -183,10 +183,12 @@ async def get_eeff_report(
         }
     
     # Get all transactions for the year
-    from sqlalchemy import select, and_, extract
+    from sqlalchemy import select, and_, func, cast, Integer
     from app.models.financial import Transaction, TransactionDirection
     
-    stmt = select(Transaction).where(extract('year', Transaction.transaction_date) == year)
+    stmt = select(Transaction).where(
+        cast(func.strftime('%Y', Transaction.transaction_date), Integer) == year
+    )
     if property_id:
         stmt = stmt.where(Transaction.property_id == property_id)
         
@@ -324,3 +326,90 @@ async def financial_summary(
 ):
     """Resumen financiero general o por propiedad."""
     return await ledger_service.get_financial_summary(db, property_id)
+
+
+@router.get("/reports/upcoming-events")
+async def get_upcoming_events(
+    days: int = Query(30, ge=1, le=90),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Eventos de los próximos N días: pagos pendientes, vencimientos de contratos, mantenimientos."""
+    from datetime import date, timedelta
+    from sqlalchemy import select, and_
+    from app.models.contract import Contract, PaymentSchedule, ContractStatus, PaymentStatus
+    from app.models.maintenance import MaintenanceOrder
+
+    today = date.today()
+    horizon = today + timedelta(days=days)
+    events = []
+
+    # 1. Upcoming rent payments
+    ps_stmt = select(PaymentSchedule).join(
+        Contract, PaymentSchedule.contract_id == Contract.id
+    ).where(
+        and_(
+            PaymentSchedule.status == PaymentStatus.PENDIENTE.value,
+            PaymentSchedule.due_date >= today,
+            PaymentSchedule.due_date <= horizon,
+        )
+    ).order_by(PaymentSchedule.due_date)
+    ps_result = await db.execute(ps_stmt)
+    for p in ps_result.scalars().all():
+        days_until = (p.due_date - today).days
+        events.append({
+            "date": p.due_date.isoformat(),
+            "type": "payment",
+            "title": f"Pago de arriendo — ${float(p.amount):,.0f}",
+            "detail": f"Vence en {days_until} día{'s' if days_until != 1 else ''}",
+            "icon": "dollar-sign",
+            "severity": "high" if days_until <= 5 else "medium" if days_until <= 15 else "low",
+            "contract_id": p.contract_id,
+        })
+
+    # 2. Expiring contracts
+    c_stmt = select(Contract).where(
+        and_(
+            Contract.status == ContractStatus.ACTIVO.value,
+            Contract.end_date >= today,
+            Contract.end_date <= horizon,
+        )
+    ).order_by(Contract.end_date)
+    c_result = await db.execute(c_stmt)
+    for c in c_result.scalars().all():
+        days_until = (c.end_date - today).days
+        events.append({
+            "date": c.end_date.isoformat(),
+            "type": "expiry",
+            "title": f"Vencimiento contrato — {c.tenant_name}",
+            "detail": f"Expira en {days_until} día{'s' if days_until != 1 else ''}",
+            "icon": "file-warning",
+            "severity": "high" if days_until <= 7 else "medium" if days_until <= 15 else "low",
+            "contract_id": c.id,
+        })
+
+    # 3. Scheduled maintenance (if model has scheduled_date)
+    try:
+        m_stmt = select(MaintenanceOrder).where(
+            and_(
+                MaintenanceOrder.scheduled_date >= today,
+                MaintenanceOrder.scheduled_date <= horizon,
+            )
+        ).order_by(MaintenanceOrder.scheduled_date)
+        m_result = await db.execute(m_stmt)
+        for m in m_result.scalars().all():
+            days_until = (m.scheduled_date - today).days
+            events.append({
+                "date": m.scheduled_date.isoformat(),
+                "type": "maintenance",
+                "title": f"Mantenimiento — {m.title or 'Orden programada'}",
+                "detail": f"En {days_until} día{'s' if days_until != 1 else ''}",
+                "icon": "wrench",
+                "severity": "low",
+            })
+    except Exception:
+        pass  # If maintenance model doesn't have scheduled_date, skip
+
+    # Sort all events by date
+    events.sort(key=lambda e: e["date"])
+    return {"events": events, "total": len(events), "days": days}

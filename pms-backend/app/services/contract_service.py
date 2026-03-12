@@ -79,10 +79,11 @@ async def create_contract(db: AsyncSession, data: ContractCreate, user_id: str) 
 
 
 async def activate_contract(db: AsyncSession, contract_id: str) -> Contract:
-    """Activate a contract (must be Firmado) and generate payment schedule."""
+    """Activate a contract (Borrador or Firmado) and generate payment schedule."""
     contract = await get_contract(db, contract_id)
-    if contract.status != ContractStatus.FIRMADO.value:
-        raise HTTPException(status_code=400, detail="Solo se pueden activar contratos firmados")
+    allowed_statuses = [ContractStatus.FIRMADO.value, ContractStatus.BORRADOR.value]
+    if contract.status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Solo se pueden activar contratos en Borrador o Firmado")
 
     contract.status = ContractStatus.ACTIVO.value
 
@@ -93,6 +94,10 @@ async def activate_contract(db: AsyncSession, contract_id: str) -> Contract:
     prop = result.scalar_one_or_none()
     if prop:
         prop.status = PropertyStatus.ARRENDADA.value
+
+    # Delete any existing schedule before regenerating
+    from sqlalchemy import delete as sa_delete
+    await db.execute(sa_delete(PaymentSchedule).where(PaymentSchedule.contract_id == contract.id))
 
     await _generate_payment_schedule(db, contract)
 
@@ -206,12 +211,17 @@ async def mark_payment_as_paid(db: AsyncSession, payment_id: str, account_id: st
     payment.status = PaymentStatus.PAGADO.value
     payment.paid_date = date.today()
 
+    # Load contract explicitly (cannot use payment.contract — lazy-load fails in async)
+    contract_stmt = select(Contract).options(selectinload(Contract.property)).where(Contract.id == payment.contract_id)
+    contract_result = await db.execute(contract_stmt)
+    contract = contract_result.scalar_one_or_none()
+    if not contract:
+        raise HTTPException(status_code=404, detail="Contrato asociado no encontrado")
+
     # Create financial transaction using standardized service
     from app.services import ledger_service
     from app.models.financial import TransactionDirection, TransactionType, TransactionCategory
     from app.schemas.financial import TransactionCreate
-    
-    contract = payment.contract
     
     transaction = await ledger_service.register_transaction(
         db,
@@ -231,8 +241,6 @@ async def mark_payment_as_paid(db: AsyncSession, payment_id: str, account_id: st
         commit=False
     )
     
-    payment.status = PaymentStatus.PAGADO.value
-    payment.paid_date = date.today()
     payment.transaction_id = transaction.id
     
     await db.commit()

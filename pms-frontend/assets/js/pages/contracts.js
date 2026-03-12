@@ -1,5 +1,5 @@
 /**
- * Contracts Page — lease management.
+ * Contracts Page — lease management with full payment workflow.
  */
 import { api } from '../api.js';
 import { formatCurrency, formatDate, statusBadge } from '../utils/formatters.js';
@@ -19,9 +19,7 @@ export async function renderContracts(container) {
             <button class="tab-btn active px-4 py-2 text-primary-600 border-b-2 border-primary-600 font-medium" data-tab="list">Contratos</button>
             <button class="tab-btn px-4 py-2 text-surface-500 hover:text-surface-700 font-medium" data-tab="tenants">Inquilinos</button>
         </div>
-        <div id="contracts-tab-content">
-            <!-- Content -->
-        </div>
+        <div id="contracts-tab-content"><!-- Content --></div>
     </div>
   `;
 
@@ -34,17 +32,17 @@ export async function renderContracts(container) {
       tab.classList.remove('text-surface-500');
       tab.classList.add('active', 'text-primary-600', 'border-primary-600', 'border-b-2');
       if (tab.dataset.tab === 'list') {
-        renderContractsList(tabContent, contracts, properties);
+        renderContractsList(tabContent, contracts, properties, container);
       } else {
         renderTenantsList(tabContent, contracts);
       }
     });
   });
 
-  renderContractsList(tabContent, contracts, properties);
+  renderContractsList(tabContent, contracts, properties, container);
 }
 
-function renderContractsList(container, contracts, properties) {
+function renderContractsList(container, contracts, properties, rootContainer) {
   container.innerHTML = `
     <div class="flex flex-wrap items-center justify-between gap-4 mb-6 animate-fade-in glass-card-static p-4 !rounded-2xl border-white/40 shadow-sm">
       <div class="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-xl border border-white/20 shadow-sm">
@@ -53,6 +51,7 @@ function renderContractsList(container, contracts, properties) {
           <option value="">Todos los estados</option>
           <option value="Activo">Activo</option>
           <option value="Borrador">Borrador</option>
+          <option value="Firmado">Firmado</option>
           <option value="Finalizado">Finalizado</option>
         </select>
       </div>
@@ -87,20 +86,56 @@ function renderContractsList(container, contracts, properties) {
         </td>
         <td><span class="badge ${statusBadge(c.status)} text-[10px] font-bold">${c.status}</span></td>
         <td class="text-right"><div class="flex justify-end gap-1">
-          ${c.status === 'Borrador' ? `<button class="btn-ghost text-xs p-1.5 activate-btn hover:bg-accent-50 rounded-lg group" data-id="${c.id}" title="Activar"><i data-lucide="check-circle" class="w-4 h-4 text-accent-500 group-hover:scale-110 transition-transform"></i></button>` : ''}
-          <button class="btn-ghost text-xs p-1.5 pdf-btn hover:bg-red-50 rounded-lg group" data-id="${c.id}" title="Generar Carta"><i data-lucide="file-text" class="w-4 h-4 text-rose-500 group-hover:scale-110 transition-transform"></i></button>
-          <button class="btn-ghost text-xs p-1.5 payments-btn hover:bg-primary-50 rounded-lg group" data-id="${c.id}" title="Pagos"><i data-lucide="calendar" class="w-4 h-4 text-primary-500 group-hover:scale-110 transition-transform"></i></button>
+          ${(c.status === 'Borrador' || c.status === 'Firmado') ? `
+            <button class="btn-ghost text-xs p-1.5 activate-btn hover:bg-accent-50 rounded-lg group" data-id="${c.id}" title="Activar Contrato">
+              <i data-lucide="check-circle" class="w-4 h-4 text-accent-500 group-hover:scale-110 transition-transform"></i>
+            </button>` : ''}
+          <button class="btn-ghost text-xs p-1.5 download-btn hover:bg-blue-50 rounded-lg group" data-id="${c.id}" title="Descargar PDF">
+            <i data-lucide="download" class="w-4 h-4 text-blue-500 group-hover:scale-110 transition-transform"></i>
+          </button>
+          <button class="btn-ghost text-xs p-1.5 pdf-btn hover:bg-red-50 rounded-lg group" data-id="${c.id}" title="Carta de Terminación">
+            <i data-lucide="file-text" class="w-4 h-4 text-rose-500 group-hover:scale-110 transition-transform"></i>
+          </button>
+          <button class="btn-ghost text-xs p-1.5 payments-btn hover:bg-primary-50 rounded-lg group" data-id="${c.id}" title="Cronograma de Pagos">
+            <i data-lucide="calendar" class="w-4 h-4 text-primary-500 group-hover:scale-110 transition-transform"></i>
+          </button>
         </div></td>
       </tr>`).join('') : '<tr><td colspan="6" class="text-center py-20 text-surface-400 font-medium italic">No hay contratos registrados</td></tr>'}
       </tbody></table>
     </div>`;
   if (window.lucide) lucide.createIcons();
 
-  document.getElementById('add-contract-btn').addEventListener('click', () => openContractModal(properties));
+  document.getElementById('add-contract-btn').addEventListener('click', () => openContractModal(properties, rootContainer));
+
+  // Activate contract
   document.querySelectorAll('.activate-btn').forEach(b => b.addEventListener('click', async () => {
-    await api.post(`/contracts/${b.dataset.id}/activate`, {});
-    showToast('Contrato activado', 'success');
-    renderContractsList(container, contracts, properties); // Simplified refresh for demonstration
+    try {
+      await api.post(`/contracts/${b.dataset.id}/activate`, {});
+      showToast('Contrato activado y cronograma de pagos generado', 'success');
+      await renderContracts(rootContainer || document.getElementById('page-content'));
+    } catch(err) {
+      showToast(err.message || 'Error al activar contrato', 'error');
+    }
+  }));
+
+  // Download contract PDF
+  document.querySelectorAll('.download-btn').forEach(b => b.addEventListener('click', async () => {
+    try {
+      showToast('Generando PDF...', 'info');
+      const baseUrl = api.opts?.baseUrl?.replace('/api/v1', '') || '';
+      const token = localStorage.getItem('access_token') || '';
+      const url = `${baseUrl}/api/v1/contracts/${b.dataset.id}/download`;
+      const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+      if (!res.ok) throw new Error('Error generando PDF');
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `contrato_${b.dataset.id.slice(0,8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch(err) {
+      showToast(err.message || 'No se pudo descargar el PDF', 'error');
+    }
   }));
 
   // PDF Termination Letter
@@ -125,19 +160,26 @@ function renderContractsList(container, contracts, properties) {
         const res = await api.post(`/contracts/${b.dataset.id}/termination-letter`, payload);
         showToast('PDF Generado', 'success');
         if (res.pdf_url) {
-          // Reconstruct full API url if it's relative
-          window.open(api.opts.baseUrl.replace('/api/v1', '') + res.pdf_url, '_blank');
+          const baseUrl = api.opts?.baseUrl?.replace('/api/v1', '') || '';
+          window.open(baseUrl + res.pdf_url, '_blank');
         }
       }
     });
   }));
 
+  // Payments schedule modal
   document.querySelectorAll('.payments-btn').forEach(b => b.addEventListener('click', async () => {
     const [payments, accountsData] = await Promise.all([
       api.get(`/contracts/${b.dataset.id}/payments`),
       api.get('/accounts')
     ]);
     const accounts = accountsData.items || accountsData || [];
+
+    const paymentBadge = (status) => {
+      if (status === 'Pagado') return 'badge-green';
+      if (status === 'Vencido') return 'badge-red';
+      return 'badge-yellow';
+    };
 
     showModal('Cronograma de Pagos', `
       <div class="space-y-4">
@@ -151,28 +193,30 @@ function renderContractsList(container, contracts, properties) {
                 <tr class="hover:bg-surface-50">
                   <td class="font-medium">${formatDate(p.due_date)}</td>
                   <td class="font-black text-accent-700">${formatCurrency(p.amount)}</td>
-                  <td><span class="badge ${statusBadge(p.status)} text-[10px] uppercase font-bold">${p.status}</span></td>
+                  <td><span class="badge ${paymentBadge(p.status)} text-[10px] uppercase font-bold">${p.status}</span></td>
                   <td class="text-right">
                     ${p.status === 'Pendiente' ? `
-                      <button class="btn-primary py-1 px-3 text-[10px] pay-payment-btn" 
+                      <button class="btn-primary py-1 px-3 text-[10px] pay-payment-btn"
                         data-pid="${p.id}" data-cid="${b.dataset.id}" data-amount="${p.amount}">
                         PAGAR
                       </button>
-                    ` : '<i data-lucide="check" class="w-4 h-4 text-accent-500 ml-auto"></i>'}
+                    ` : p.status === 'Pagado' ? '<i data-lucide="check-circle" class="w-4 h-4 text-accent-500 ml-auto inline-block"></i>' : ''}
                   </td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
         </div>
-        
+
         <div id="payment-receipt-box" class="hidden p-4 bg-primary-50 border border-primary-100 rounded-xl animate-fade-in">
           <h5 class="text-xs font-bold text-primary-900 mb-2 uppercase tracking-tight">Confirmar Recepción de Pago</h5>
           <div class="flex flex-col gap-3">
             <div>
               <label class="block text-[10px] font-bold text-primary-700 mb-1 uppercase">Cuenta de Destino</label>
               <select id="pay-account-id" class="select text-xs py-1.5 w-full">
-                ${accounts.map(a => `<option value="${a.id}">${a.account_name} (${formatCurrency(a.current_balance)})</option>`).join('')}
+                ${accounts.length
+                  ? accounts.map(a => `<option value="${a.id}">${a.account_name} (${formatCurrency(a.current_balance)})</option>`).join('')
+                  : '<option value="" disabled>No hay cuentas disponibles</option>'}
               </select>
             </div>
             <button id="confirm-pay-btn" class="btn-primary w-full py-2">Confirmar Pago</button>
@@ -184,32 +228,29 @@ function renderContractsList(container, contracts, properties) {
     if (window.lucide) lucide.createIcons();
 
     let selectedPayment = null;
-    document.querySelectorAll('.pay-payment-btn').forEach(pb => pb.addEventListener('click', (e) => {
-      selectedPayment = {
-        pid: pb.dataset.pid,
-        cid: pb.dataset.cid
-      };
+    document.querySelectorAll('.pay-payment-btn').forEach(pb => pb.addEventListener('click', () => {
+      selectedPayment = { pid: pb.dataset.pid, cid: pb.dataset.cid };
       document.getElementById('payment-receipt-box').classList.remove('hidden');
+      document.querySelectorAll('.pay-payment-btn').forEach(btn => btn.closest('tr').classList.remove('bg-primary-50'));
       pb.closest('tr').classList.add('bg-primary-50');
     }));
 
     document.getElementById('confirm-pay-btn')?.addEventListener('click', async () => {
       if (!selectedPayment) return;
       const accountId = document.getElementById('pay-account-id').value;
+      if (!accountId) { showToast('Seleccione una cuenta', 'error'); return; }
       try {
         await api.post(`/contracts/${selectedPayment.cid}/payments/${selectedPayment.pid}/pay?account_id=${accountId}`, {});
-        showToast('Pago registrado correctamente', 'success');
-        // Refresh view
-        await renderContracts(container);
-        // We could also refresh the modal, but better to just close or refresh full page
+        showToast('✅ Pago registrado — transacción bancaria creada', 'success');
+        await renderContracts(rootContainer || document.getElementById('page-content'));
       } catch (err) {
-        showToast(err.message, 'error');
+        showToast(err.message || 'Error al registrar pago', 'error');
       }
     });
   }));
 }
 
-function openContractModal(properties = []) {
+function openContractModal(properties = [], rootContainer) {
   const today = new Date().toISOString().split('T')[0];
   showModal('Nuevo Contrato', `<form id="cf" class="space-y-4">
     <div>
@@ -244,32 +285,23 @@ function openContractModal(properties = []) {
       const fd = new FormData(document.getElementById('cf')); const p = {};
       fd.forEach((v, k) => { if (!v) return; p[k] = ['monthly_rent', 'deposit_amount', 'annual_increment_pct'].includes(k) ? parseFloat(v) : v; });
       p.auto_renewal = false;
-      await api.post('/contracts', p); showToast('Contrato creado', 'success');
-      await renderContracts(document.getElementById('page-content'));
+      await api.post('/contracts', p);
+      showToast('Contrato creado en Borrador — use ✓ para activarlo', 'success');
+      await renderContracts(rootContainer || document.getElementById('page-content'));
     }
   });
 }
 
 function renderTenantsList(container, contracts) {
-  // Unique tenants
   const tenantsMap = {};
   contracts.forEach(c => {
     if (!tenantsMap[c.tenant_name]) {
-      tenantsMap[c.tenant_name] = {
-        name: c.tenant_name,
-        email: c.tenant_email,
-        phone: c.tenant_phone,
-        document: c.tenant_document,
-        active_contracts: 0
-      };
+      tenantsMap[c.tenant_name] = { name: c.tenant_name, email: c.tenant_email, phone: c.tenant_phone, document: c.tenant_document, active_contracts: 0 };
     }
-    if (c.status === 'Activo') {
-      tenantsMap[c.tenant_name].active_contracts++;
-    }
+    if (c.status === 'Activo') tenantsMap[c.tenant_name].active_contracts++;
   });
 
   const tenants = Object.values(tenantsMap);
-
   container.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
         ${tenants.length ? tenants.map(t => `
