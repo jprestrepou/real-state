@@ -56,7 +56,7 @@ class MaintenanceResponse(BaseModel):
     completed_date: Optional[date] = None
     invoice_file: Optional[str] = None
     notes: Optional[str] = None
-    created_by: str
+    created_by: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -99,7 +99,7 @@ async function openMaintModal() {
             const fd = new FormData(document.getElementById('mf')); const p = {};
             fd.forEach((v, k) => { if (!v) return; p[k] = k === 'estimated_cost' ? parseFloat(v) : v; });
             await api.post('/maintenance', p); showToast('Orden creada', 'success');
-            await renderMaintenance(document.getElementById('page-content'));
+            await renderMaintenance(document.getElementById('page-content'), state);
         }
     });
 }
@@ -179,7 +179,7 @@ function openStatusModal(id) {
             const fd = new FormData(document.getElementById('sf'));
             const p = { status: fd.get('status') }; if (fd.get('notes')) p.notes = fd.get('notes');
             await api.put(`/maintenance/${id}/status`, p); showToast('Estado actualizado', 'success');
-            await renderMaintenance(document.getElementById('page-content'));
+            await renderMaintenance(document.getElementById('page-content'), state);
         }
     });
 }

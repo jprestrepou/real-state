@@ -132,7 +132,8 @@ class TelegramService:
                 priority=MaintenancePriority.MEDIA.value,
                 source=MaintenanceSource.TELEGRAM.value,
                 telegram_chat_id=chat_id,
-                telegram_message_id=message_id
+                telegram_message_id=message_id,
+                created_by=None
             )
             db.add(order)
             await db.flush()
