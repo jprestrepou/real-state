@@ -55,78 +55,11 @@ export async function renderMaintenance(container, state) {
       </tr>`).join('') : '<tr><td colspan="7" class="text-center py-12 text-surface-400">No hay órdenes</td></tr>'}
       </tbody></table>
     </div>
-    
-    ${state.user?.role === 'Admin' ? `
-    <div class="glass-card p-6 border-t-4 border-t-sky-500 animate-fade-in">
-        <div class="flex items-center gap-3 mb-4">
-            <div class="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center text-sky-600">
-                <i data-lucide="bot" class="w-5 h-5"></i>
-            </div>
-            <div>
-                <h3 class="text-lg font-bold text-surface-900">Integración Bot de Telegram</h3>
-                <p class="text-sm text-surface-500">Configura tu token para recibir reportes automáticos en esta pantalla.</p>
-            </div>
-        </div>
-
-        <form id="telegram-config-form" class="space-y-4">
-            <div class="flex gap-4 items-end">
-                <div class="flex-1">
-                    <label class="label text-sm" for="telegram_token">Telegram Bot Token (obtenido de @BotFather)</label>
-                    <input type="text" id="telegram_token" name="TELEGRAM_BOT_TOKEN" class="input font-mono text-sm" placeholder="123456789:ABCdefGHIjklmnoPQR_stuVwxyz12345">
-                </div>
-                <button type="button" class="btn-outline" id="btn-activate-webhook">
-                    <i data-lucide="link" class="w-4 h-4 mr-2"></i> Activar Webhook
-                </button>
-                <button type="submit" class="btn-primary" id="btn-save-telegram">Guardar Token</button>
-            </div>
-            <p class="text-xs text-surface-400">Paso 1: Pega y guarda el token. Paso 2: Haz clic en Activar Webhook (esto enlazará la app con Telegram temporalmente en local o permanentemente en producción).</p>
-        </form>
-    </div>
-    ` : ''}
     `;
     
     if (window.lucide) lucide.createIcons();
     document.getElementById('add-maint-btn').addEventListener('click', async () => await openMaintModal());
     document.querySelectorAll('.status-btn').forEach(b => b.addEventListener('click', () => openStatusModal(b.dataset.id)));
-
-    // Load configs only for Admin
-    if (state.user?.role === 'Admin') {
-        const form = document.getElementById('telegram-config-form');
-        try {
-            const configs = await api.get('/config');
-            const tk = configs.find(c => c.key === 'TELEGRAM_BOT_TOKEN');
-            if (tk && form) form.elements['TELEGRAM_BOT_TOKEN'].value = tk.value;
-        } catch(e) {}
-
-        if (form) {
-             form.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const btn = document.getElementById('btn-save-telegram');
-                btn.disabled = true;
-                const token = e.target.elements['TELEGRAM_BOT_TOKEN'].value.trim();
-                
-                try {
-                    await api.post('/config/batch', { "TELEGRAM_BOT_TOKEN": token });
-                    showToast('Token guardado exitosamente.', 'success');
-                } catch (error) {
-                    showToast('Error al guardar: ' + error.message, 'error');
-                } finally { btn.disabled = false; }
-            });
-
-            document.getElementById('btn-activate-webhook').addEventListener('click', async (e) => {
-                const btn = e.target.closest('button');
-                btn.disabled = true;
-                try {
-                    // Extract domain to send to backend (for local dev tunnels like ngrok or production domains)
-                    const hostUrl = window.location.origin;
-                    await api.post('/telegram/register-webhook', { domain: hostUrl });
-                    showToast('Webhook de Telegram enlazado correctamente con este dominio.', 'success');
-                } catch (err) {
-                    showToast('Error en Webhook: ' + err.message, 'error');
-                } finally { btn.disabled = false; }
-            });
-        }
-    }
 }
 
 async function openMaintModal() {
