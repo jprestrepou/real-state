@@ -51,7 +51,12 @@ export async function renderMaintenance(container, state) {
         <td><span class="badge ${statusBadge(o.status)} text-xs">${o.status}</span></td>
         <td class="text-sm">${formatCurrency(o.estimated_cost)}</td>
         <td class="text-xs text-surface-500">${formatDate(o.scheduled_date)}</td>
-        <td>${o.status !== 'Completado' && o.status !== 'Cancelado' ? `<button class="btn-ghost text-xs py-1 px-2 status-btn" data-id="${o.id}"><i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>` : ''}</td>
+        <td>
+            <div class="flex gap-1 justify-end">
+                <button class="btn-ghost text-xs py-1 px-2 edit-btn" data-id="${o.id}" title="Editar orden"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
+                ${o.status !== 'Completado' && o.status !== 'Cancelado' ? `<button class="btn-ghost text-xs py-1 px-2 status-btn" data-id="${o.id}" title="Cambiar estado"><i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>` : ''}
+            </div>
+        </td>
       </tr>`).join('') : '<tr><td colspan="7" class="text-center py-12 text-surface-400">No hay órdenes</td></tr>'}
       </tbody></table>
     </div>
@@ -60,6 +65,7 @@ export async function renderMaintenance(container, state) {
     if (window.lucide) lucide.createIcons();
     document.getElementById('add-maint-btn').addEventListener('click', async () => await openMaintModal());
     document.querySelectorAll('.status-btn').forEach(b => b.addEventListener('click', () => openStatusModal(b.dataset.id)));
+    document.querySelectorAll('.edit-btn').forEach(b => b.addEventListener('click', () => openEditModal(b.dataset.id)));
 }
 
 async function openMaintModal() {
@@ -96,6 +102,69 @@ async function openMaintModal() {
             await renderMaintenance(document.getElementById('page-content'));
         }
     });
+}
+
+async function openEditModal(id) {
+    const o = await api.get(`/maintenance/${id}`);
+    
+    showModal('Editar Orden', `<form id="ef" class="space-y-4">
+    <div><label class="label">Título *</label><input class="input" name="title" required value="${o.title}" /></div>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="label">Tipo *</label>
+        <select class="select" name="maintenance_type">
+            <option value="Correctivo" ${o.maintenance_type === 'Correctivo' ? 'selected' : ''}>Correctivo</option>
+            <option value="Preventivo" ${o.maintenance_type === 'Preventivo' ? 'selected' : ''}>Preventivo</option>
+            <option value="Mejora" ${o.maintenance_type === 'Mejora' ? 'selected' : ''}>Mejora</option>
+        </select>
+      </div>
+      <div>
+        <label class="label">Prioridad</label>
+        <select class="select" name="priority">
+            <option value="Baja" ${o.priority === 'Baja' ? 'selected' : ''}>Baja</option>
+            <option value="Media" ${o.priority === 'Media' ? 'selected' : ''}>Media</option>
+            <option value="Alta" ${o.priority === 'Alta' ? 'selected' : ''}>Alta</option>
+            <option value="Urgente" ${o.priority === 'Urgente' ? 'selected' : ''}>Urgente</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div>
+        <label class="label">Estado *</label>
+        <select class="select" name="status">
+            <option value="Pendiente" ${o.status === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+            <option value="En Progreso" ${o.status === 'En Progreso' ? 'selected' : ''}>En Progreso</option>
+            <option value="Esperando Factura" ${o.status === 'Esperando Factura' ? 'selected' : ''}>Esperando Factura</option>
+            <option value="Completado" ${o.status === 'Completado' ? 'selected' : ''}>Completado</option>
+            <option value="Cancelado" ${o.status === 'Cancelado' ? 'selected' : ''}>Cancelado</option>
+        </select>
+      </div>
+      <div><label class="label">Fecha</label><input class="input" name="scheduled_date" type="date" value="${o.scheduled_date || ''}" /></div>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+        <div><label class="label">Costo Est.</label><input class="input" name="estimated_cost" type="number" step="0.01" value="${o.estimated_cost || ''}" /></div>
+        <div><label class="label">Costo Real</label><input class="input" name="actual_cost" type="number" step="0.01" value="${o.actual_cost || ''}" /></div>
+    </div>
+    <div><label class="label">Proveedor</label><input class="input" name="supplier_name" value="${o.supplier_name || ''}" /></div>
+    <div><label class="label">Notas</label><textarea class="input" name="notes" rows="3">${o.notes || ''}</textarea></div>
+  </form>`, {
+        confirmText: 'Guardar Cambios',
+        onConfirm: async () => {
+            const formData = new FormData(document.getElementById('ef'));
+            const payload = {};
+            formData.forEach((v, k) => {
+                if (k === 'estimated_cost' || k === 'actual_cost') {
+                    payload[k] = v ? parseFloat(v) : null;
+                } else if (v) {
+                    payload[k] = v;
+                }
+            });
+            await api.put(`/maintenance/${id}`, payload);
+            showToast('Orden actualizada correctamente', 'success');
+            await renderMaintenance(document.getElementById('page-content'), state);
+        }
+    });
+
 }
 
 function openStatusModal(id) {

@@ -49,8 +49,10 @@ async def get_maintenance(db: AsyncSession, order_id: str) -> MaintenanceOrder:
 
 
 async def create_maintenance(db: AsyncSession, data: MaintenanceCreate, user_id: str) -> MaintenanceOrder:
+    # Ensure properties that might be None from model_dump are handled
+    create_data = data.model_dump()
     order = MaintenanceOrder(
-        **data.model_dump(),
+        **create_data,
         created_by=user_id,
     )
     db.add(order)

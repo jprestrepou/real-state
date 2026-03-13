@@ -74,51 +74,79 @@ class TelegramService:
         message_id = str(message.get("message_id"))
         text = message.get("text", "")
         
-        # Format: /reportar <property_id> <issue>
+        # Format: /reportar <property_id_or_name> <issue>
         if text.startswith("/reportar "):
-            parts = text.split(" ", 2)
-            if len(parts) >= 3:
-                prop_id = parts[1]
-                issue_title = parts[2]
-                
-                # Validate property exists
-                from app.models import Property
-                prop_stmt = select(Property).filter_by(id=prop_id)
-                prop_result = await db.execute(prop_stmt)
-                property_obj = prop_result.scalar_one_or_none()
-                
-                if not property_obj:
-                    await cls.send_message(db, chat_id, f"❌ No se pudo encontrar la propiedad con el ID proporcionado: `{prop_id}`.\n\nPor favor, verifica el ID y vuelve a intentarlo.")
-                    return
+            args_text = text[len("/reportar "):].strip()
+            if not args_text:
+                await cls.send_message(db, chat_id, "⚠️ **Formato incorrecto.**\nPara reportar un daño usa el formato:\n`/reportar <NOMBRE_O_ID_PROPIEDAD> <Descripción del daño>`")
+                return
 
-                # Create maintenance order
-                from app.models.maintenance import MaintenanceType, MaintenancePriority, MaintenanceOrder, MaintenanceStatus, MaintenanceSource
-                order = MaintenanceOrder(
-                    property_id=prop_id,
-                    title=issue_title,
-                    maintenance_type=MaintenanceType.CORRECTIVO.value,
-                    status=MaintenanceStatus.PENDIENTE.value,
-                    priority=MaintenancePriority.MEDIA.value,
-                    source=MaintenanceSource.TELEGRAM.value,
-                    telegram_chat_id=chat_id,
-                    telegram_message_id=message_id
-                )
-                db.add(order)
-                await db.flush() # flush to get order.id before commit
-                
-                response_text = (
-                    f"✅ *Orden de Mantenimiento Registrada*\n\n"
-                    f"**ID de Propiedad:** `{prop_id}`\n"
-                    f"**Reporte:** {issue_title}\n\n"
-                    f"**Ticket ID:** `{order.id}`\n\n"
-                    f"Si tienes fotos del daño, envíalas ahora en esta conversación."
-                )
-                await cls.send_message(db, chat_id, response_text)
-                await db.commit()
+            from app.models import Property
+            from sqlalchemy import or_
+
+            # 1. Try exact ID match first if it looks like a potential ID or single word
+            parts = args_text.split(" ", 1)
+            prop_query_first = parts[0]
+            
+            # 2. Get all active property names and IDs to find the best match
+            prop_stmt = select(Property).where(Property.is_active == True)
+            prop_result = await db.execute(prop_stmt)
+            all_props = prop_result.scalars().all()
+            
+            target_property = None
+            issue_title = ""
+
+            # Try to find a property whose name or ID matches the start of args_text
+            # Sort by length descending to match the longest name first (e.g. "Cabaña A1" vs "Cabaña")
+            for p in sorted(all_props, key=lambda x: len(x.name), reverse=True):
+                # Check for ID match
+                if args_text.lower().startswith(p.id.lower()):
+                    target_property = p
+                    issue_title = args_text[len(p.id):].strip()
+                    break
+                # Check for Name match
+                if args_text.lower().startswith(p.name.lower()):
+                    target_property = p
+                    issue_title = args_text[len(p.name):].strip()
+                    # Also ensure there's a space or it's the end of string to avoid matching "Casa" in "Casasola"
+                    if len(args_text) == len(p.name) or args_text[len(p.name)] == " ":
+                        break
+                    else:
+                        target_property = None # Reset if it was a partial word match
+
+            if not target_property:
+                await cls.send_message(db, chat_id, f"❌ No pude identificar la propiedad en tu mensaje: `{args_text}`.\n\nPor favor, asegúrate de escribir el nombre exacto de la propiedad al inicio.")
                 return
-            else:
-                await cls.send_message(db, chat_id, "⚠️ **Formato incorrecto.**\nPara reportar un daño usa el formato:\n`/reportar <ID_PROPIEDAD> <Descripción del daño>`")
+
+            if not issue_title:
+                await cls.send_message(db, chat_id, f"⚠️ Has identificado la propiedad *{target_property.name}*, pero falta la descripción del daño.\nUsa: `/reportar {target_property.name} <daño>`")
                 return
+
+            # Create maintenance order
+            from app.models.maintenance import MaintenanceType, MaintenancePriority, MaintenanceOrder, MaintenanceStatus, MaintenanceSource
+            order = MaintenanceOrder(
+                property_id=target_property.id,
+                title=issue_title,
+                maintenance_type=MaintenanceType.CORRECTIVO.value,
+                status=MaintenanceStatus.PENDIENTE.value,
+                priority=MaintenancePriority.MEDIA.value,
+                source=MaintenanceSource.TELEGRAM.value,
+                telegram_chat_id=chat_id,
+                telegram_message_id=message_id
+            )
+            db.add(order)
+            await db.flush()
+            
+            response_text = (
+                f"✅ *Orden de Mantenimiento Registrada*\n\n"
+                f"**Propiedad:** {target_property.name}\n"
+                f"**Reporte:** {issue_title}\n\n"
+                f"**Ticket ID:** `{order.id}`\n\n"
+                f"Si tienes fotos del daño, envíalas ahora en esta conversación."
+            )
+            await cls.send_message(db, chat_id, response_text)
+            await db.commit()
+            return
 
         if text.startswith("/start"):
             await cls.send_message(db, chat_id, "👋 ¡Hola! Soy el Bot de Mantenimiento de Property Management.\n\nPara reportar un daño, envíame el siguiente comando:\n`/reportar <ID_PROPIEDAD> <Descripción del daño>`")
