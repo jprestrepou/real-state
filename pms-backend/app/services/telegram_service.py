@@ -74,15 +74,25 @@ class TelegramService:
         message_id = str(message.get("message_id"))
         text = message.get("text", "")
         
-        # Example naive processing: if a user types /maint <property_id> <issue>
-        if text.startswith("/maint "):
+        # Format: /reportar <property_id> <issue>
+        if text.startswith("/reportar "):
             parts = text.split(" ", 2)
             if len(parts) >= 3:
                 prop_id = parts[1]
                 issue_title = parts[2]
                 
-                # Create naive maintenance order
-                from app.models.maintenance import MaintenanceType, MaintenancePriority
+                # Validate property exists
+                from app.models import Property
+                prop_stmt = select(Property).filter_by(id=prop_id)
+                prop_result = await db.execute(prop_stmt)
+                property_obj = prop_result.scalar_one_or_none()
+                
+                if not property_obj:
+                    await cls.send_message(db, chat_id, f"❌ No se pudo encontrar la propiedad con el ID proporcionado: `{prop_id}`.\n\nPor favor, verifica el ID y vuelve a intentarlo.")
+                    return
+
+                # Create maintenance order
+                from app.models.maintenance import MaintenanceType, MaintenancePriority, MaintenanceOrder, MaintenanceStatus, MaintenanceSource
                 order = MaintenanceOrder(
                     property_id=prop_id,
                     title=issue_title,
@@ -95,16 +105,34 @@ class TelegramService:
                 )
                 db.add(order)
                 await db.flush() # flush to get order.id before commit
-                await cls.send_message(db, chat_id, f"✅ Orden de mantenimiento registrada con ID: {order.id}")
+                
+                response_text = (
+                    f"✅ *Orden de Mantenimiento Registrada*\n\n"
+                    f"**ID de Propiedad:** `{prop_id}`\n"
+                    f"**Reporte:** {issue_title}\n\n"
+                    f"**Ticket ID:** `{order.id}`\n\n"
+                    f"Si tienes fotos del daño, envíalas ahora en esta conversación."
+                )
+                await cls.send_message(db, chat_id, response_text)
                 await db.commit()
                 return
+            else:
+                await cls.send_message(db, chat_id, "⚠️ **Formato incorrecto.**\nPara reportar un daño usa el formato:\n`/reportar <ID_PROPIEDAD> <Descripción del daño>`")
+                return
+
+        if text.startswith("/start"):
+            await cls.send_message(db, chat_id, "👋 ¡Hola! Soy el Bot de Mantenimiento de Property Management.\n\nPara reportar un daño, envíame el siguiente comando:\n`/reportar <ID_PROPIEDAD> <Descripción del daño>`")
+            return
 
         # Handle photos (e.g. attaching to a known chat_id session)
         if "photo" in message:
+            from app.models.maintenance import MaintenanceOrder, MaintenanceStatus
             stmt = select(MaintenanceOrder).filter_by(telegram_chat_id=chat_id, status=MaintenanceStatus.PENDIENTE.value)
             result = await db.execute(stmt)
             order = result.scalar_one_or_none()
             if order:
                 order.has_photos = True
                 await db.commit()
-                await cls.send_message(db, chat_id, f"✅ Foto recibida para la orden {order.id}")
+                await cls.send_message(db, chat_id, f"✅ Foto recibida y adjuntada a la orden `{order.id}`")
+            else:
+                 await cls.send_message(db, chat_id, "No tienes ninguna orden de mantenimiento pendiente a la cual asociar esta foto.")
