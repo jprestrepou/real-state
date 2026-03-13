@@ -15,6 +15,7 @@ class MaintenanceCreate(BaseModel):
     priority: str = Field(default="Media", pattern="^(Urgente|Alta|Media|Baja)$")
     estimated_cost: Optional[float] = Field(None, ge=0)
     supplier_name: Optional[str] = Field(None, max_length=200)
+    supplier_id: Optional[str] = None
     scheduled_date: Optional[date] = None
     notes: Optional[str] = None
 
@@ -27,6 +28,7 @@ class MaintenanceUpdate(BaseModel):
     estimated_cost: Optional[float] = Field(None, ge=0)
     actual_cost: Optional[float] = Field(None, ge=0)
     supplier_name: Optional[str] = None
+    supplier_id: Optional[str] = None
     scheduled_date: Optional[date] = None
     notes: Optional[str] = None
 
@@ -60,6 +62,7 @@ class MaintenanceResponse(BaseModel):
     estimated_cost: Optional[float] = None
     actual_cost: Optional[float] = None
     supplier_name: Optional[str] = None
+    supplier_id: Optional[str] = None
     scheduled_date: Optional[date] = None
     completed_date: Optional[date] = None
     invoice_file: Optional[str] = None

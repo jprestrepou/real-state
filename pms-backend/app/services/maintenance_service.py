@@ -22,7 +22,10 @@ async def list_maintenance(
     page: int = 1,
     limit: int = 20,
 ) -> tuple[list[MaintenanceOrder], int]:
-    stmt = select(MaintenanceOrder).options(selectinload(MaintenanceOrder.photos))
+    stmt = select(MaintenanceOrder).options(
+        selectinload(MaintenanceOrder.photos),
+        selectinload(MaintenanceOrder.supplier)
+    )
     if property_id:
         stmt = stmt.where(MaintenanceOrder.property_id == property_id)
     if status_filter:
@@ -41,7 +44,10 @@ async def list_maintenance(
 
 
 async def get_maintenance(db: AsyncSession, order_id: str) -> MaintenanceOrder:
-    stmt = select(MaintenanceOrder).options(selectinload(MaintenanceOrder.photos)).where(MaintenanceOrder.id == order_id)
+    stmt = select(MaintenanceOrder).options(
+        selectinload(MaintenanceOrder.photos),
+        selectinload(MaintenanceOrder.supplier)
+    ).where(MaintenanceOrder.id == order_id)
     result = await db.execute(stmt)
     order = result.scalar_one_or_none()
     if not order:

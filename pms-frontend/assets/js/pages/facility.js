@@ -17,6 +17,7 @@ export async function renderFacility(container, state) {
             <div class="flex border-b border-surface-200">
                 <button class="tab-btn active" data-tab="assets">Inventario de Activos</button>
                 <button class="tab-btn" data-tab="inspections">Inspecciones</button>
+                <button class="tab-btn" data-tab="maintenance">Mantenimiento</button>
                 <button class="tab-btn" data-tab="providers">Proveedores</button>
             </div>
 
@@ -51,6 +52,9 @@ async function renderTab(tab, container, data) {
             break;
         case 'providers':
             renderProvidersTab(container, data);
+            break;
+        case 'maintenance':
+            renderMaintenanceTab(container, data);
             break;
     }
 }
@@ -189,31 +193,174 @@ function openAssetModal(properties) {
     });
 }
 
-function openInspectionModal(properties) {
+async function renderMaintenanceTab(container, { properties }) {
+    const data = await api.get('/maintenance?limit=50');
+    const orders = data.items || [];
+
+    container.innerHTML = `
+    <div class="flex items-center justify-between mb-6 animate-fade-in px-4">
+      <div class="flex items-center gap-3">
+        <h4 class="text-lg font-semibold text-surface-700">Órdenes de Trabajo</h4>
+      </div>
+      <button id="add-maint-btn" class="btn-primary btn-sm"><i data-lucide="plus" class="w-4 h-4"></i> Nueva Orden</button>
+    </div>
+    <div class="glass-card-static overflow-hidden animate-fade-in mx-4">
+      <table class="data-table">
+        <thead><tr><th></th><th>Título</th><th>Tipo</th><th>Estado</th><th>Proveedor</th><th>Costo</th><th></th></tr></thead>
+        <tbody>
+        ${orders.length ? orders.map(o => `<tr>
+          <td class="w-10">
+            ${o.photos && o.photos.length > 0 ? `<img src="${api.baseUrl.replace('/api/v1', '')}/${o.photos[0].photo_path}" class="w-8 h-8 rounded object-cover cursor-pointer" onclick="viewPhotos('${o.id}')" />` : ''}
+          </td>
+          <td><div class="font-semibold text-sm">${o.title}</div><div class="text-[10px] text-surface-400">${formatDate(o.scheduled_date)}</div></td>
+          <td><span class="badge badge-gray text-[10px]">${o.maintenance_type}</span></td>
+          <td><span class="badge ${statusBadge(o.status)} text-[10px]">${o.status}</span></td>
+          <td class="text-xs">${o.supplier_name || (o.supplier ? o.supplier.name : 'N/A')}</td>
+          <td class="text-sm font-medium">${formatCurrency(o.actual_cost || o.estimated_cost)}</td>
+          <td class="text-right">
+             <button class="btn-ghost p-1 edit-maint-btn" data-id="${o.id}"><i data-lucide="edit-3" class="w-4 h-4 text-surface-400"></i></button>
+          </td>
+        </tr>`).join('') : '<tr><td colspan="7" class="text-center py-10 text-surface-400">No hay mantenimientos.</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+    `;
+    
+    if (window.lucide) lucide.createIcons();
+    document.getElementById('add-maint-btn').addEventListener('click', () => openMaintModal(properties));
+    document.querySelectorAll('.edit-maint-btn').forEach(b => b.addEventListener('click', () => openEditMaintModal(b.dataset.id, properties)));
+}
+
+function statusBadge(status) {
+    const map = { 'Pendiente': 'badge-amber', 'En Progreso': 'badge-primary', 'Completado': 'badge-green', 'Cancelado': 'badge-red' };
+    return map[status] || 'badge-gray';
+}
+
+async function openMaintModal(properties) {
+    const providers = await api.get('/contacts?type=Proveedor');
+    const providerOptions = providers.length ? providers.map(p => `<option value="${p.id}|${p.name}">${p.name}</option>`).join('') : '<option value="">No hay proveedores</option>';
     const propertyOptions = properties.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
-    showModal('Programar Inspección', `
-        <form id="if" class="space-y-4">
+    showModal('Nueva Orden de Mantenimiento', `
+        <form id="mf" class="space-y-4">
+            <div><label class="label">Propiedad *</label><select class="select" name="property_id" required>${propertyOptions}</select></div>
+            <div><label class="label">Título *</label><input class="input" name="title" required /></div>
+            <div class="grid grid-cols-2 gap-4">
+                <div><label class="label">Tipo</label><select class="select" name="maintenance_type"><option value="Correctivo">Correctivo</option><option value="Preventivo">Preventivo</option><option value="Mejora">Mejora</option></select></div>
+                <div><label class="label">Prioridad</label><select class="select" name="priority"><option value="Media">Media</option><option value="Alta">Alta</option><option value="Urgente">Urgente</option><option value="Baja">Baja</option></select></div>
+            </div>
             <div>
-                <label class="label">Propiedad *</label>
-                <select class="select" name="property_id" required>${propertyOptions}</select>
+                <label class="label">Proveedor Registrado</label>
+                <select class="select" id="maint-supplier-select">
+                    <option value="">Seleccione proveedor...</option>
+                    ${providerOptions}
+                </select>
             </div>
             <div class="grid grid-cols-2 gap-4">
-                <div>
-                    <label class="label">Tipo *</label>
-                    <select class="select" name="inspection_type" required>
-                        <option value="Preventiva">Preventiva</option>
-                        <option value="Entrega">Entrega</option>
-                        <option value="Recibo">Recibo</option>
-                        <option value="Rutinaria">Rutinaria</option>
-                    </select>
-                </div>
-                <div><label class="label">Fecha Programada *</label><input class="input" name="scheduled_date" type="date" required /></div>
+                <div><label class="label">Costo Estimado</label><input class="input" type="number" name="estimated_cost" step="0.01" /></div>
+                <div><label class="label">Fecha</label><input class="input" type="date" name="scheduled_date" /></div>
+            </div>
+        </form>
+    `, {
+        confirmText: 'Crear',
+        onConfirm: async () => {
+            const formData = new FormData(document.getElementById('mf'));
+            const payload = Object.fromEntries(formData);
+            const supVal = document.getElementById('maint-supplier-select').value;
+            if (supVal) {
+                const [id, name] = supVal.split('|');
+                payload.supplier_id = id;
+                payload.supplier_name = name;
+            }
+            await api.post('/maintenance', payload);
+            showToast('Orden creada', 'success');
+            await renderFacility(document.getElementById('page-content'));
+        }
+    });
+}
+
+async function openEditMaintModal(id, properties) {
+    const [order, providers] = await Promise.all([
+        api.get(`/maintenance/${id}`),
+        api.get('/contacts?type=Proveedor')
+    ]);
+
+    const providerOptions = providers.length ? providers.map(p => `<option value="${p.id}|${p.name}" ${order.supplier_id === p.id ? 'selected' : ''}>${p.name}</option>`).join('') : '<option value="">No hay proveedores</option>';
+
+    showModal('Editar Mantenimiento', `
+        <form id="e-mf" class="space-y-4">
+            <div><label class="label">Título</label><input class="input" name="title" value="${order.title}" /></div>
+            <div class="grid grid-cols-2 gap-4">
+                <div><label class="label">Estado</label><select class="select" name="status">
+                    <option value="Pendiente" ${order.status === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+                    <option value="En Progreso" ${order.status === 'En Progreso' ? 'selected' : ''}>En Progreso</option>
+                    <option value="Completado" ${order.status === 'Completado' ? 'selected' : ''}>Completado</option>
+                    <option value="Cancelado" ${order.status === 'Cancelado' ? 'selected' : ''}>Cancelado</option>
+                </select></div>
+                <div><label class="label">Prioridad</label><select class="select" name="priority">
+                    <option value="Baja" ${order.priority === 'Baja' ? 'selected' : ''}>Baja</option>
+                    <option value="Media" ${order.priority === 'Media' ? 'selected' : ''}>Media</option>
+                    <option value="Alta" ${order.priority === 'Alta' ? 'selected' : ''}>Alta</option>
+                </select></div>
             </div>
             <div>
-                <label class="label">Inspector</label>
-                <input class="input" name="inspector_name" placeholder="Nombre del inspector" />
+                <label class="label">Proveedor</label>
+                <select class="select" id="e-maint-supplier-select">
+                    <option value="">N/A</option>
+                    ${providerOptions}
+                </select>
             </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div><label class="label">Costo Real</label><input class="input" type="number" name="actual_cost" step="0.01" value="${order.actual_cost || ''}" /></div>
+                <div><label class="label">Notas</label><textarea class="input" name="notes">${order.notes || ''}</textarea></div>
+            </div>
+        </form>
+    `, {
+        confirmText: 'Guardar',
+        onConfirm: async () => {
+            const formData = new FormData(document.getElementById('e-mf'));
+            const payload = Object.fromEntries(formData);
+            const supVal = document.getElementById('e-maint-supplier-select').value;
+            if (supVal) {
+                const [pid, pname] = supVal.split('|');
+                payload.supplier_id = pid;
+                payload.supplier_name = pname;
+            }
+            await api.put(`/maintenance/${id}`, payload);
+            showToast('Actualizado', 'success');
+            await renderFacility(document.getElementById('page-content'));
+        }
+    });
+}
+
+window.viewPhotos = async (id) => {
+    const o = await api.get(`/maintenance/${id}`);
+    if (!o.photos || o.photos.length === 0) return;
+    const baseUrl = api.baseUrl.replace('/api/v1', '');
+    showModal('Evidencia Fotográfica', `
+      <div class="grid grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto p-1">
+        ${o.photos.map(p => `
+          <div class="space-y-2">
+            <img src="${baseUrl}/${p.photo_path}" class="w-full rounded-lg border border-surface-200 cursor-zoom-in" onclick="window.open('${baseUrl}/${p.photo_path}', '_blank')" />
+            <p class="text-[10px] text-surface-400 text-center">${formatDate(p.uploaded_at)}</p>
+          </div>
+        `).join('')}
+      </div>
+    `, { confirmText: 'Cerrar' });
+};
+
+function openInspectionModal(properties) {
+    const propertyOptions = properties.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    showModal('Programar Inspección', `
+        <form id="if" class="space-y-4">
+            <div><label class="label">Propiedad *</label><select class="select" name="property_id" required>${propertyOptions}</select></div>
+            <div class="grid grid-cols-2 gap-4">
+                <div><label class="label">Tipo *</label><select class="select" name="inspection_type" required>
+                    <option value="Preventiva">Preventiva</option><option value="Entrega">Entrega</option><option value="Recibo">Recibo</option><option value="Rutinaria">Rutinaria</option>
+                </select></div>
+                <div><label class="label">Fecha Programada *</label><input class="input" name="scheduled_date" type="date" required /></div>
+            </div>
+            <div><label class="label">Inspector</label><input class="input" name="inspector_name" /></div>
         </form>
     `, {
         confirmText: 'Programar',

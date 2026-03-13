@@ -79,12 +79,15 @@ class MaintenanceOrder(Base):
     )
     telegram_chat_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     telegram_message_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    has_photos: Mapped[bool] = mapped_column(Boolean, default=False)
+    supplier_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("contacts.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships
     property = relationship("Property", back_populates="maintenance_orders")
     photos = relationship("MaintenancePhoto", back_populates="order", cascade="all, delete-orphan")
+    supplier = relationship("Contact", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<MaintenanceOrder {self.title} ({self.status})>"
