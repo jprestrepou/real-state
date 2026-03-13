@@ -31,31 +31,51 @@ export async function renderFacility(container, state) {
     const tabs = container.querySelectorAll('.tab-btn');
 
     tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
+        tab.addEventListener('click', async () => {
             tabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
-            renderTab(tab.dataset.tab, tabContent, { assets, inspections, properties });
+            await renderTab(tab.dataset.tab, tabContent, { assets, inspections, properties });
         });
     });
 
     // Default tab
-    renderTab('assets', tabContent, { assets, inspections, properties });
+    await renderTab('assets', tabContent, { assets, inspections, properties });
 }
 
 async function renderTab(tab, container, data) {
-    switch (tab) {
-        case 'assets':
-            renderAssetsTab(container, data);
-            break;
-        case 'inspections':
-            renderInspectionsTab(container, data);
-            break;
-        case 'providers':
-            renderProvidersTab(container, data);
-            break;
-        case 'maintenance':
-            renderMaintenanceTab(container, data);
-            break;
+    // Clear container and show loader
+    container.innerHTML = `
+        <div class="flex items-center justify-center py-20">
+            <div class="w-8 h-8 border-3 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+    `;
+
+    try {
+        switch (tab) {
+            case 'assets':
+                renderAssetsTab(container, data);
+                break;
+            case 'inspections':
+                renderInspectionsTab(container, data);
+                break;
+            case 'providers':
+                await renderProvidersTab(container, data);
+                break;
+            case 'maintenance':
+                await renderMaintenanceTab(container, data);
+                break;
+        }
+    } catch (err) {
+        console.error(`Error rendering tab ${tab}:`, err);
+        container.innerHTML = `
+            <div class="text-center py-20">
+                <i data-lucide="alert-circle" class="w-12 h-12 text-rose-400 mx-auto mb-4"></i>
+                <h3 class="text-lg font-semibold text-surface-700 mb-2">No se pudo cargar la información</h3>
+                <p class="text-surface-500 text-sm">${err.message}</p>
+                <button onclick="window.location.reload()" class="btn-primary btn-sm mt-4">Reintentar</button>
+            </div>
+        `;
+        if (window.lucide) lucide.createIcons();
     }
 }
 
