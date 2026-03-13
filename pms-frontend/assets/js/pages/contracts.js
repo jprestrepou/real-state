@@ -181,6 +181,8 @@ function renderContractsList(container, contracts, properties, rootContainer) {
       return 'badge-yellow';
     };
 
+    let selectedPayment = null;
+
     showModal('Cronograma de Pagos', `
       <div class="space-y-4">
         <div class="max-h-80 overflow-y-auto border border-surface-100 rounded-xl">
@@ -222,7 +224,7 @@ function renderContractsList(container, contracts, properties, rootContainer) {
               </div>
               <div>
                 <label class="block text-[10px] font-bold text-primary-700 mb-1 uppercase">Monto a Pagar</label>
-                <input id="pay-amount" type="number" step="0.01" class="input text-xs py-1.5 w-full" value="${selectedPayment ? selectedPayment.amount : ''}" />
+                <input id="pay-amount" type="number" step="0.01" class="input text-xs py-1.5 w-full" value="" />
               </div>
             </div>
             <button id="confirm-pay-btn" class="btn-primary w-full py-2">Confirmar Pago</button>
@@ -233,7 +235,6 @@ function renderContractsList(container, contracts, properties, rootContainer) {
 
     if (window.lucide) lucide.createIcons();
 
-    let selectedPayment = null;
     document.querySelectorAll('.pay-payment-btn').forEach(pb => pb.addEventListener('click', () => {
       selectedPayment = { pid: pb.dataset.pid, cid: pb.dataset.cid, amount: pb.dataset.amount };
       document.getElementById('payment-receipt-box').classList.remove('hidden');
