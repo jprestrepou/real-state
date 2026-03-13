@@ -18,7 +18,6 @@ import { renderAccountDetail } from './pages/account_detail.js';
 import { renderWorkGroups } from './pages/work_groups.js';
 import { renderAudits } from './pages/audits.js';
 import { renderCalendar } from './pages/calendar.js';
-import { renderSettings } from './pages/settings.js';
 
 // ── Global State ────────────────────────────────────────
 const state = {
@@ -40,7 +39,6 @@ const pages = {
     'work-groups': { title: 'Grupos de Trabajo', subtitle: 'Gestión de equipos de mantenimiento', render: renderWorkGroups },
     audits: { title: 'Auditoría', subtitle: 'Registro de actividades y log del sistema', render: renderAudits },
     calendar: { title: 'Calendario', subtitle: 'Eventos y fechas importantes próximas', render: renderCalendar },
-    settings: { title: 'Configuración', subtitle: 'Ajustes globales de Telegram y Correo', render: renderSettings },
 };
 
 // ── Router ──────────────────────────────────────────────
