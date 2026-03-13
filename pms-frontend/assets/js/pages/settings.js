@@ -1,20 +1,20 @@
-import { api } from '../api.js';
-import { showToast } from '../components/modal.js';
+import { api } from "../api.js";
+import { showToast } from "../components/modal.js";
 
 export async function renderSettings(container, state) {
-    // Only Admin should access this
-    if (state.user?.role !== 'Admin') {
-        container.innerHTML = `
+  // Only Admin should access this
+  if (state.user?.role !== "Admin") {
+    container.innerHTML = `
             <div class="text-center py-20">
                 <i data-lucide="shield-alert" class="w-12 h-12 text-rose-500 mx-auto mb-4"></i>
                 <h3 class="text-xl font-bold text-surface-900 mb-2">Acceso Denegado</h3>
                 <p class="text-surface-500">Solo los administradores pueden modificar la configuración del sistema.</p>
             </div>
         `;
-        return;
-    }
+    return;
+  }
 
-    container.innerHTML = `
+  container.innerHTML = `
         <div class="max-w-4xl mx-auto space-y-8">
             
             <!-- Email Configuration -->
@@ -81,70 +81,76 @@ export async function renderSettings(container, state) {
         </div>
     `;
 
-    // Load configs
-    try {
-        const configs = await api.get('/config');
-        
-        // Map configs to inputs
-        configs.forEach(conf => {
-            const input = container.querySelector(`[name="${conf.key}"]`);
-            if (input) {
-                input.value = conf.value;
-            }
-        });
-    } catch (error) {
-        showToast('Error cargando la configuración: ' + error.message, 'error');
-    }
+  // Load configs
+  try {
+    const configs = await api.get("/config");
 
-    // Handle Email Form Submit
-    container.querySelector('#email-config-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btn = container.querySelector('#btn-save-email');
-        btn.disabled = true;
-        btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> Guardando...';
+    // Map configs to inputs
+    configs.forEach((conf) => {
+      const input = container.querySelector(`[name="${conf.key}"]`);
+      if (input) {
+        input.value = conf.value;
+      }
+    });
+  } catch (error) {
+    showToast("Error cargando la configuración: " + error.message, "error");
+  }
 
-        const formData = new FormData(e.target);
-        const updates = {};
-        formData.forEach((value, key) => {
-            if (value.trim() !== '') updates[key] = value.trim();
-        });
+  // Handle Email Form Submit
+  container
+    .querySelector("#email-config-form")
+    .addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = container.querySelector("#btn-save-email");
+      btn.disabled = true;
+      btn.innerHTML =
+        '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> Guardando...';
 
-        try {
-            await api.post('/config/batch', updates);
-            showToast('Configuración de correo guardada exitosamente.', 'success');
-        } catch (error) {
-            showToast('Error al guardar: ' + error.message, 'error');
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Guardar Correo';
-        }
+      const formData = new FormData(e.target);
+      const updates = {};
+      formData.forEach((value, key) => {
+        if (value.trim() !== "") updates[key] = value.trim();
+      });
+
+      try {
+        await api.post("/config/batch", updates);
+        showToast("Configuración de correo guardada exitosamente.", "success");
+      } catch (error) {
+        showToast("Error al guardar: " + error.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Guardar Correo";
+      }
     });
 
-    // Handle Telegram Form Submit
-    container.querySelector('#telegram-config-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btn = container.querySelector('#btn-save-telegram');
-        btn.disabled = true;
-        btn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> Guardando...';
+  // Handle Telegram Form Submit
+  container
+    .querySelector("#telegram-config-form")
+    .addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const btn = container.querySelector("#btn-save-telegram");
+      btn.disabled = true;
+      btn.innerHTML =
+        '<i data-lucide="loader-2" class="w-4 h-4 mr-2 animate-spin"></i> Guardando...';
 
-        const token = e.target.elements['TELEGRAM_BOT_TOKEN'].value.trim();
-        if (!token) {
-            showToast('El token no puede estar vacío', 'warning');
-            btn.disabled = false;
-            btn.textContent = 'Guardar Telegram';
-            return;
-        }
+      const token = e.target.elements["TELEGRAM_BOT_TOKEN"].value.trim();
+      if (!token) {
+        showToast("El token no puede estar vacío", "warning");
+        btn.disabled = false;
+        btn.textContent = "Guardar Telegram";
+        return;
+      }
 
-        try {
-            await api.post('/config/batch', {
-                "TELEGRAM_BOT_TOKEN": token
-            });
-            showToast('Token de Telegram guardado.', 'success');
-        } catch (error) {
-            showToast('Error al guardar: ' + error.message, 'error');
-        } finally {
-            btn.disabled = false;
-            btn.textContent = 'Guardar Telegram';
-        }
+      try {
+        await api.post("/config/batch", {
+          TELEGRAM_BOT_TOKEN: token,
+        });
+        showToast("Token de Telegram guardado.", "success");
+      } catch (error) {
+        showToast("Error al guardar: " + error.message, "error");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Guardar Telegram";
+      }
     });
 }
