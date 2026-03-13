@@ -26,3 +26,32 @@ Ve a Telegram y busca el @username del bot que creaste.
 Presiona "Iniciar" o envíale un mensaje.
 Para probar el reporte de un daño, el inquilino debe escribir: /reportar <ID_DE_LA_PROPIEDAD> Se rompió una tubería en la cocina
 El bot deberá responder confirmando la creación de la Solicitud de Mantenimiento con un número de ticket, y esta aparecerá en tu panel de Facility Management en la web.
+
+Guía de Configuración del Bot de Telegram
+Para que el bot de Telegram pueda recibir reportes de daños de los inquilinos y crear órdenes de trabajo automáticamente, debes seguir estos pasos:
+
+Paso 1: Crear el Bot en Telegram
+Abre tu aplicación de Telegram (en el celular o computadora).
+En la barra de búsqueda, busca al usuario @BotFather (asegúrate de que tenga el check azul de verificación).
+Inicia un chat con él y envíale el comando: /newbot.
+BotFather te pedirá un nombre para tu bot (por ejemplo: Mantenimiento PMS Bot). Este es el nombre que verán los inquilinos.
+Luego, te pedirá un username (nombre de usuario) que debe ser único y terminar en bot (por ejemplo: midominio_pms_bot).
+Una vez creado, BotFather te enviará un mensaje largo que contiene un Token de acceso (HTTP API Token). Se ve parecido a esto: 123456789:ABCdefGHIjklmnoPQR_stuVwxyz12345.
+Copia ese Token y guárdalo en un lugar seguro.
+Paso 2: Configurar el Token en la Aplicación
+Dado que el panel de administración de Configuración aún no está creado en la interfaz visual, deberás agregar el token directamente mediante las variables de entorno de tu servidor (o archivo .env):
+
+Ve a la carpeta de tu servidor backend (pms-backend).
+Abre tu archivo .env (si estás en desarrollo local) o ve al panel de configuración de variables de entorno de tu servicio de hosting (ej. Render).
+Agrega la siguiente línea al final del archivo o como nueva variable de entorno: TELEGRAM_BOT_TOKEN="123456789:ABCdefGHIjklmnoPQR_stuVwxyz12345" (reemplazando el valor por el token que te dio BotFather).
+Reinicia tu servidor backend para que reconozca el nuevo token.
+Paso 3: Configurar el Webhook
+El Webhook es la forma en la que Telegram avisa a tu servidor cada vez que alguien le escribe al bot. Normalmente, el sistema backend está configurado para registrar el webhook automáticamente, o puede haber un botón en la interfaz para "Activar Bot".
+
+Asegúrate de que tu aplicación (backend) esté desplegada en un servidor público con HTTPS (como en Render), ya que Telegram no envía mensajes a servidores localhost o sin HTTPS.
+El servidor de Telegram enviará las notificaciones a https://<tu-dominio-backend>/telegram/webhook.
+Paso 4: Probar el Bot
+Ve a Telegram y busca el @username del bot que creaste.
+Presiona "Iniciar" o envíale un mensaje.
+Para probar el reporte de un daño, el inquilino debe escribir: /reportar <ID_DE_LA_PROPIEDAD> Se rompió una tubería en la cocina
+El bot deberá responder confirmando la creación de la Solicitud de Mantenimiento con un número de ticket, y esta aparecerá en tu panel de Facility Management en la web.
