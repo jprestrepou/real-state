@@ -86,7 +86,7 @@ export async function renderMaintenance(container, state) {
     `;
     
     if (window.lucide) lucide.createIcons();
-    document.getElementById('add-maint-btn').addEventListener('click', () => openMaintModal());
+    document.getElementById('add-maint-btn').addEventListener('click', async () => await openMaintModal());
     document.querySelectorAll('.status-btn').forEach(b => b.addEventListener('click', () => openStatusModal(b.dataset.id)));
 
     // Load configs only for Admin
@@ -129,9 +129,21 @@ export async function renderMaintenance(container, state) {
     }
 }
 
-function openMaintModal() {
+async function openMaintModal() {
+    let propertiesOptions = '<option value="">Cargando propiedades...</option>';
+    try {
+        const props = await api.get('/properties?limit=100');
+        if (props.items && props.items.length > 0) {
+            propertiesOptions = props.items.map(p => `<option value="${p.id}">${p.name} (ID: ${p.id.split('-')[0]})</option>`).join('');
+        } else {
+            propertiesOptions = '<option value="">No hay propiedades disponibles</option>';
+        }
+    } catch (e) {
+        propertiesOptions = '<option value="">Error al cargar propiedades</option>';
+    }
+
     showModal('Nueva Orden', `<form id="mf" class="space-y-4">
-    <div><label class="label">Propiedad ID *</label><input class="input" name="property_id" required /></div>
+    <div><label class="label">Propiedad *</label><select class="select" name="property_id" required>${propertiesOptions}</select></div>
     <div><label class="label">Título *</label><input class="input" name="title" required placeholder="Reparación tubería" /></div>
     <div class="grid grid-cols-2 gap-4">
       <div><label class="label">Tipo *</label><select class="select" name="maintenance_type"><option value="Correctivo">Correctivo</option><option value="Preventivo">Preventivo</option><option value="Mejora">Mejora</option></select></div>
