@@ -211,13 +211,19 @@ function renderContractsList(container, contracts, properties, rootContainer) {
         <div id="payment-receipt-box" class="hidden p-4 bg-primary-50 border border-primary-100 rounded-xl animate-fade-in">
           <h5 class="text-xs font-bold text-primary-900 mb-2 uppercase tracking-tight">Confirmar Recepción de Pago</h5>
           <div class="flex flex-col gap-3">
-            <div>
-              <label class="block text-[10px] font-bold text-primary-700 mb-1 uppercase">Cuenta de Destino</label>
-              <select id="pay-account-id" class="select text-xs py-1.5 w-full">
-                ${accounts.length
-                  ? accounts.map(a => `<option value="${a.id}">${a.account_name} (${formatCurrency(a.current_balance)})</option>`).join('')
-                  : '<option value="" disabled>No hay cuentas disponibles</option>'}
-              </select>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[10px] font-bold text-primary-700 mb-1 uppercase">Cuenta de Destino</label>
+                <select id="pay-account-id" class="select text-xs py-1.5 w-full">
+                  ${accounts.length
+                    ? accounts.map(a => `<option value="${a.id}">${a.account_name} (${formatCurrency(a.current_balance)})</option>`).join('')
+                    : '<option value="" disabled>No hay cuentas disponibles</option>'}
+                </select>
+              </div>
+              <div>
+                <label class="block text-[10px] font-bold text-primary-700 mb-1 uppercase">Monto a Pagar</label>
+                <input id="pay-amount" type="number" step="0.01" class="input text-xs py-1.5 w-full" value="${selectedPayment ? selectedPayment.amount : ''}" />
+              </div>
             </div>
             <button id="confirm-pay-btn" class="btn-primary w-full py-2">Confirmar Pago</button>
           </div>
@@ -229,8 +235,9 @@ function renderContractsList(container, contracts, properties, rootContainer) {
 
     let selectedPayment = null;
     document.querySelectorAll('.pay-payment-btn').forEach(pb => pb.addEventListener('click', () => {
-      selectedPayment = { pid: pb.dataset.pid, cid: pb.dataset.cid };
+      selectedPayment = { pid: pb.dataset.pid, cid: pb.dataset.cid, amount: pb.dataset.amount };
       document.getElementById('payment-receipt-box').classList.remove('hidden');
+      document.getElementById('pay-amount').value = selectedPayment.amount;
       document.querySelectorAll('.pay-payment-btn').forEach(btn => btn.closest('tr').classList.remove('bg-primary-50'));
       pb.closest('tr').classList.add('bg-primary-50');
     }));
@@ -238,9 +245,10 @@ function renderContractsList(container, contracts, properties, rootContainer) {
     document.getElementById('confirm-pay-btn')?.addEventListener('click', async () => {
       if (!selectedPayment) return;
       const accountId = document.getElementById('pay-account-id').value;
+      const amount = document.getElementById('pay-amount').value;
       if (!accountId) { showToast('Seleccione una cuenta', 'error'); return; }
       try {
-        await api.post(`/contracts/${selectedPayment.cid}/payments/${selectedPayment.pid}/pay?account_id=${accountId}`, {});
+        await api.post(`/contracts/${selectedPayment.cid}/payments/${selectedPayment.pid}/pay?account_id=${accountId}&amount=${amount}`, {});
         showToast('✅ Pago registrado — transacción bancaria creada', 'success');
         await renderContracts(rootContainer || document.getElementById('page-content'));
       } catch (err) {

@@ -155,13 +155,68 @@ class TelegramService:
 
         # Handle photos (e.g. attaching to a known chat_id session)
         if "photo" in message:
-            from app.models.maintenance import MaintenanceOrder, MaintenanceStatus
-            stmt = select(MaintenanceOrder).filter_by(telegram_chat_id=chat_id, status=MaintenanceStatus.PENDIENTE.value)
+            from app.models.maintenance import MaintenanceOrder, MaintenanceStatus, MaintenancePhoto
+            stmt = select(MaintenanceOrder).where(
+                MaintenanceOrder.telegram_chat_id == chat_id,
+                MaintenanceOrder.status == MaintenanceStatus.PENDIENTE.value
+            ).order_by(MaintenanceOrder.created_at.desc())
             result = await db.execute(stmt)
             order = result.scalar_one_or_none()
+            
             if order:
-                order.has_photos = True
-                await db.commit()
-                await cls.send_message(db, chat_id, f"✅ Foto recibida y adjuntada a la orden `{order.id}`")
+                # Get the largest photo (last in the list)
+                photo_file = message["photo"][-1]
+                file_id = photo_file["file_id"]
+                
+                # Download file from Telegram
+                photo_path = await cls._download_telegram_file(db, file_id)
+                if photo_path:
+                    new_photo = MaintenancePhoto(
+                        order_id=order.id,
+                        photo_path=photo_path,
+                        telegram_file_id=file_id
+                    )
+                    db.add(new_photo)
+                    order.has_photos = True
+                    await db.commit()
+                    await cls.send_message(db, chat_id, f"✅ Foto recibida y adjuntada a la orden `{order.id}`")
+                else:
+                    await cls.send_message(db, chat_id, "❌ Error al descargar la foto de Telegram.")
             else:
                  await cls.send_message(db, chat_id, "No tienes ninguna orden de mantenimiento pendiente a la cual asociar esta foto.")
+
+    @classmethod
+    async def _download_telegram_file(cls, db: AsyncSession, file_id: str) -> Optional[str]:
+        """Downloads a file from Telegram and returns the local relative path."""
+        base_url = await cls.get_base_url(db)
+        token = base_url.split("bot")[-1]
+        
+        async with httpx.AsyncClient() as client:
+            try:
+                # 1. Get file path from Telegram
+                res = await client.get(f"{base_url}/getFile", params={"file_id": file_id})
+                res.raise_for_status()
+                file_info = res.json()["result"]
+                file_path_on_telegram = file_info["file_path"]
+                
+                # 2. Download the actual file
+                download_url = f"https://api.telegram.org/file/bot{token}/{file_path_on_telegram}"
+                file_res = await client.get(download_url)
+                file_res.raise_for_status()
+                
+                # 3. Save locally
+                import uuid
+                ext = file_path_on_telegram.split(".")[-1]
+                filename = f"maint_{uuid.uuid4()}.{ext}"
+                local_dir = os.path.join(settings.UPLOAD_DIR, "maintenance")
+                os.makedirs(local_dir, exist_ok=True)
+                
+                local_path = os.path.join(local_dir, filename)
+                with open(local_path, "wb") as f:
+                    f.write(file_res.content)
+                
+                # Return relative path for frontend
+                return f"uploads/maintenance/{filename}"
+            except Exception as e:
+                logger.error(f"Error downloading Telegram file: {e}")
+                return None

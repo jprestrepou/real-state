@@ -195,7 +195,7 @@ async def _generate_payment_schedule(db: AsyncSession, contract: Contract) -> No
         current = current + relativedelta(months=1)
 
 
-async def mark_payment_as_paid(db: AsyncSession, payment_id: str, account_id: str) -> PaymentSchedule:
+async def mark_payment_as_paid(db: AsyncSession, payment_id: str, account_id: str, user_id: str, override_amount: float | None = None) -> PaymentSchedule:
     """
     Mark a payment as paid and register a transaction in the financial module.
     """
@@ -208,16 +208,20 @@ async def mark_payment_as_paid(db: AsyncSession, payment_id: str, account_id: st
     if payment.status == PaymentStatus.PAGADO.value:
         raise HTTPException(status_code=400, detail="El pago ya está registrado como pagado")
 
-    # Load contract explicitly (cannot use payment.contract — lazy-load fails in async)
+    # Load contract explicitly
     contract_stmt = select(Contract).where(Contract.id == payment.contract_id)
     contract_result = await db.execute(contract_stmt)
     contract = contract_result.scalar_one_or_none()
     if not contract:
         raise HTTPException(status_code=404, detail="Contrato asociado no encontrado")
 
-    # Mark as paid
+    # Mark as paid and potentially update amount
     payment.status = PaymentStatus.PAGADO.value
     payment.paid_date = date.today()
+    
+    final_amount = float(override_amount if override_amount is not None else payment.amount)
+    if override_amount is not None:
+        payment.amount = override_amount
 
     # Create financial transaction using standardized service
     from app.services import ledger_service
@@ -229,17 +233,17 @@ async def mark_payment_as_paid(db: AsyncSession, payment_id: str, account_id: st
             db,
             data=TransactionCreate(
                 account_id=account_id,
-                property_id=contract.property_id,  # may be None if property inactive
+                property_id=contract.property_id,
                 transaction_type=TransactionType.INGRESO.value,
                 category=TransactionCategory.ARRIENDO.value,
-                amount=float(payment.amount),
+                amount=final_amount,
                 direction=TransactionDirection.DEBIT.value,
                 description=f"Pago Canon - {contract.tenant_name} - {payment.due_date}",
                 transaction_date=date.today(),
                 reference_id=payment.id,
                 reference_type="payment_schedule",
             ),
-            recorded_by="SYSTEM",
+            recorded_by=user_id,
             commit=False,
         )
         payment.transaction_id = transaction.id
@@ -253,14 +257,14 @@ async def mark_payment_as_paid(db: AsyncSession, payment_id: str, account_id: st
                     property_id=None,
                     transaction_type=TransactionType.INGRESO.value,
                     category=TransactionCategory.ARRIENDO.value,
-                    amount=float(payment.amount),
+                    amount=final_amount,
                     direction=TransactionDirection.DEBIT.value,
                     description=f"Pago Canon - {contract.tenant_name} - {payment.due_date}",
                     transaction_date=date.today(),
                     reference_id=payment.id,
                     reference_type="payment_schedule",
                 ),
-                recorded_by="SYSTEM",
+                recorded_by=user_id,
                 commit=False,
             )
             payment.transaction_id = transaction.id

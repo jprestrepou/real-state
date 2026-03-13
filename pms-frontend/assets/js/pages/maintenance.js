@@ -42,9 +42,18 @@ export async function renderMaintenance(container, state) {
     </div>
     <div class="glass-card-static overflow-hidden animate-fade-in mb-8">
       <table class="data-table"><thead><tr>
-        <th>Título</th><th>Tipo</th><th>Prioridad</th><th>Estado</th><th>Costo Est.</th><th>Fecha</th><th></th>
+        <th></th><th>Título</th><th>Tipo</th><th>Prioridad</th><th>Estado</th><th>Costo Est.</th><th>Fecha</th><th></th>
       </tr></thead><tbody>
       ${orders.length ? orders.map(o => `<tr>
+        <td class="w-12">
+            ${o.photos && o.photos.length > 0 ? 
+                `<div class="relative group cursor-pointer" onclick="viewPhotos('${o.id}')">
+                    <img src="${api.baseUrl.replace('/api/v1', '')}/${o.photos[0].photo_path}" class="w-10 h-10 rounded object-cover border border-surface-200" />
+                    <span class="absolute -top-2 -right-2 bg-primary-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">${o.photos.length}</span>
+                </div>` : 
+                `<div class="w-10 h-10 rounded bg-surface-100 flex items-center justify-center text-surface-400"><i data-lucide="image" class="w-5 h-5"></i></div>`
+            }
+        </td>
         <td><div class="font-semibold text-sm">${o.title}</div>${o.supplier_name ? `<div class="text-xs text-surface-400">${o.supplier_name}</div>` : ''}</td>
         <td><span class="badge badge-gray text-xs">${o.maintenance_type}</span></td>
         <td><span class="badge ${o.priority === 'Urgente' ? 'badge-red' : o.priority === 'Alta' ? 'badge-amber' : 'badge-gray'} text-xs">${o.priority}</span></td>
@@ -67,6 +76,23 @@ export async function renderMaintenance(container, state) {
     document.querySelectorAll('.status-btn').forEach(b => b.addEventListener('click', () => openStatusModal(b.dataset.id)));
     document.querySelectorAll('.edit-btn').forEach(b => b.addEventListener('click', () => openEditModal(b.dataset.id)));
 }
+
+window.viewPhotos = async (id) => {
+    const o = await api.get(`/maintenance/${id}`);
+    if (!o.photos || o.photos.length === 0) return;
+    
+    const baseUrl = api.baseUrl.replace('/api/v1', '');
+    showModal('Evidencia Fotográfica', `
+      <div class="grid grid-cols-2 gap-4 max-h-[60vh] overflow-y-auto p-1">
+        ${o.photos.map(p => `
+          <div class="space-y-2">
+            <img src="${baseUrl}/${p.photo_path}" class="w-full rounded-lg border border-surface-200 cursor-zoom-in" onclick="window.open('${baseUrl}/${p.photo_path}', '_blank')" />
+            <p class="text-[10px] text-surface-400 text-center">${formatDate(p.uploaded_at)}</p>
+          </div>
+        `).join('')}
+      </div>
+    `, { confirmText: 'Cerrar' });
+};
 
 async function openMaintModal() {
     let propertiesOptions = '<option value="">Cargando propiedades...</option>';

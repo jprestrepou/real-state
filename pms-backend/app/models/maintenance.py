@@ -84,6 +84,24 @@ class MaintenanceOrder(Base):
 
     # Relationships
     property = relationship("Property", back_populates="maintenance_orders")
+    photos = relationship("MaintenancePhoto", back_populates="order", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
         return f"<MaintenanceOrder {self.title} ({self.status})>"
+
+
+class MaintenancePhoto(Base):
+    __tablename__ = "maintenance_photos"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    order_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("maintenance_orders.id"), nullable=False, index=True
+    )
+    photo_path: Mapped[str] = mapped_column(String(500), nullable=False)
+    telegram_file_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    # Relationships
+    order = relationship("MaintenanceOrder", back_populates="photos")

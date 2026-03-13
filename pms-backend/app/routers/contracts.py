@@ -165,8 +165,9 @@ async def mark_payment_as_paid(
     contract_id: str,
     payment_id: str,
     account_id: str = Query(..., description="ID de la cuenta donde se recibe el pago"),
+    amount: float | None = Query(None, description="Monto real pagado (opcional si difiere del canon)"),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
 ):
     """Marcar un pago como pagado y registrar movimiento financiero."""
-    return await contract_service.mark_payment_as_paid(db, payment_id, account_id)
+    return await contract_service.mark_payment_as_paid(db, payment_id, account_id, current_user.id, amount)

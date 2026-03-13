@@ -42,6 +42,14 @@ class MaintenanceComplete(BaseModel):
     notes: Optional[str] = None
 
 
+class MaintenancePhotoResponse(BaseModel):
+    id: str
+    photo_path: str
+    uploaded_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class MaintenanceResponse(BaseModel):
     id: str
     property_id: str
@@ -58,5 +66,6 @@ class MaintenanceResponse(BaseModel):
     notes: Optional[str] = None
     created_by: Optional[str] = None
     created_at: datetime
+    photos: list[MaintenancePhotoResponse] = []
 
     model_config = {"from_attributes": True}
