@@ -5,7 +5,7 @@ import { api } from '../api.js';
 import { formatCurrency, formatDate, statusBadge } from '../utils/formatters.js';
 import { showToast, showModal } from '../components/modal.js';
 
-export async function renderMaintenance(container) {
+export async function renderMaintenance(container, state) {
     const data = await api.get('/maintenance?limit=50');
     const orders = data.items || [];
 

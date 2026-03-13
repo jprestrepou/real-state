@@ -1,4 +1,4 @@
-(function(){const s=document.createElement("link").relList;if(s&&s.supports&&s.supports("modulepreload"))return;for(const n of document.querySelectorAll('link[rel="modulepreload"]'))a(n);new MutationObserver(n=>{for(const i of n)if(i.type==="childList")for(const l of i.addedNodes)l.tagName==="LINK"&&l.rel==="modulepreload"&&a(l)}).observe(document,{childList:!0,subtree:!0});function e(n){const i={};return n.integrity&&(i.integrity=n.integrity),n.referrerPolicy&&(i.referrerPolicy=n.referrerPolicy),n.crossOrigin==="use-credentials"?i.credentials="include":n.crossOrigin==="anonymous"?i.credentials="omit":i.credentials="same-origin",i}function a(n){if(n.ep)return;n.ep=!0;const i=e(n);fetch(n.href,i)}})();const N="https://real-state-xd5o.onrender.com/api/v1";class ge{constructor(){this._accessToken=localStorage.getItem("pms_access_token"),this._refreshToken=localStorage.getItem("pms_refresh_token"),this._onUnauthorized=null}onUnauthorized(s){this._onUnauthorized=s}setTokens(s,e){this._accessToken=s,this._refreshToken=e,localStorage.setItem("pms_access_token",s),localStorage.setItem("pms_refresh_token",e)}clearTokens(){this._accessToken=null,this._refreshToken=null,localStorage.removeItem("pms_access_token"),localStorage.removeItem("pms_refresh_token")}isAuthenticated(){return!!this._accessToken}async _fetch(s,e={}){const a={"Content-Type":"application/json",...e.headers};this._accessToken&&(a.Authorization=`Bearer ${this._accessToken}`),e.body instanceof FormData&&delete a["Content-Type"];let n=await fetch(`${N}${s}`,{...e,headers:a});if(n.status===401&&this._refreshToken)if(await this._tryRefresh())a.Authorization=`Bearer ${this._accessToken}`,n=await fetch(`${N}${s}`,{...e,headers:a});else throw this.clearTokens(),this._onUnauthorized&&this._onUnauthorized(),new Error("Sesión expirada. Inicie sesión nuevamente.");if(!n.ok){let i="Error del servidor";try{const l=await n.json();typeof l.detail=="string"?i=l.detail:Array.isArray(l.detail)?i=l.detail.map(o=>o.msg).join(", "):l.detail&&(i=JSON.stringify(l.detail))}catch{i=`Error ${n.status}`}throw new Error(i)}return n.status===204?null:n.json()}async _tryRefresh(){try{const s=await fetch(`${N}/auth/refresh`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refresh_token:this._refreshToken})});if(!s.ok)return!1;const e=await s.json();return this.setTokens(e.access_token,e.refresh_token),!0}catch{return!1}}get(s){return this._fetch(s)}post(s,e){return this._fetch(s,{method:"POST",body:JSON.stringify(e)})}put(s,e){return this._fetch(s,{method:"PUT",body:JSON.stringify(e)})}delete(s){return this._fetch(s,{method:"DELETE"})}upload(s,e){return this._fetch(s,{method:"POST",body:e})}async login(s,e){const a=await this.post("/auth/login",{email:s,password:e});return this.setTokens(a.access_token,a.refresh_token),a}async register(s){return this.post("/auth/register",s)}async getProfile(){return this.get("/auth/me")}}const u=new ge;function b(t,s="info",e=4e3){const a=document.getElementById("toast-container"),n=document.createElement("div");n.className=`toast toast-${s}`,n.textContent=t,a.appendChild(n),setTimeout(()=>{n.style.opacity="0",n.style.transform="translateX(100%)",n.style.transition="all 0.3s ease-in",setTimeout(()=>n.remove(),300)},e)}function x(t,s,{onConfirm:e,confirmText:a="Guardar",showCancel:n=!0}={}){const i=document.getElementById("modal-container");i.innerHTML=`
+(function(){const s=document.createElement("link").relList;if(s&&s.supports&&s.supports("modulepreload"))return;for(const n of document.querySelectorAll('link[rel="modulepreload"]'))a(n);new MutationObserver(n=>{for(const l of n)if(l.type==="childList")for(const r of l.addedNodes)r.tagName==="LINK"&&r.rel==="modulepreload"&&a(r)}).observe(document,{childList:!0,subtree:!0});function e(n){const l={};return n.integrity&&(l.integrity=n.integrity),n.referrerPolicy&&(l.referrerPolicy=n.referrerPolicy),n.crossOrigin==="use-credentials"?l.credentials="include":n.crossOrigin==="anonymous"?l.credentials="omit":l.credentials="same-origin",l}function a(n){if(n.ep)return;n.ep=!0;const l=e(n);fetch(n.href,l)}})();const N="https://real-state-xd5o.onrender.com/api/v1";class ge{constructor(){this._accessToken=localStorage.getItem("pms_access_token"),this._refreshToken=localStorage.getItem("pms_refresh_token"),this._onUnauthorized=null}onUnauthorized(s){this._onUnauthorized=s}setTokens(s,e){this._accessToken=s,this._refreshToken=e,localStorage.setItem("pms_access_token",s),localStorage.setItem("pms_refresh_token",e)}clearTokens(){this._accessToken=null,this._refreshToken=null,localStorage.removeItem("pms_access_token"),localStorage.removeItem("pms_refresh_token")}isAuthenticated(){return!!this._accessToken}async _fetch(s,e={}){const a={"Content-Type":"application/json",...e.headers};this._accessToken&&(a.Authorization=`Bearer ${this._accessToken}`),e.body instanceof FormData&&delete a["Content-Type"];let n=await fetch(`${N}${s}`,{...e,headers:a});if(n.status===401&&this._refreshToken)if(await this._tryRefresh())a.Authorization=`Bearer ${this._accessToken}`,n=await fetch(`${N}${s}`,{...e,headers:a});else throw this.clearTokens(),this._onUnauthorized&&this._onUnauthorized(),new Error("Sesión expirada. Inicie sesión nuevamente.");if(!n.ok){let l="Error del servidor";try{const r=await n.json();typeof r.detail=="string"?l=r.detail:Array.isArray(r.detail)?l=r.detail.map(o=>o.msg).join(", "):r.detail&&(l=JSON.stringify(r.detail))}catch{l=`Error ${n.status}`}throw new Error(l)}return n.status===204?null:n.json()}async _tryRefresh(){try{const s=await fetch(`${N}/auth/refresh`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({refresh_token:this._refreshToken})});if(!s.ok)return!1;const e=await s.json();return this.setTokens(e.access_token,e.refresh_token),!0}catch{return!1}}get(s){return this._fetch(s)}post(s,e){return this._fetch(s,{method:"POST",body:JSON.stringify(e)})}put(s,e){return this._fetch(s,{method:"PUT",body:JSON.stringify(e)})}delete(s){return this._fetch(s,{method:"DELETE"})}upload(s,e){return this._fetch(s,{method:"POST",body:e})}async login(s,e){const a=await this.post("/auth/login",{email:s,password:e});return this.setTokens(a.access_token,a.refresh_token),a}async register(s){return this.post("/auth/register",s)}async getProfile(){return this.get("/auth/me")}}const u=new ge;function b(t,s="info",e=4e3){const a=document.getElementById("toast-container"),n=document.createElement("div");n.className=`toast toast-${s}`,n.textContent=t,a.appendChild(n),setTimeout(()=>{n.style.opacity="0",n.style.transform="translateX(100%)",n.style.transition="all 0.3s ease-in",setTimeout(()=>n.remove(),300)},e)}function x(t,s,{onConfirm:e,confirmText:a="Guardar",showCancel:n=!0}={}){const l=document.getElementById("modal-container");l.innerHTML=`
     <div class="modal-overlay" id="modal-overlay">
       <div class="modal-content">
         <div class="flex items-center justify-between p-6 border-b border-surface-100">
@@ -16,7 +16,7 @@
         </div>
       </div>
     </div>
-  `,window.lucide&&lucide.createIcons();const l=document.getElementById("modal-overlay"),o=document.getElementById("modal-close"),d=document.getElementById("modal-cancel"),r=document.getElementById("modal-confirm"),c=()=>{i.innerHTML=""};return l.addEventListener("click",p=>{p.target===l&&c()}),o==null||o.addEventListener("click",c),d==null||d.addEventListener("click",c),r&&e&&r.addEventListener("click",async()=>{try{await e(),c()}catch(p){b(p.message,"error")}}),{close:c,getBody:()=>document.getElementById("modal-body")}}function f(t,s="COP"){return t==null?"—":new Intl.NumberFormat("es-CO",{style:"currency",currency:s,minimumFractionDigits:0,maximumFractionDigits:0}).format(t)}function X(t){return t==null?"—":Math.abs(t)>=1e6?`$${(t/1e6).toFixed(1)}M`:Math.abs(t)>=1e3?`$${(t/1e3).toFixed(0)}K`:f(t)}function E(t){return t?new Date(t).toLocaleDateString("es-CO",{year:"numeric",month:"short",day:"numeric"}):"—"}function V(t){return t==null?"—":`${Number(t).toFixed(1)}%`}function F(t){return{Disponible:"badge-green",Arrendada:"badge-blue","En Mantenimiento":"badge-amber",Vendida:"badge-gray",Pendiente:"badge-amber","En Progreso":"badge-blue",Completado:"badge-green",Cancelado:"badge-red","Esperando Factura":"badge-amber",Activo:"badge-green",Borrador:"badge-gray",Finalizado:"badge-gray",Pagado:"badge-green",Vencido:"badge-red"}[t]||"badge-gray"}function ve(t){return{Verde:"semaphore-green",Amarillo:"semaphore-amber",Rojo:"semaphore-red"}[t]||"semaphore-green"}const S={primary:"#4c6ef5",accent:"#20c997",accentLight:"rgba(32, 201, 151, 0.1)",red:"#e03131",redLight:"rgba(224, 49, 49, 0.1)"},q={responsive:!0,maintainAspectRatio:!1,plugins:{legend:{labels:{font:{family:"Inter",size:12,weight:"500"},padding:16,usePointStyle:!0,pointStyleWidth:10}},tooltip:{backgroundColor:"rgba(33, 37, 41, 0.95)",titleFont:{family:"Inter",size:13,weight:"600"},bodyFont:{family:"Inter",size:12},padding:12,cornerRadius:10,displayColors:!0}}};function xe(t,s,e,a){return new Chart(t,{type:"bar",data:{labels:s,datasets:[{label:"Ingresos",data:e,backgroundColor:S.accent,borderRadius:8,barPercentage:.6},{label:"Gastos",data:a,backgroundColor:S.red,borderRadius:8,barPercentage:.6}]},options:{...q,scales:{y:{beginAtZero:!0,grid:{color:"rgba(0,0,0,0.04)"},ticks:{font:{family:"Inter",size:11}}},x:{grid:{display:!1},ticks:{font:{family:"Inter",size:11}}}}}})}function he(t,s,e){const a=["#4c6ef5","#20c997","#f59f00","#e03131","#845ef7","#339af0"];return new Chart(t,{type:"doughnut",data:{labels:s,datasets:[{data:e,backgroundColor:a.slice(0,e.length),borderWidth:0,hoverOffset:8}]},options:{...q,cutout:"70%",plugins:{...q.plugins,legend:{...q.plugins.legend,position:"bottom"}}}})}function ye(t,s,e,a,n){return new Chart(t,{type:"line",data:{labels:s,datasets:[{label:"Ingresos Proyectados",data:e,borderColor:S.accent,backgroundColor:S.accentLight,fill:!0,tension:.4,pointRadius:4,pointHoverRadius:6,borderWidth:2.5},{label:"Gastos Proyectados",data:a,borderColor:S.red,backgroundColor:S.redLight,fill:!0,tension:.4,pointRadius:4,pointHoverRadius:6,borderWidth:2.5},{label:"Balance Neto",data:n,borderColor:S.primary,borderDash:[6,4],fill:!1,tension:.4,pointRadius:3,borderWidth:2}]},options:{...q,interaction:{mode:"index",intersect:!1},scales:{y:{grid:{color:"rgba(0,0,0,0.04)"},ticks:{font:{family:"Inter",size:11}}},x:{grid:{display:!1},ticks:{font:{family:"Inter",size:11}}}}}})}const we={Disponible:"#20c997",Arrendada:"#4c6ef5","En Mantenimiento":"#f59f00",Vendida:"#868e96"};let j=null,M=null;function $e(t,s=[4.711,-74.072],e=12){return j&&j.remove(),j=L.map(t).setView(s,e),L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:19}).addTo(j),M=L.markerClusterGroup({maxClusterRadius:50,spiderfyOnMaxZoom:!0,showCoverageOnHover:!1}),j.addLayer(M),j}function _e(t){if(M&&(M.clearLayers(),t.forEach(s=>{const e=we[s.status]||"#868e96",a=L.circleMarker([s.latitude,s.longitude],{radius:10,fillColor:e,color:"#fff",weight:2,opacity:1,fillOpacity:.85}),n=`
+  `,window.lucide&&lucide.createIcons();const r=document.getElementById("modal-overlay"),o=document.getElementById("modal-close"),d=document.getElementById("modal-cancel"),i=document.getElementById("modal-confirm"),c=()=>{l.innerHTML=""};return r.addEventListener("click",p=>{p.target===r&&c()}),o==null||o.addEventListener("click",c),d==null||d.addEventListener("click",c),i&&e&&i.addEventListener("click",async()=>{try{await e(),c()}catch(p){b(p.message,"error")}}),{close:c,getBody:()=>document.getElementById("modal-body")}}function f(t,s="COP"){return t==null?"—":new Intl.NumberFormat("es-CO",{style:"currency",currency:s,minimumFractionDigits:0,maximumFractionDigits:0}).format(t)}function X(t){return t==null?"—":Math.abs(t)>=1e6?`$${(t/1e6).toFixed(1)}M`:Math.abs(t)>=1e3?`$${(t/1e3).toFixed(0)}K`:f(t)}function E(t){return t?new Date(t).toLocaleDateString("es-CO",{year:"numeric",month:"short",day:"numeric"}):"—"}function V(t){return t==null?"—":`${Number(t).toFixed(1)}%`}function F(t){return{Disponible:"badge-green",Arrendada:"badge-blue","En Mantenimiento":"badge-amber",Vendida:"badge-gray",Pendiente:"badge-amber","En Progreso":"badge-blue",Completado:"badge-green",Cancelado:"badge-red","Esperando Factura":"badge-amber",Activo:"badge-green",Borrador:"badge-gray",Finalizado:"badge-gray",Pagado:"badge-green",Vencido:"badge-red"}[t]||"badge-gray"}function ve(t){return{Verde:"semaphore-green",Amarillo:"semaphore-amber",Rojo:"semaphore-red"}[t]||"semaphore-green"}const S={primary:"#4c6ef5",accent:"#20c997",accentLight:"rgba(32, 201, 151, 0.1)",red:"#e03131",redLight:"rgba(224, 49, 49, 0.1)"},q={responsive:!0,maintainAspectRatio:!1,plugins:{legend:{labels:{font:{family:"Inter",size:12,weight:"500"},padding:16,usePointStyle:!0,pointStyleWidth:10}},tooltip:{backgroundColor:"rgba(33, 37, 41, 0.95)",titleFont:{family:"Inter",size:13,weight:"600"},bodyFont:{family:"Inter",size:12},padding:12,cornerRadius:10,displayColors:!0}}};function xe(t,s,e,a){return new Chart(t,{type:"bar",data:{labels:s,datasets:[{label:"Ingresos",data:e,backgroundColor:S.accent,borderRadius:8,barPercentage:.6},{label:"Gastos",data:a,backgroundColor:S.red,borderRadius:8,barPercentage:.6}]},options:{...q,scales:{y:{beginAtZero:!0,grid:{color:"rgba(0,0,0,0.04)"},ticks:{font:{family:"Inter",size:11}}},x:{grid:{display:!1},ticks:{font:{family:"Inter",size:11}}}}}})}function he(t,s,e){const a=["#4c6ef5","#20c997","#f59f00","#e03131","#845ef7","#339af0"];return new Chart(t,{type:"doughnut",data:{labels:s,datasets:[{data:e,backgroundColor:a.slice(0,e.length),borderWidth:0,hoverOffset:8}]},options:{...q,cutout:"70%",plugins:{...q.plugins,legend:{...q.plugins.legend,position:"bottom"}}}})}function ye(t,s,e,a,n){return new Chart(t,{type:"line",data:{labels:s,datasets:[{label:"Ingresos Proyectados",data:e,borderColor:S.accent,backgroundColor:S.accentLight,fill:!0,tension:.4,pointRadius:4,pointHoverRadius:6,borderWidth:2.5},{label:"Gastos Proyectados",data:a,borderColor:S.red,backgroundColor:S.redLight,fill:!0,tension:.4,pointRadius:4,pointHoverRadius:6,borderWidth:2.5},{label:"Balance Neto",data:n,borderColor:S.primary,borderDash:[6,4],fill:!1,tension:.4,pointRadius:3,borderWidth:2}]},options:{...q,interaction:{mode:"index",intersect:!1},scales:{y:{grid:{color:"rgba(0,0,0,0.04)"},ticks:{font:{family:"Inter",size:11}}},x:{grid:{display:!1},ticks:{font:{family:"Inter",size:11}}}}}})}const we={Disponible:"#20c997",Arrendada:"#4c6ef5","En Mantenimiento":"#f59f00",Vendida:"#868e96"};let j=null,M=null;function $e(t,s=[4.711,-74.072],e=12){return j&&j.remove(),j=L.map(t).setView(s,e),L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:19}).addTo(j),M=L.markerClusterGroup({maxClusterRadius:50,spiderfyOnMaxZoom:!0,showCoverageOnHover:!1}),j.addLayer(M),j}function _e(t){if(M&&(M.clearLayers(),t.forEach(s=>{const e=we[s.status]||"#868e96",a=L.circleMarker([s.latitude,s.longitude],{radius:10,fillColor:e,color:"#fff",weight:2,opacity:1,fillOpacity:.85}),n=`
       <div style="font-family:Inter,sans-serif; min-width:200px;">
         <h3 style="margin:0 0 4px; font-size:14px; font-weight:700; color:#212529;">${s.name}</h3>
         <p style="margin:0 0 2px; font-size:12px; color:#868e96;">${s.property_type} • ${s.city}</p>
@@ -27,7 +27,7 @@
         ${s.monthly_rent?`<p style="margin:6px 0 0; font-size:13px; font-weight:600; color:#20c997;">Canon: ${f(s.monthly_rent)}</p>`:""}
         <a href="#/properties/${s.id}" style="display:inline-block; margin-top:8px; font-size:12px; color:#4c6ef5; text-decoration:none; font-weight:600;">Ver ficha →</a>
       </div>
-    `;a.bindPopup(n),M.addLayer(a)}),t.length>0)){const s=M.getBounds();s.isValid()&&j.fitBounds(s,{padding:[30,30]})}}function Ee(){j&&setTimeout(()=>j.invalidateSize(),100)}function Ce(t){return t==="high"?{bg:"bg-rose-50",border:"border-rose-200",text:"text-rose-700",dot:"bg-rose-500"}:t==="medium"?{bg:"bg-amber-50",border:"border-amber-200",text:"text-amber-700",dot:"bg-amber-500"}:{bg:"bg-blue-50",border:"border-blue-200",text:"text-blue-700",dot:"bg-blue-400"}}async function Ie(t){const[s,e,a,n]=await Promise.all([u.get("/reports/summary"),u.get("/properties/map"),u.get("/reports/cashflow?months=12"),u.get("/reports/upcoming-events?days=30").catch(()=>({events:[]}))]),i=s,l=n.events||[];if(t.innerHTML=`
+    `;a.bindPopup(n),M.addLayer(a)}),t.length>0)){const s=M.getBounds();s.isValid()&&j.fitBounds(s,{padding:[30,30]})}}function Ee(){j&&setTimeout(()=>j.invalidateSize(),100)}function Ce(t){return t==="high"?{bg:"bg-rose-50",border:"border-rose-200",text:"text-rose-700",dot:"bg-rose-500"}:t==="medium"?{bg:"bg-amber-50",border:"border-amber-200",text:"text-amber-700",dot:"bg-amber-500"}:{bg:"bg-blue-50",border:"border-blue-200",text:"text-blue-700",dot:"bg-blue-400"}}async function Ie(t){const[s,e,a,n]=await Promise.all([u.get("/reports/summary"),u.get("/properties/map"),u.get("/reports/cashflow?months=12"),u.get("/reports/upcoming-events?days=30").catch(()=>({events:[]}))]),l=s,r=n.events||[];if(t.innerHTML=`
     <!-- KPI Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8 animate-fade-in">
       <div class="kpi-card kpi-blue">
@@ -37,7 +37,7 @@
             <i data-lucide="home" class="w-5 h-5 text-primary-600"></i>
           </div>
         </div>
-        <p class="text-3xl font-bold text-surface-900">${i.total_properties}</p>
+        <p class="text-3xl font-bold text-surface-900">${l.total_properties}</p>
       </div>
 
       <div class="kpi-card kpi-green">
@@ -47,7 +47,7 @@
             <i data-lucide="users" class="w-5 h-5 text-accent-600"></i>
           </div>
         </div>
-        <p class="text-3xl font-bold text-surface-900">${V(i.occupancy_rate)}</p>
+        <p class="text-3xl font-bold text-surface-900">${V(l.occupancy_rate)}</p>
       </div>
 
       <div class="kpi-card kpi-green">
@@ -57,7 +57,7 @@
             <i data-lucide="trending-up" class="w-5 h-5 text-green-600"></i>
           </div>
         </div>
-        <p class="text-3xl font-bold text-surface-900">${X(i.total_income)}</p>
+        <p class="text-3xl font-bold text-surface-900">${X(l.total_income)}</p>
       </div>
 
       <div class="kpi-card kpi-red">
@@ -67,7 +67,7 @@
             <i data-lucide="trending-down" class="w-5 h-5 text-rose-600"></i>
           </div>
         </div>
-        <p class="text-3xl font-bold text-surface-900">${X(i.total_expenses)}</p>
+        <p class="text-3xl font-bold text-surface-900">${X(l.total_expenses)}</p>
       </div>
     </div>
 
@@ -86,22 +86,22 @@
         <h3 class="text-base font-semibold text-surface-900 mb-4 flex items-center gap-2">
           <i data-lucide="calendar-clock" class="w-5 h-5 text-primary-500"></i>
           Próximos 30 días
-          <span class="ml-auto badge ${l.length>0?"badge-red":"badge-gray"} text-xs">${l.length}</span>
+          <span class="ml-auto badge ${r.length>0?"badge-red":"badge-gray"} text-xs">${r.length}</span>
         </h3>
         <div class="flex-1 overflow-y-auto space-y-2 max-h-[340px] pr-1">
-          ${l.length===0?`
+          ${r.length===0?`
             <div class="flex flex-col items-center justify-center h-32 text-surface-400">
               <i data-lucide="check-circle" class="w-8 h-8 mb-2 text-accent-400"></i>
               <p class="text-sm font-medium">Sin eventos próximos</p>
             </div>
-          `:l.map(d=>{const r=Ce(d.severity);return`
-            <div class="flex items-start gap-3 p-3 rounded-xl border ${r.bg} ${r.border}">
-              <div class="mt-0.5 w-2 h-2 rounded-full ${r.dot} shrink-0 mt-1.5"></div>
+          `:r.map(d=>{const i=Ce(d.severity);return`
+            <div class="flex items-start gap-3 p-3 rounded-xl border ${i.bg} ${i.border}">
+              <div class="mt-0.5 w-2 h-2 rounded-full ${i.dot} shrink-0 mt-1.5"></div>
               <div class="min-w-0 flex-1">
-                <p class="text-xs font-bold ${r.text} truncate">${d.title}</p>
+                <p class="text-xs font-bold ${i.text} truncate">${d.title}</p>
                 <p class="text-[10px] text-surface-500 mt-0.5">${d.detail} · ${d.date}</p>
               </div>
-              <i data-lucide="${d.icon}" class="w-4 h-4 ${r.text} shrink-0"></i>
+              <i data-lucide="${d.icon}" class="w-4 h-4 ${i.text} shrink-0"></i>
             </div>`}).join("")}
         </div>
       </div>
@@ -146,9 +146,9 @@
         <i data-lucide="credit-card" class="w-5 h-5 text-primary-500"></i>
         Cuentas Bancarias
       </h3>
-      ${i.accounts.length>0?`
+      ${l.accounts.length>0?`
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          ${i.accounts.map(d=>`
+          ${l.accounts.map(d=>`
             <div class="p-4 rounded-xl border border-surface-200 bg-surface-50/50 hover:border-primary-200 transition-colors">
               <p class="text-sm font-medium text-surface-600">${d.account_name}</p>
               <p class="text-sm text-surface-400 mb-2">${d.account_type} · ${d.currency}</p>
@@ -160,7 +160,7 @@
         <p class="text-center text-surface-400 py-8">No hay cuentas registradas aún</p>
       `}
     </div>
-  `,window.lucide&&lucide.createIcons(),setTimeout(()=>{$e("dashboard-map"),_e(e),Ee()},100),e.length>0){const d={};e.forEach(p=>{d[p.property_type]=(d[p.property_type]||0)+1});const r=Object.keys(d),c=Object.values(d);he(document.getElementById("type-chart"),r,c)}const o=a.months||[];if(o.length>0){const d=o.slice(-6);xe(document.getElementById("income-expense-chart"),d.map(r=>r.month),d.map(r=>r.income),d.map(r=>r.expenses)),ye(document.getElementById("cashflow-chart"),o.map(r=>r.month),o.map(r=>r.income),o.map(r=>r.expenses),o.map(r=>r.net))}}async function W(t){const e=(await u.get("/properties?limit=50")).items||[];t.innerHTML=`
+  `,window.lucide&&lucide.createIcons(),setTimeout(()=>{$e("dashboard-map"),_e(e),Ee()},100),e.length>0){const d={};e.forEach(p=>{d[p.property_type]=(d[p.property_type]||0)+1});const i=Object.keys(d),c=Object.values(d);he(document.getElementById("type-chart"),i,c)}const o=a.months||[];if(o.length>0){const d=o.slice(-6);xe(document.getElementById("income-expense-chart"),d.map(i=>i.month),d.map(i=>i.income),d.map(i=>i.expenses)),ye(document.getElementById("cashflow-chart"),o.map(i=>i.month),o.map(i=>i.income),o.map(i=>i.expenses),o.map(i=>i.net))}}async function W(t){const e=(await u.get("/properties?limit=50")).items||[];t.innerHTML=`
     <div class="flex flex-wrap items-center justify-between gap-4 mb-8 animate-fade-in glass-card-static p-4 !rounded-2xl border-white/40 shadow-sm">
       <div class="flex flex-wrap items-center gap-3">
         <div class="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-xl border border-white/20 shadow-sm">
@@ -243,7 +243,7 @@
         </tbody>
       </table>
     </div>
-  `,window.lucide&&lucide.createIcons(),document.getElementById("add-property-btn").addEventListener("click",()=>te()),document.getElementById("properties-table").addEventListener("click",async a=>{const n=a.target.closest(".view-property"),i=a.target.closest(".edit-property"),l=a.target.closest(".delete-property");if(n&&U(n.dataset.id),i){const o=i.dataset.id,d=await u.get(`/properties/${o}`);te(d)}if(l){const o=l.dataset.id;if(confirm("¿Está seguro de que desea eliminar esta propiedad? Esta acción la desactivará del sistema."))try{await u.delete(`/properties/${o}`),b("Propiedad eliminada correctamente","success");const d=document.getElementById("page-content");await W(d)}catch(d){b(d.message,"error")}}}),document.getElementById("filter-status").addEventListener("change",async a=>{const n=a.target.value,i=document.getElementById("filter-type").value;let l="/properties?limit=50";n&&(l+=`&status=${encodeURIComponent(n)}`),i&&(l+=`&property_type=${encodeURIComponent(i)}`);const o=await u.get(l);ee(o.items||[])}),document.getElementById("filter-type").addEventListener("change",async a=>{const n=a.target.value,i=document.getElementById("filter-status").value;let l="/properties?limit=50";i&&(l+=`&status=${encodeURIComponent(i)}`),n&&(l+=`&property_type=${encodeURIComponent(n)}`);const o=await u.get(l);ee(o.items||[])})}function ee(t){const s=document.querySelector("#properties-table tbody");s.innerHTML=t.map(e=>`
+  `,window.lucide&&lucide.createIcons(),document.getElementById("add-property-btn").addEventListener("click",()=>te()),document.getElementById("properties-table").addEventListener("click",async a=>{const n=a.target.closest(".view-property"),l=a.target.closest(".edit-property"),r=a.target.closest(".delete-property");if(n&&U(n.dataset.id),l){const o=l.dataset.id,d=await u.get(`/properties/${o}`);te(d)}if(r){const o=r.dataset.id;if(confirm("¿Está seguro de que desea eliminar esta propiedad? Esta acción la desactivará del sistema."))try{await u.delete(`/properties/${o}`),b("Propiedad eliminada correctamente","success");const d=document.getElementById("page-content");await W(d)}catch(d){b(d.message,"error")}}}),document.getElementById("filter-status").addEventListener("change",async a=>{const n=a.target.value,l=document.getElementById("filter-type").value;let r="/properties?limit=50";n&&(r+=`&status=${encodeURIComponent(n)}`),l&&(r+=`&property_type=${encodeURIComponent(l)}`);const o=await u.get(r);ee(o.items||[])}),document.getElementById("filter-type").addEventListener("change",async a=>{const n=a.target.value,l=document.getElementById("filter-status").value;let r="/properties?limit=50";l&&(r+=`&status=${encodeURIComponent(l)}`),n&&(r+=`&property_type=${encodeURIComponent(n)}`);const o=await u.get(r);ee(o.items||[])})}function ee(t){const s=document.querySelector("#properties-table tbody");s.innerHTML=t.map(e=>`
     <tr>
       <td>
         <div class="font-semibold text-surface-900">${e.name}</div>
@@ -342,20 +342,20 @@
         <textarea class="input" name="notes" rows="2" placeholder="Observaciones adicionales...">${(t==null?void 0:t.notes)||""}</textarea>
       </div>
     </form>
-  `;x(e,a,{confirmText:s?"Guardar Cambios":"Crear Propiedad",onConfirm:async()=>{const n=document.getElementById("property-form"),i=new FormData(n),l={};i.forEach((d,r)=>{d!==""&&(["latitude","longitude","area_sqm","commercial_value"].includes(r)?l[r]=parseFloat(d):["bedrooms","bathrooms"].includes(r)?l[r]=parseInt(d):l[r]=d)}),s?(await u.put(`/properties/${t.id}`,l),b("Propiedad actualizada","success")):(await u.post("/properties",l),b("Propiedad creada","success"));const o=document.getElementById("page-content");await W(o)}})}async function U(t){const[s,e]=await Promise.all([u.get(`/properties/${t}`),u.get(`/occupants?property_id=${t}`)]),a=n=>n.length?`
+  `;x(e,a,{confirmText:s?"Guardar Cambios":"Crear Propiedad",onConfirm:async()=>{const n=document.getElementById("property-form"),l=new FormData(n),r={};l.forEach((d,i)=>{d!==""&&(["latitude","longitude","area_sqm","commercial_value"].includes(i)?r[i]=parseFloat(d):["bedrooms","bathrooms"].includes(i)?r[i]=parseInt(d):r[i]=d)}),s?(await u.put(`/properties/${t.id}`,r),b("Propiedad actualizada","success")):(await u.post("/properties",r),b("Propiedad creada","success"));const o=document.getElementById("page-content");await W(o)}})}async function U(t){const[s,e]=await Promise.all([u.get(`/properties/${t}`),u.get(`/occupants?property_id=${t}`)]),a=n=>n.length?`
       <div class="space-y-3 mt-4">
-        ${n.map(i=>`
+        ${n.map(l=>`
           <div class="flex items-center justify-between p-3 bg-surface-50 rounded-xl border border-surface-100 animate-fade-in">
             <div class="flex items-center gap-3">
               <div class="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-bold text-xs">
-                ${i.full_name.charAt(0)}
+                ${l.full_name.charAt(0)}
               </div>
               <div>
-                <p class="text-sm font-semibold text-surface-900">${i.full_name} ${i.is_primary?'<span class="badge badge-blue text-[10px] ml-1">Principal</span>':""}</p>
-                <p class="text-xs text-surface-500">${i.phone||i.email||"Sin contacto"}</p>
+                <p class="text-sm font-semibold text-surface-900">${l.full_name} ${l.is_primary?'<span class="badge badge-blue text-[10px] ml-1">Principal</span>':""}</p>
+                <p class="text-xs text-surface-500">${l.phone||l.email||"Sin contacto"}</p>
               </div>
             </div>
-            <button class="delete-occupant-btn text-rose-400 hover:text-rose-600 p-1" data-id="${i.id}">
+            <button class="delete-occupant-btn text-rose-400 hover:text-rose-600 p-1" data-id="${l.id}">
               <i data-lucide="trash-2" class="w-4 h-4"></i>
             </button>
           </div>
@@ -395,7 +395,7 @@
           <label for="is_primary" class="text-sm cursor-pointer">Es ocupante principal</label>
         </div>
       </form>
-    `,{confirmText:"Agregar",onConfirm:async()=>{const n=new FormData(document.getElementById("occupant-form")),i={property_id:t,full_name:n.get("full_name"),dni:n.get("dni")||null,phone:n.get("phone")||null,email:n.get("email")||null,is_primary:document.getElementById("is_primary").checked};await u.post("/occupants",i),b("Ocupante agregado","success"),U(t)}})}),document.querySelectorAll(".delete-occupant-btn").forEach(n=>{n.addEventListener("click",async()=>{confirm("¿Eliminar este ocupante?")&&(await u.delete(`/occupants/${n.dataset.id}`),b("Ocupante eliminado","success"),U(t))})})}const le=["Gastos Generales","Gastos Administrativos","Mantenimiento General","Pago de Empleados","Nómina y Personal","Suministros de Oficina","Marketing y Publicidad","Servicios Públicos","Seguros","Impuestos y Tasas","Honorarios Gestión","Otros"],de=["Ingresos por Arriendo","Gastos Mantenimiento","Impuestos y Tasas","Cuotas de Administración","Servicios Públicos","Honorarios Gestión","Seguros","Pago Hipoteca","Otros"];async function B(t){var h,w,$,T,k,C,J,Z,Q;const[s,e,a]=await Promise.all([u.get("/accounts"),u.get("/transactions?limit=30"),u.get("/properties?limit=100")]),n=s||[],i=e.items||[],l=a.items||[];let o=1,d=!1,r=i.length>=30;t.innerHTML=`
+    `,{confirmText:"Agregar",onConfirm:async()=>{const n=new FormData(document.getElementById("occupant-form")),l={property_id:t,full_name:n.get("full_name"),dni:n.get("dni")||null,phone:n.get("phone")||null,email:n.get("email")||null,is_primary:document.getElementById("is_primary").checked};await u.post("/occupants",l),b("Ocupante agregado","success"),U(t)}})}),document.querySelectorAll(".delete-occupant-btn").forEach(n=>{n.addEventListener("click",async()=>{confirm("¿Eliminar este ocupante?")&&(await u.delete(`/occupants/${n.dataset.id}`),b("Ocupante eliminado","success"),U(t))})})}const le=["Gastos Generales","Gastos Administrativos","Mantenimiento General","Pago de Empleados","Nómina y Personal","Suministros de Oficina","Marketing y Publicidad","Servicios Públicos","Seguros","Impuestos y Tasas","Honorarios Gestión","Otros"],de=["Ingresos por Arriendo","Gastos Mantenimiento","Impuestos y Tasas","Cuotas de Administración","Servicios Públicos","Honorarios Gestión","Seguros","Pago Hipoteca","Otros"];async function B(t){var h,w,$,T,k,C,J,Z,Q;const[s,e,a]=await Promise.all([u.get("/accounts"),u.get("/transactions?limit=30"),u.get("/properties?limit=100")]),n=s||[],l=e.items||[],r=a.items||[];let o=1,d=!1,i=l.length>=30;t.innerHTML=`
     <div class="flex items-center justify-between mb-6 animate-fade-in">
       <div class="flex items-center gap-3">
         <button id="add-account-btn" class="btn-primary">
@@ -480,7 +480,7 @@
               </tr>
             </thead>
             <tbody>
-              ${i.length>0?i.map(m=>`
+              ${l.length>0?l.map(m=>`
                 <tr>
                   <td class="text-xs text-surface-500">${E(m.transaction_date)}</td>
                   <td><div class="font-medium text-surface-900 text-sm">${m.description}</div></td>
@@ -534,7 +534,7 @@
             </div>
             <select id="performance-property-select" class="select max-w-xs shadow-sm border-surface-200">
               <option value="">Seleccione propiedad...</option>
-              ${l.map(m=>`<option value="${m.id}">${m.name}</option>`).join("")}
+              ${r.map(m=>`<option value="${m.id}">${m.name}</option>`).join("")}
             </select>
           </div>
           <div id="performance-content" class="min-h-[200px] flex items-center justify-center border-2 border-dashed border-surface-200 rounded-2xl bg-white/50">
@@ -565,7 +565,7 @@
         </div>
       </div>
     </div>
-  `,window.lucide&&lucide.createIcons(),(h=document.getElementById("add-account-btn"))==null||h.addEventListener("click",()=>ke()),(w=document.getElementById("add-transaction-btn"))==null||w.addEventListener("click",()=>ae(n,l,!1)),($=document.getElementById("add-general-expense-btn"))==null||$.addEventListener("click",()=>ae(n,l,!0)),(T=document.getElementById("add-transfer-btn"))==null||T.addEventListener("click",()=>Pe(n)),(k=document.getElementById("import-csv-btn"))==null||k.addEventListener("click",()=>{var m;return(m=document.getElementById("import-csv-input"))==null?void 0:m.click()}),(C=document.getElementById("import-csv-input"))==null||C.addEventListener("change",async m=>{const _=m.target.files[0];_&&(await Se(_),m.target.value="")}),(J=document.getElementById("export-csv-btn"))==null||J.addEventListener("click",()=>{window.location.href=`${u.baseUrl}/reports/export`}),document.querySelectorAll(".account-card").forEach(m=>{m.addEventListener("click",_=>{_.target.closest(".edit-account-btn")||_.target.closest(".delete-account-btn")||(window.location.hash=`#/account-detail?id=${m.dataset.accountId}`)})}),document.querySelectorAll(".edit-account-btn").forEach(m=>{m.addEventListener("click",_=>{_.stopPropagation(),Te(m.dataset.id,m.dataset.name,m.dataset.bank,m.dataset.number)})}),document.querySelectorAll(".delete-account-btn").forEach(m=>{m.addEventListener("click",_=>{_.stopPropagation(),Le(m.dataset.id,m.dataset.name,parseFloat(m.dataset.balance))})}),document.querySelectorAll(".edit-tx-btn").forEach(m=>{m.addEventListener("click",()=>{se(m.dataset.id,m.dataset.desc,m.dataset.cat,m.dataset.amount,m.dataset.type,m.dataset.date)})}),document.querySelectorAll(".delete-tx-btn").forEach(m=>{m.addEventListener("click",()=>ne(m.dataset.id,m.dataset.desc))}),(Z=document.getElementById("performance-property-select"))==null||Z.addEventListener("change",m=>je(m.target.value)),(Q=document.getElementById("generate-pdf-btn"))==null||Q.addEventListener("click",()=>Ae(n,i)),document.querySelectorAll(".tab-btn").forEach(m=>{m.addEventListener("click",()=>{document.querySelectorAll(".tab-btn").forEach(A=>A.classList.remove("active")),document.querySelectorAll(".tab-content").forEach(A=>A.classList.add("hidden")),m.classList.add("active");const _=m.dataset.tab;document.getElementById(`${_}-tab`).classList.remove("hidden"),_==="analysis"&&Be()})});const c=document.getElementById("infinite-scroll-sentinel"),p=document.getElementById("loading-spinner"),g=document.querySelector("#operations-tab tbody"),v=new IntersectionObserver(async m=>{if(m[0].isIntersecting&&r&&!d){d=!0,p.classList.remove("hidden"),o++;try{const A=(await u.get(`/transactions?limit=30&page=${o}`)).items||[];A.length===0?r=!1:(A.forEach(y=>{const D=document.createElement("tr");D.innerHTML=`
+  `,window.lucide&&lucide.createIcons(),(h=document.getElementById("add-account-btn"))==null||h.addEventListener("click",()=>ke()),(w=document.getElementById("add-transaction-btn"))==null||w.addEventListener("click",()=>ae(n,r,!1)),($=document.getElementById("add-general-expense-btn"))==null||$.addEventListener("click",()=>ae(n,r,!0)),(T=document.getElementById("add-transfer-btn"))==null||T.addEventListener("click",()=>Pe(n)),(k=document.getElementById("import-csv-btn"))==null||k.addEventListener("click",()=>{var m;return(m=document.getElementById("import-csv-input"))==null?void 0:m.click()}),(C=document.getElementById("import-csv-input"))==null||C.addEventListener("change",async m=>{const _=m.target.files[0];_&&(await Se(_),m.target.value="")}),(J=document.getElementById("export-csv-btn"))==null||J.addEventListener("click",()=>{window.location.href=`${u.baseUrl}/reports/export`}),document.querySelectorAll(".account-card").forEach(m=>{m.addEventListener("click",_=>{_.target.closest(".edit-account-btn")||_.target.closest(".delete-account-btn")||(window.location.hash=`#/account-detail?id=${m.dataset.accountId}`)})}),document.querySelectorAll(".edit-account-btn").forEach(m=>{m.addEventListener("click",_=>{_.stopPropagation(),Te(m.dataset.id,m.dataset.name,m.dataset.bank,m.dataset.number)})}),document.querySelectorAll(".delete-account-btn").forEach(m=>{m.addEventListener("click",_=>{_.stopPropagation(),Le(m.dataset.id,m.dataset.name,parseFloat(m.dataset.balance))})}),document.querySelectorAll(".edit-tx-btn").forEach(m=>{m.addEventListener("click",()=>{se(m.dataset.id,m.dataset.desc,m.dataset.cat,m.dataset.amount,m.dataset.type,m.dataset.date)})}),document.querySelectorAll(".delete-tx-btn").forEach(m=>{m.addEventListener("click",()=>ne(m.dataset.id,m.dataset.desc))}),(Z=document.getElementById("performance-property-select"))==null||Z.addEventListener("change",m=>je(m.target.value)),(Q=document.getElementById("generate-pdf-btn"))==null||Q.addEventListener("click",()=>Ae(n,l)),document.querySelectorAll(".tab-btn").forEach(m=>{m.addEventListener("click",()=>{document.querySelectorAll(".tab-btn").forEach(A=>A.classList.remove("active")),document.querySelectorAll(".tab-content").forEach(A=>A.classList.add("hidden")),m.classList.add("active");const _=m.dataset.tab;document.getElementById(`${_}-tab`).classList.remove("hidden"),_==="analysis"&&Be()})});const c=document.getElementById("infinite-scroll-sentinel"),p=document.getElementById("loading-spinner"),g=document.querySelector("#operations-tab tbody"),v=new IntersectionObserver(async m=>{if(m[0].isIntersecting&&i&&!d){d=!0,p.classList.remove("hidden"),o++;try{const A=(await u.get(`/transactions?limit=30&page=${o}`)).items||[];A.length===0?i=!1:(A.forEach(y=>{const D=document.createElement("tr");D.innerHTML=`
               <td class="text-xs text-surface-500">${E(y.transaction_date)}</td>
               <td><div class="font-medium text-surface-900 text-sm">${y.description}</div></td>
               <td><span class="badge badge-gray text-xs">${y.category}</span></td>
@@ -594,7 +594,7 @@
                   </button>
                 </div>
               </td>
-            `,g.appendChild(D),D.querySelector(".edit-tx-btn").addEventListener("click",()=>{const P=D.querySelector(".edit-tx-btn");se(P.dataset.id,P.dataset.desc,P.dataset.cat,P.dataset.amount,P.dataset.type,P.dataset.date)}),D.querySelector(".delete-tx-btn").addEventListener("click",()=>{const P=D.querySelector(".delete-tx-btn");ne(P.dataset.id,P.dataset.desc)})}),window.lucide&&lucide.createIcons(),A.length<30&&(r=!1))}catch(_){console.error("Error loading more transactions:",_)}finally{d=!1,p.classList.add("hidden")}}},{threshold:.1});c&&v.observe(c)}function ke(){x("Nueva Cuenta Bancaria",`
+            `,g.appendChild(D),D.querySelector(".edit-tx-btn").addEventListener("click",()=>{const P=D.querySelector(".edit-tx-btn");se(P.dataset.id,P.dataset.desc,P.dataset.cat,P.dataset.amount,P.dataset.type,P.dataset.date)}),D.querySelector(".delete-tx-btn").addEventListener("click",()=>{const P=D.querySelector(".delete-tx-btn");ne(P.dataset.id,P.dataset.desc)})}),window.lucide&&lucide.createIcons(),A.length<30&&(i=!1))}catch(_){console.error("Error loading more transactions:",_)}finally{d=!1,p.classList.add("hidden")}}},{threshold:.1});c&&v.observe(c)}function ke(){x("Nueva Cuenta Bancaria",`
     <form id="account-form" class="space-y-4">
       <div><label class="label">Nombre *</label><input class="input" name="account_name" required placeholder="Cuenta Corriente" /></div>
       <div class="grid grid-cols-2 gap-4">
@@ -619,7 +619,7 @@
         <div><label class="label">Número de Cuenta</label><input class="input" name="account_number" value="${a}" /></div>
       </div>
     </form>
-  `,{confirmText:"Guardar Cambios",onConfirm:async()=>{const n=new FormData(document.getElementById("edit-account-form")),i={};n.forEach((l,o)=>{l&&(i[o]=l)}),await u.put(`/accounts/${t}`,i),b("Cuenta actualizada","success"),await B(document.getElementById("page-content"))}})}function Le(t,s,e){if(e!==0){b(`No se puede eliminar "${s}": tiene saldo de ${f(e)}. Transfiera los fondos primero.`,"error");return}x("Eliminar Cuenta",`
+  `,{confirmText:"Guardar Cambios",onConfirm:async()=>{const n=new FormData(document.getElementById("edit-account-form")),l={};n.forEach((r,o)=>{r&&(l[o]=r)}),await u.put(`/accounts/${t}`,l),b("Cuenta actualizada","success"),await B(document.getElementById("page-content"))}})}function Le(t,s,e){if(e!==0){b(`No se puede eliminar "${s}": tiene saldo de ${f(e)}. Transfiera los fondos primero.`,"error");return}x("Eliminar Cuenta",`
     <div class="text-center py-4">
       <div class="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
         <i data-lucide="alert-triangle" class="w-8 h-8 text-rose-500"></i>
@@ -646,21 +646,21 @@
       </div>
       <div><label class="label">Descripción *</label><input class="input" name="description" required placeholder="${e?"Pago servicios oficina":"Pago canon mes de marzo"}" /></div>
     </form>
-  `,{confirmText:"Registrar",onConfirm:async()=>{const c=new FormData(document.getElementById("tx-form")),p={};c.forEach((g,v)=>{v==="amount"?p[v]=parseFloat(g):g&&(p[v]=g)}),e&&delete p.property_id,p.transaction_type==="Ingreso"?p.direction="Debit":p.transaction_type==="Gasto"&&(p.direction="Credit"),await u.post("/transactions",p),b(e?"Gasto registrado":"Transacción registrada","success"),await B(document.getElementById("page-content"))}}),window.lucide&&lucide.createIcons();const i=document.getElementById("tx-form"),l=i.querySelector('[name="property_id"]'),o=i.querySelector('[name="transaction_date"]'),d=i.querySelector('[name="category"]'),r=async()=>{const c=e?"GENERAL":l.value,p=o.value;if(!c||!p)return;const[g,v]=p.split("-").map(Number);try{let h=c;if(c==="GENERAL"){const T=(await u.get("/properties?limit=100")).items.find(k=>k.name==="Gastos Generales");T&&(h=T.id)}const w=await u.get(`/budgets?property_id=${h}&year=${g}&month=${v}`);if(w&&w.length>0){let k=w[0].categories.map(C=>C.category_name).map(C=>`<option value="${C}">${C} (Presupuestado)</option>`).join("");k+="<option disabled>──────────</option>",k+=n.map(C=>`<option value="${C}">${C}</option>`).join(""),d.innerHTML=k}else d.innerHTML=n.map($=>`<option value="${$}">${$}</option>`).join("")}catch(h){console.warn("Could not fetch budget categories:",h),d.innerHTML=n.map(w=>`<option value="${w}">${w}</option>`).join("")}};l&&l.addEventListener("change",r),o.addEventListener("change",r),i.querySelector('[name="transaction_type"]').addEventListener("change",r),(e||l&&l.value)&&r()}function se(t,s,e,a,n,i){const l=[...new Set([...le,...de])];x("Editar Transacción",`
+  `,{confirmText:"Registrar",onConfirm:async()=>{const c=new FormData(document.getElementById("tx-form")),p={};c.forEach((g,v)=>{v==="amount"?p[v]=parseFloat(g):g&&(p[v]=g)}),e&&delete p.property_id,p.transaction_type==="Ingreso"?p.direction="Debit":p.transaction_type==="Gasto"&&(p.direction="Credit"),await u.post("/transactions",p),b(e?"Gasto registrado":"Transacción registrada","success"),await B(document.getElementById("page-content"))}}),window.lucide&&lucide.createIcons();const l=document.getElementById("tx-form"),r=l.querySelector('[name="property_id"]'),o=l.querySelector('[name="transaction_date"]'),d=l.querySelector('[name="category"]'),i=async()=>{const c=e?"GENERAL":r.value,p=o.value;if(!c||!p)return;const[g,v]=p.split("-").map(Number);try{let h=c;if(c==="GENERAL"){const T=(await u.get("/properties?limit=100")).items.find(k=>k.name==="Gastos Generales");T&&(h=T.id)}const w=await u.get(`/budgets?property_id=${h}&year=${g}&month=${v}`);if(w&&w.length>0){let k=w[0].categories.map(C=>C.category_name).map(C=>`<option value="${C}">${C} (Presupuestado)</option>`).join("");k+="<option disabled>──────────</option>",k+=n.map(C=>`<option value="${C}">${C}</option>`).join(""),d.innerHTML=k}else d.innerHTML=n.map($=>`<option value="${$}">${$}</option>`).join("")}catch(h){console.warn("Could not fetch budget categories:",h),d.innerHTML=n.map(w=>`<option value="${w}">${w}</option>`).join("")}};r&&r.addEventListener("change",i),o.addEventListener("change",i),l.querySelector('[name="transaction_type"]').addEventListener("change",i),(e||r&&r.value)&&i()}function se(t,s,e,a,n,l){const r=[...new Set([...le,...de])];x("Editar Transacción",`
     <form id="edit-tx-form" class="space-y-4">
       <div><label class="label">Descripción</label><input class="input" name="description" value="${s}" /></div>
       <div class="grid grid-cols-2 gap-4">
-        <div><label class="label">Categoría</label><select class="select" name="category">${l.map(o=>`<option value="${o}" ${o===e?"selected":""}>${o}</option>`).join("")}</select></div>
+        <div><label class="label">Categoría</label><select class="select" name="category">${r.map(o=>`<option value="${o}" ${o===e?"selected":""}>${o}</option>`).join("")}</select></div>
         <div><label class="label">Tipo</label><select class="select" name="transaction_type">
           ${["Ingreso","Gasto","Transferencia","Ajuste","Interés","Abono","Crédito"].map(o=>`<option value="${o}" ${o===n?"selected":""}>${o}</option>`).join("")}
         </select></div>
       </div>
       <div class="grid grid-cols-2 gap-4">
         <div><label class="label">Monto</label><input class="input" name="amount" type="number" step="0.01" value="${a}" /></div>
-        <div><label class="label">Fecha</label><input class="input" name="transaction_date" type="date" value="${i}" /></div>
+        <div><label class="label">Fecha</label><input class="input" name="transaction_date" type="date" value="${l}" /></div>
       </div>
     </form>
-  `,{confirmText:"Guardar",onConfirm:async()=>{const o=new FormData(document.getElementById("edit-tx-form")),d={};o.forEach((r,c)=>{c==="amount"?d[c]=parseFloat(r):r&&(d[c]=r)}),await u.put(`/transactions/${t}`,d),b("Transacción actualizada","success"),await B(document.getElementById("page-content"))}})}function ne(t,s){x("Eliminar Transacción",`
+  `,{confirmText:"Guardar",onConfirm:async()=>{const o=new FormData(document.getElementById("edit-tx-form")),d={};o.forEach((i,c)=>{c==="amount"?d[c]=parseFloat(i):i&&(d[c]=i)}),await u.put(`/transactions/${t}`,d),b("Transacción actualizada","success"),await B(document.getElementById("page-content"))}})}function ne(t,s){x("Eliminar Transacción",`
     <div class="text-center py-4">
       <div class="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
         <i data-lucide="alert-triangle" class="w-8 h-8 text-rose-500"></i>
@@ -720,20 +720,20 @@
         <div class="bg-white p-6 rounded-2xl border border-surface-100">
           <h4 class="text-sm font-bold text-surface-900 mb-4">Categorías</h4>
           ${a?`
-            ${Object.entries(e.income_by_category||{}).map(([l,o])=>`<div class="flex justify-between text-sm mb-1"><span>${l}</span><span class="text-accent-600">+${f(o)}</span></div>`).join("")}
+            ${Object.entries(e.income_by_category||{}).map(([r,o])=>`<div class="flex justify-between text-sm mb-1"><span>${r}</span><span class="text-accent-600">+${f(o)}</span></div>`).join("")}
             <div class="border-t border-surface-100 my-3"></div>
-            ${Object.entries(e.expense_by_category||{}).map(([l,o])=>`<div class="flex justify-between text-sm mb-1"><span>${l}</span><span class="text-rose-600">-${f(o)}</span></div>`).join("")}
+            ${Object.entries(e.expense_by_category||{}).map(([r,o])=>`<div class="flex justify-between text-sm mb-1"><span>${r}</span><span class="text-rose-600">-${f(o)}</span></div>`).join("")}
           `:'<p class="text-surface-400 text-center py-4">Sin datos</p>'}
         </div>
         <div class="bg-white p-6 rounded-2xl border border-surface-100">
           <h4 class="text-sm font-bold text-surface-900 mb-4">Últimos Movimientos</h4>
           <div class="overflow-x-auto"><table class="data-table text-xs"><thead><tr><th>Fecha</th><th>Descripción</th><th>Monto</th></tr></thead><tbody>
-            ${(e.last_transactions||[]).length>0?e.last_transactions.map(l=>`<tr><td class="text-surface-500">${E(l.transaction_date)}</td><td class="font-medium">${l.description}</td><td class="font-bold ${l.direction==="Debit"?"text-accent-600":"text-rose-600"}">${l.direction==="Debit"?"+":"-"}${f(l.amount)}</td></tr>`).join(""):'<tr><td colspan="3" class="text-center py-4 text-surface-400">Sin movimientos</td></tr>'}
+            ${(e.last_transactions||[]).length>0?e.last_transactions.map(r=>`<tr><td class="text-surface-500">${E(r.transaction_date)}</td><td class="font-medium">${r.description}</td><td class="font-bold ${r.direction==="Debit"?"text-accent-600":"text-rose-600"}">${r.direction==="Debit"?"+":"-"}${f(r.amount)}</td></tr>`).join(""):'<tr><td colspan="3" class="text-center py-4 text-surface-400">Sin movimientos</td></tr>'}
           </tbody></table></div>
         </div>
       </div>
     </div>
-  `,window.lucide&&lucide.createIcons();const n=document.getElementById("property-mini-chart");n&&a&&new Chart(n,{type:"doughnut",data:{labels:["Ingresos","Gastos"],datasets:[{data:[e.total_income,e.total_expenses],backgroundColor:["#20c997","#f03e3e"],borderWidth:0,cutout:"75%"}]},options:{responsive:!0,maintainAspectRatio:!1,plugins:{legend:{display:!1}}}});const i=document.getElementById("property-cashflow-chart");if(i&&e.monthly_cashflow){const l=e.monthly_cashflow;new Chart(i,{type:"bar",data:{labels:l.map(o=>o.month),datasets:[{label:"Ingresos",data:l.map(o=>o.income),backgroundColor:"rgba(32,201,151,0.7)",borderRadius:6,barPercentage:.6},{label:"Gastos",data:l.map(o=>o.expenses),backgroundColor:"rgba(240,62,62,0.7)",borderRadius:6,barPercentage:.6}]},options:{responsive:!0,maintainAspectRatio:!1,plugins:{legend:{position:"top",labels:{usePointStyle:!0,font:{size:10}}}},scales:{y:{beginAtZero:!0,ticks:{font:{size:10},callback:o=>"$"+(o>=1e6?(o/1e6).toFixed(1)+"M":o>=1e3?(o/1e3).toFixed(0)+"K":o)},grid:{color:"rgba(0,0,0,0.04)"}},x:{ticks:{font:{size:9}},grid:{display:!1}}}}})}}async function Be(){const[t,s]=await Promise.all([u.get("/reports/balance-sheet"),u.get(`/reports/income-statement?start_date=${new Date().getFullYear()}-01-01&end_date=${new Date().toISOString().split("T")[0]}`)]);t&&(document.getElementById("balance-sheet-container").innerHTML=`
+  `,window.lucide&&lucide.createIcons();const n=document.getElementById("property-mini-chart");n&&a&&new Chart(n,{type:"doughnut",data:{labels:["Ingresos","Gastos"],datasets:[{data:[e.total_income,e.total_expenses],backgroundColor:["#20c997","#f03e3e"],borderWidth:0,cutout:"75%"}]},options:{responsive:!0,maintainAspectRatio:!1,plugins:{legend:{display:!1}}}});const l=document.getElementById("property-cashflow-chart");if(l&&e.monthly_cashflow){const r=e.monthly_cashflow;new Chart(l,{type:"bar",data:{labels:r.map(o=>o.month),datasets:[{label:"Ingresos",data:r.map(o=>o.income),backgroundColor:"rgba(32,201,151,0.7)",borderRadius:6,barPercentage:.6},{label:"Gastos",data:r.map(o=>o.expenses),backgroundColor:"rgba(240,62,62,0.7)",borderRadius:6,barPercentage:.6}]},options:{responsive:!0,maintainAspectRatio:!1,plugins:{legend:{position:"top",labels:{usePointStyle:!0,font:{size:10}}}},scales:{y:{beginAtZero:!0,ticks:{font:{size:10},callback:o=>"$"+(o>=1e6?(o/1e6).toFixed(1)+"M":o>=1e3?(o/1e3).toFixed(0)+"K":o)},grid:{color:"rgba(0,0,0,0.04)"}},x:{ticks:{font:{size:9}},grid:{display:!1}}}}})}}async function Be(){const[t,s]=await Promise.all([u.get("/reports/balance-sheet"),u.get(`/reports/income-statement?start_date=${new Date().getFullYear()}-01-01&end_date=${new Date().toISOString().split("T")[0]}`)]);t&&(document.getElementById("balance-sheet-container").innerHTML=`
       <h3 class="font-bold mb-4 flex items-center justify-between">Balance General <span class="text-xs font-normal text-surface-400">${E(t.date)}</span></h3>
       <div class="space-y-3">
         ${t.accounts.map(e=>`<div class="flex justify-between text-sm py-2 border-b border-surface-50"><span class="text-surface-600">${e.account_name}</span><span class="font-semibold">${f(e.current_balance)}</span></div>`).join("")}
@@ -746,37 +746,37 @@
         <div><p class="text-xs font-bold text-surface-400 uppercase mb-2">Egresos</p>${Object.entries(s.expenses).map(([e,a])=>`<div class="flex justify-between text-sm mb-1"><span>${e}</span><span class="text-rose-600">-${f(a)}</span></div>`).join("")}</div>
         <div class="border-t border-surface-100 pt-3"><div class="flex justify-between text-lg font-bold ${s.net_income>=0?"text-accent-600":"text-rose-600"}"><span>Utilidad Neta</span><span>${f(s.net_income)}</span></div></div>
       </div>
-    `)}async function Ae(t,s){const{jsPDF:e}=window.jspdf,a=new e;a.setFillColor(66,99,235),a.rect(0,0,210,35,"F"),a.setTextColor(255),a.setFontSize(20),a.text("PMS — Informe Financiero",14,20),a.setFontSize(10),a.text(`Generado: ${new Date().toLocaleDateString("es-CO")}`,14,28),a.setTextColor(0),a.setFontSize(14),a.text("Cuentas Bancarias",14,45),a.autoTable({startY:50,head:[["Cuenta","Tipo","Banco","Moneda","Saldo"]],body:t.map(r=>[r.account_name,r.account_type,r.bank_name||"-",r.currency,f(r.current_balance)]),theme:"striped",headStyles:{fillColor:[66,99,235]},styles:{fontSize:9}});const n=a.lastAutoTable.finalY+15;a.setFontSize(14),a.text("Últimas Transacciones",14,n),a.autoTable({startY:n+5,head:[["Fecha","Descripción","Categoría","Tipo","Monto"]],body:s.map(r=>[r.transaction_date,r.description.substring(0,40),r.category,r.transaction_type,`${r.direction==="Debit"?"+":"-"}${f(r.amount)}`]),theme:"striped",headStyles:{fillColor:[66,99,235]},styles:{fontSize:8}});const i=s.filter(r=>r.direction==="Debit").reduce((r,c)=>r+c.amount,0),l=s.filter(r=>r.direction==="Credit").reduce((r,c)=>r+c.amount,0),o=a.lastAutoTable.finalY+15;a.setFontSize(12),a.setTextColor(32,201,151),a.text(`Total Ingresos: ${f(i)}`,14,o),a.setTextColor(240,62,62),a.text(`Total Gastos: ${f(l)}`,14,o+8),a.setTextColor(66,99,235),a.text(`Resultado Neto: ${f(i-l)}`,14,o+16);const d=a.internal.getNumberOfPages();for(let r=1;r<=d;r++)a.setPage(r),a.setFontSize(8),a.setTextColor(150),a.text(`PMS — Property Management System | Página ${r} de ${d}`,105,290,{align:"center"});a.save(`informe_financiero_${new Date().toISOString().split("T")[0]}.pdf`),b("PDF generado y descargado","success")}async function Se(t){x("Analizando CSV...",`
+    `)}async function Ae(t,s){const{jsPDF:e}=window.jspdf,a=new e;a.setFillColor(66,99,235),a.rect(0,0,210,35,"F"),a.setTextColor(255),a.setFontSize(20),a.text("PMS — Informe Financiero",14,20),a.setFontSize(10),a.text(`Generado: ${new Date().toLocaleDateString("es-CO")}`,14,28),a.setTextColor(0),a.setFontSize(14),a.text("Cuentas Bancarias",14,45),a.autoTable({startY:50,head:[["Cuenta","Tipo","Banco","Moneda","Saldo"]],body:t.map(i=>[i.account_name,i.account_type,i.bank_name||"-",i.currency,f(i.current_balance)]),theme:"striped",headStyles:{fillColor:[66,99,235]},styles:{fontSize:9}});const n=a.lastAutoTable.finalY+15;a.setFontSize(14),a.text("Últimas Transacciones",14,n),a.autoTable({startY:n+5,head:[["Fecha","Descripción","Categoría","Tipo","Monto"]],body:s.map(i=>[i.transaction_date,i.description.substring(0,40),i.category,i.transaction_type,`${i.direction==="Debit"?"+":"-"}${f(i.amount)}`]),theme:"striped",headStyles:{fillColor:[66,99,235]},styles:{fontSize:8}});const l=s.filter(i=>i.direction==="Debit").reduce((i,c)=>i+c.amount,0),r=s.filter(i=>i.direction==="Credit").reduce((i,c)=>i+c.amount,0),o=a.lastAutoTable.finalY+15;a.setFontSize(12),a.setTextColor(32,201,151),a.text(`Total Ingresos: ${f(l)}`,14,o),a.setTextColor(240,62,62),a.text(`Total Gastos: ${f(r)}`,14,o+8),a.setTextColor(66,99,235),a.text(`Resultado Neto: ${f(l-r)}`,14,o+16);const d=a.internal.getNumberOfPages();for(let i=1;i<=d;i++)a.setPage(i),a.setFontSize(8),a.setTextColor(150),a.text(`PMS — Property Management System | Página ${i} de ${d}`,105,290,{align:"center"});a.save(`informe_financiero_${new Date().toISOString().split("T")[0]}.pdf`),b("PDF generado y descargado","success")}async function Se(t){x("Analizando CSV...",`
     <div class="flex items-center justify-center py-12">
       <div class="animate-spin rounded-full h-8 w-8 border-2 border-indigo-500 border-t-transparent"></div>
       <p class="ml-3 text-surface-500">Analizando archivo...</p>
     </div>
-  `,{showCancel:!1});let s;try{const r=new FormData;r.append("file",t),s=await u.upload("/transactions/import/analyze",r)}catch(r){b(`Error al analizar: ${r.message}`,"error");return}const{total_rows:e,transfers_skipped:a,new_accounts:n,existing_accounts:i,detected_labels:l,category_mapping:o}=s,d=l.length>0?l.map(r=>`
+  `,{showCancel:!1});let s;try{const i=new FormData;i.append("file",t),s=await u.upload("/transactions/import/analyze",i)}catch(i){b(`Error al analizar: ${i.message}`,"error");return}const{total_rows:e,transfers_skipped:a,new_accounts:n,existing_accounts:l,detected_labels:r,category_mapping:o}=s,d=r.length>0?r.map(i=>`
     <label class="flex items-center gap-3 p-3 rounded-xl border border-surface-100 hover:bg-surface-50 transition cursor-pointer">
-      <input type="checkbox" class="import-label-check w-4 h-4 rounded text-indigo-500" value="${r.label}" ${r.suggested_apartment?"checked":""} ${r.already_exists?"checked disabled":""} />
+      <input type="checkbox" class="import-label-check w-4 h-4 rounded text-indigo-500" value="${i.label}" ${i.suggested_apartment?"checked":""} ${i.already_exists?"checked disabled":""} />
       <div class="flex-1 min-w-0">
-        <span class="font-medium text-surface-800 text-sm">${r.label}</span>
-        <span class="text-xs text-surface-400 ml-2">(${r.transaction_count} tx)</span>
+        <span class="font-medium text-surface-800 text-sm">${i.label}</span>
+        <span class="text-xs text-surface-400 ml-2">(${i.transaction_count} tx)</span>
       </div>
-      ${r.already_exists?'<span class="badge badge-green text-xs">Existe</span>':r.suggested_apartment?'<span class="badge badge-blue text-xs">Sugerido</span>':'<span class="badge badge-amber text-xs">General</span>'}
+      ${i.already_exists?'<span class="badge badge-green text-xs">Existe</span>':i.suggested_apartment?'<span class="badge badge-blue text-xs">Sugerido</span>':'<span class="badge badge-amber text-xs">General</span>'}
     </label>
   `).join(""):'<p class="text-surface-400 text-sm py-4 text-center">No se detectaron labels</p>';x("Importación de Transacciones",`
     <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
       <div class="grid grid-cols-3 gap-3">
         <div class="bg-indigo-50 rounded-xl p-3 text-center"><p class="text-2xl font-bold text-indigo-600">${e}</p><p class="text-xs text-indigo-400">Transacciones</p></div>
         <div class="bg-amber-50 rounded-xl p-3 text-center"><p class="text-2xl font-bold text-amber-600">${a}</p><p class="text-xs text-amber-400">Omitidas</p></div>
-        <div class="bg-purple-50 rounded-xl p-3 text-center"><p class="text-2xl font-bold text-purple-600">${l.length}</p><p class="text-xs text-purple-400">Labels</p></div>
+        <div class="bg-purple-50 rounded-xl p-3 text-center"><p class="text-2xl font-bold text-purple-600">${r.length}</p><p class="text-xs text-purple-400">Labels</p></div>
       </div>
-      ${n.length>0?`<div class="bg-blue-50 border border-blue-200 rounded-xl p-4"><p class="text-sm font-bold text-blue-700 mb-2">Cuentas nuevas (${n.length})</p>${n.map(r=>`<div class="flex justify-between text-sm"><span class="text-blue-600">${r.name}</span><span class="text-blue-400">${r.transaction_count} tx</span></div>`).join("")}</div>`:""}
-      ${i.length>0?`<div class="bg-green-50 border border-green-200 rounded-xl p-4"><p class="text-sm font-bold text-green-700 mb-2">Cuentas existentes (${i.length})</p>${i.map(r=>`<div class="flex justify-between text-sm"><span class="text-green-600">${r.name}</span><span class="text-green-400">${r.transaction_count} tx</span></div>`).join("")}</div>`:""}
-      ${Object.keys(o).length>0?`<details class="bg-surface-50 border border-surface-200 rounded-xl p-4"><summary class="text-sm font-bold text-surface-700 cursor-pointer">Mapeo categorías (${Object.keys(o).length})</summary><div class="mt-3 space-y-1 max-h-40 overflow-y-auto">${Object.entries(o).map(([r,c])=>`<div class="flex justify-between text-xs py-1 border-b border-surface-100"><span>${r}</span><span class="text-indigo-600">→ ${c}</span></div>`).join("")}</div></details>`:""}
+      ${n.length>0?`<div class="bg-blue-50 border border-blue-200 rounded-xl p-4"><p class="text-sm font-bold text-blue-700 mb-2">Cuentas nuevas (${n.length})</p>${n.map(i=>`<div class="flex justify-between text-sm"><span class="text-blue-600">${i.name}</span><span class="text-blue-400">${i.transaction_count} tx</span></div>`).join("")}</div>`:""}
+      ${l.length>0?`<div class="bg-green-50 border border-green-200 rounded-xl p-4"><p class="text-sm font-bold text-green-700 mb-2">Cuentas existentes (${l.length})</p>${l.map(i=>`<div class="flex justify-between text-sm"><span class="text-green-600">${i.name}</span><span class="text-green-400">${i.transaction_count} tx</span></div>`).join("")}</div>`:""}
+      ${Object.keys(o).length>0?`<details class="bg-surface-50 border border-surface-200 rounded-xl p-4"><summary class="text-sm font-bold text-surface-700 cursor-pointer">Mapeo categorías (${Object.keys(o).length})</summary><div class="mt-3 space-y-1 max-h-40 overflow-y-auto">${Object.entries(o).map(([i,c])=>`<div class="flex justify-between text-xs py-1 border-b border-surface-100"><span>${i}</span><span class="text-indigo-600">→ ${c}</span></div>`).join("")}</div></details>`:""}
       <div>
         <p class="text-sm font-bold text-surface-700 mb-3">¿Cuáles labels son apartamentos?</p>
         <p class="text-xs text-surface-400 mb-3">Los seleccionados se crean como propiedades.</p>
         <div class="space-y-2 max-h-60 overflow-y-auto">${d}</div>
       </div>
     </div>
-  `,{confirmText:"Importar Transacciones",onConfirm:async()=>{const r=document.querySelectorAll(".import-label-check:checked"),c=Array.from(r).map(v=>v.value),p=new FormData;p.append("file",t);const g=encodeURIComponent(c.join(","));try{const v=await u.upload(`/transactions/import/confirm?confirmed_labels=${g}`,p);let h=`✅ ${v.imported} transacciones importadas.`;v.accounts_created.length>0&&(h+=` 📁 Cuentas: ${v.accounts_created.join(", ")}`),v.properties_created.length>0&&(h+=` 🏠 Propiedades: ${v.properties_created.join(", ")}`),v.errors.length>0&&(h+=` ⚠️ ${v.errors.length} errores`),b(h,"success"),await B(document.getElementById("page-content"))}catch(v){b(`Error al importar: ${v.message}`,"error")}}}),window.lucide&&lucide.createIcons()}async function K(t){var a,n;const e=(await u.get("/maintenance?limit=50")).items||[];if(t.innerHTML=`
+  `,{confirmText:"Importar Transacciones",onConfirm:async()=>{const i=document.querySelectorAll(".import-label-check:checked"),c=Array.from(i).map(v=>v.value),p=new FormData;p.append("file",t);const g=encodeURIComponent(c.join(","));try{const v=await u.upload(`/transactions/import/confirm?confirmed_labels=${g}`,p);let h=`✅ ${v.imported} transacciones importadas.`;v.accounts_created.length>0&&(h+=` 📁 Cuentas: ${v.accounts_created.join(", ")}`),v.properties_created.length>0&&(h+=` 🏠 Propiedades: ${v.properties_created.join(", ")}`),v.errors.length>0&&(h+=` ⚠️ ${v.errors.length} errores`),b(h,"success"),await B(document.getElementById("page-content"))}catch(v){b(`Error al importar: ${v.message}`,"error")}}}),window.lucide&&lucide.createIcons()}async function K(t,s){var n,l;const a=(await u.get("/maintenance?limit=50")).items||[];if(t.innerHTML=`
     <div class="flex items-center justify-between mb-6 animate-fade-in">
       <div class="flex items-center gap-3">
         <select id="fm-status" class="select text-sm py-2 w-44">
@@ -791,19 +791,19 @@
     </div>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 animate-fade-in">
       <div class="glass-card-static p-4 text-center">
-        <p class="text-2xl font-bold text-amber-500">${e.filter(i=>i.status==="Pendiente").length}</p>
+        <p class="text-2xl font-bold text-amber-500">${a.filter(r=>r.status==="Pendiente").length}</p>
         <p class="text-xs text-surface-500 mt-1">Pendientes</p>
       </div>
       <div class="glass-card-static p-4 text-center">
-        <p class="text-2xl font-bold text-primary-500">${e.filter(i=>i.status==="En Progreso").length}</p>
+        <p class="text-2xl font-bold text-primary-500">${a.filter(r=>r.status==="En Progreso").length}</p>
         <p class="text-xs text-surface-500 mt-1">En Progreso</p>
       </div>
       <div class="glass-card-static p-4 text-center">
-        <p class="text-2xl font-bold text-accent-500">${e.filter(i=>i.status==="Completado").length}</p>
+        <p class="text-2xl font-bold text-accent-500">${a.filter(r=>r.status==="Completado").length}</p>
         <p class="text-xs text-surface-500 mt-1">Completados</p>
       </div>
       <div class="glass-card-static p-4 text-center">
-        <p class="text-2xl font-bold text-rose-500">${f(e.reduce((i,l)=>i+(l.actual_cost||0),0))}</p>
+        <p class="text-2xl font-bold text-rose-500">${f(a.reduce((r,o)=>r+(o.actual_cost||0),0))}</p>
         <p class="text-xs text-surface-500 mt-1">Costo Total</p>
       </div>
     </div>
@@ -811,19 +811,19 @@
       <table class="data-table"><thead><tr>
         <th>Título</th><th>Tipo</th><th>Prioridad</th><th>Estado</th><th>Costo Est.</th><th>Fecha</th><th></th>
       </tr></thead><tbody>
-      ${e.length?e.map(i=>`<tr>
-        <td><div class="font-semibold text-sm">${i.title}</div>${i.supplier_name?`<div class="text-xs text-surface-400">${i.supplier_name}</div>`:""}</td>
-        <td><span class="badge badge-gray text-xs">${i.maintenance_type}</span></td>
-        <td><span class="badge ${i.priority==="Urgente"?"badge-red":i.priority==="Alta"?"badge-amber":"badge-gray"} text-xs">${i.priority}</span></td>
-        <td><span class="badge ${F(i.status)} text-xs">${i.status}</span></td>
-        <td class="text-sm">${f(i.estimated_cost)}</td>
-        <td class="text-xs text-surface-500">${E(i.scheduled_date)}</td>
-        <td>${i.status!=="Completado"&&i.status!=="Cancelado"?`<button class="btn-ghost text-xs py-1 px-2 status-btn" data-id="${i.id}"><i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>`:""}</td>
+      ${a.length?a.map(r=>`<tr>
+        <td><div class="font-semibold text-sm">${r.title}</div>${r.supplier_name?`<div class="text-xs text-surface-400">${r.supplier_name}</div>`:""}</td>
+        <td><span class="badge badge-gray text-xs">${r.maintenance_type}</span></td>
+        <td><span class="badge ${r.priority==="Urgente"?"badge-red":r.priority==="Alta"?"badge-amber":"badge-gray"} text-xs">${r.priority}</span></td>
+        <td><span class="badge ${F(r.status)} text-xs">${r.status}</span></td>
+        <td class="text-sm">${f(r.estimated_cost)}</td>
+        <td class="text-xs text-surface-500">${E(r.scheduled_date)}</td>
+        <td>${r.status!=="Completado"&&r.status!=="Cancelado"?`<button class="btn-ghost text-xs py-1 px-2 status-btn" data-id="${r.id}"><i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>`:""}</td>
       </tr>`).join(""):'<tr><td colspan="7" class="text-center py-12 text-surface-400">No hay órdenes</td></tr>'}
       </tbody></table>
     </div>
     
-    ${((a=state.user)==null?void 0:a.role)==="Admin"?`
+    ${((n=s.user)==null?void 0:n.role)==="Admin"?`
     <div class="glass-card p-6 border-t-4 border-t-sky-500 animate-fade-in">
         <div class="flex items-center gap-3 mb-4">
             <div class="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center text-sky-600">
@@ -850,7 +850,7 @@
         </form>
     </div>
     `:""}
-    `,window.lucide&&lucide.createIcons(),document.getElementById("add-maint-btn").addEventListener("click",()=>De()),document.querySelectorAll(".status-btn").forEach(i=>i.addEventListener("click",()=>Me(i.dataset.id))),((n=state.user)==null?void 0:n.role)==="Admin"){const i=document.getElementById("telegram-config-form");try{const o=(await u.get("/config")).find(d=>d.key==="TELEGRAM_BOT_TOKEN");o&&i&&(i.elements.TELEGRAM_BOT_TOKEN.value=o.value)}catch{}i&&(i.addEventListener("submit",async l=>{l.preventDefault();const o=document.getElementById("btn-save-telegram");o.disabled=!0;const d=l.target.elements.TELEGRAM_BOT_TOKEN.value.trim();try{await u.post("/config/batch",{TELEGRAM_BOT_TOKEN:d}),b("Token guardado exitosamente.","success")}catch(r){b("Error al guardar: "+r.message,"error")}finally{o.disabled=!1}}),document.getElementById("btn-activate-webhook").addEventListener("click",async l=>{const o=l.target.closest("button");o.disabled=!0;try{const d=window.location.origin;await u.post("/telegram/register-webhook",{domain:d}),b("Webhook de Telegram enlazado correctamente con este dominio.","success")}catch(d){b("Error en Webhook: "+d.message,"error")}finally{o.disabled=!1}}))}}function De(){x("Nueva Orden",`<form id="mf" class="space-y-4">
+    `,window.lucide&&lucide.createIcons(),document.getElementById("add-maint-btn").addEventListener("click",()=>De()),document.querySelectorAll(".status-btn").forEach(r=>r.addEventListener("click",()=>Me(r.dataset.id))),((l=s.user)==null?void 0:l.role)==="Admin"){const r=document.getElementById("telegram-config-form");try{const d=(await u.get("/config")).find(i=>i.key==="TELEGRAM_BOT_TOKEN");d&&r&&(r.elements.TELEGRAM_BOT_TOKEN.value=d.value)}catch{}r&&(r.addEventListener("submit",async o=>{o.preventDefault();const d=document.getElementById("btn-save-telegram");d.disabled=!0;const i=o.target.elements.TELEGRAM_BOT_TOKEN.value.trim();try{await u.post("/config/batch",{TELEGRAM_BOT_TOKEN:i}),b("Token guardado exitosamente.","success")}catch(c){b("Error al guardar: "+c.message,"error")}finally{d.disabled=!1}}),document.getElementById("btn-activate-webhook").addEventListener("click",async o=>{const d=o.target.closest("button");d.disabled=!0;try{const i=window.location.origin;await u.post("/telegram/register-webhook",{domain:i}),b("Webhook de Telegram enlazado correctamente con este dominio.","success")}catch(i){b("Error en Webhook: "+i.message,"error")}finally{d.disabled=!1}}))}}function De(){x("Nueva Orden",`<form id="mf" class="space-y-4">
     <div><label class="label">Propiedad ID *</label><input class="input" name="property_id" required /></div>
     <div><label class="label">Título *</label><input class="input" name="title" required placeholder="Reparación tubería" /></div>
     <div class="grid grid-cols-2 gap-4">
@@ -877,7 +877,7 @@
         </div>
         <div id="contracts-tab-content"><!-- Content --></div>
     </div>
-  `;const i=t.querySelector("#contracts-tab-content"),l=t.querySelectorAll(".tab-btn");l.forEach(o=>{o.addEventListener("click",()=>{l.forEach(d=>{d.classList.remove("active","text-primary-600","border-primary-600","border-b-2"),d.classList.add("text-surface-500")}),o.classList.remove("text-surface-500"),o.classList.add("active","text-primary-600","border-primary-600","border-b-2"),o.dataset.tab==="list"?ie(i,a,n,t):Fe(i,a)})}),ie(i,a,n,t)}function ie(t,s,e,a){t.innerHTML=`
+  `;const l=t.querySelector("#contracts-tab-content"),r=t.querySelectorAll(".tab-btn");r.forEach(o=>{o.addEventListener("click",()=>{r.forEach(d=>{d.classList.remove("active","text-primary-600","border-primary-600","border-b-2"),d.classList.add("text-surface-500")}),o.classList.remove("text-surface-500"),o.classList.add("active","text-primary-600","border-primary-600","border-b-2"),o.dataset.tab==="list"?ie(l,a,n,t):Fe(l,a)})}),ie(l,a,n,t)}function ie(t,s,e,a){t.innerHTML=`
     <div class="flex flex-wrap items-center justify-between gap-4 mb-6 animate-fade-in glass-card-static p-4 !rounded-2xl border-white/40 shadow-sm">
       <div class="flex items-center gap-2 bg-white/50 px-3 py-1.5 rounded-xl border border-white/20 shadow-sm">
         <i data-lucide="filter" class="w-3.5 h-3.5 text-surface-400"></i>
@@ -936,7 +936,7 @@
         </div></td>
       </tr>`).join(""):'<tr><td colspan="6" class="text-center py-20 text-surface-400 font-medium italic">No hay contratos registrados</td></tr>'}
       </tbody></table>
-    </div>`,window.lucide&&lucide.createIcons(),document.getElementById("add-contract-btn").addEventListener("click",()=>qe(e,a)),document.querySelectorAll(".activate-btn").forEach(n=>n.addEventListener("click",async()=>{try{await u.post(`/contracts/${n.dataset.id}/activate`,{}),b("Contrato activado y cronograma de pagos generado","success"),await G(a||document.getElementById("page-content"))}catch(i){b(i.message||"Error al activar contrato","error")}})),document.querySelectorAll(".download-btn").forEach(n=>n.addEventListener("click",async()=>{var i,l;try{b("Generando PDF...","info");const o=((l=(i=u.opts)==null?void 0:i.baseUrl)==null?void 0:l.replace("/api/v1",""))||"",d=localStorage.getItem("access_token")||"",r=`${o}/api/v1/contracts/${n.dataset.id}/download`,c=await fetch(r,{headers:{Authorization:`Bearer ${d}`}});if(!c.ok)throw new Error("Error generando PDF");const p=await c.blob(),g=document.createElement("a");g.href=URL.createObjectURL(p),g.download=`contrato_${n.dataset.id.slice(0,8)}.pdf`,g.click(),URL.revokeObjectURL(g.href)}catch(o){b(o.message||"No se pudo descargar el PDF","error")}})),document.querySelectorAll(".pdf-btn").forEach(n=>n.addEventListener("click",()=>{const i=new Date().toISOString().split("T")[0];x("Generar Carta de Terminación",`
+    </div>`,window.lucide&&lucide.createIcons(),document.getElementById("add-contract-btn").addEventListener("click",()=>qe(e,a)),document.querySelectorAll(".activate-btn").forEach(n=>n.addEventListener("click",async()=>{try{await u.post(`/contracts/${n.dataset.id}/activate`,{}),b("Contrato activado y cronograma de pagos generado","success"),await G(a||document.getElementById("page-content"))}catch(l){b(l.message||"Error al activar contrato","error")}})),document.querySelectorAll(".download-btn").forEach(n=>n.addEventListener("click",async()=>{var l,r;try{b("Generando PDF...","info");const o=((r=(l=u.opts)==null?void 0:l.baseUrl)==null?void 0:r.replace("/api/v1",""))||"",d=localStorage.getItem("access_token")||"",i=`${o}/api/v1/contracts/${n.dataset.id}/download`,c=await fetch(i,{headers:{Authorization:`Bearer ${d}`}});if(!c.ok)throw new Error("Error generando PDF");const p=await c.blob(),g=document.createElement("a");g.href=URL.createObjectURL(p),g.download=`contrato_${n.dataset.id.slice(0,8)}.pdf`,g.click(),URL.revokeObjectURL(g.href)}catch(o){b(o.message||"No se pudo descargar el PDF","error")}})),document.querySelectorAll(".pdf-btn").forEach(n=>n.addEventListener("click",()=>{const l=new Date().toISOString().split("T")[0];x("Generar Carta de Terminación",`
         <form id="pdf-form" class="space-y-4">
             <div>
                 <label class="label">Motivo</label>
@@ -944,10 +944,10 @@
             </div>
             <div>
                 <label class="label">Fecha de Terminación</label>
-                <input class="input" type="date" name="termination_date" value="${i}" required />
+                <input class="input" type="date" name="termination_date" value="${l}" required />
             </div>
         </form>
-      `,{confirmText:"Generar PDF",onConfirm:async()=>{var r,c;const l=new FormData(document.getElementById("pdf-form")),o=Object.fromEntries(l),d=await u.post(`/contracts/${n.dataset.id}/termination-letter`,o);if(b("PDF Generado","success"),d.pdf_url){const p=((c=(r=u.opts)==null?void 0:r.baseUrl)==null?void 0:c.replace("/api/v1",""))||"";window.open(p+d.pdf_url,"_blank")}}})})),document.querySelectorAll(".payments-btn").forEach(n=>n.addEventListener("click",async()=>{var c;const[i,l]=await Promise.all([u.get(`/contracts/${n.dataset.id}/payments`),u.get("/accounts")]),o=l.items||l||[],d=p=>p==="Pagado"?"badge-green":p==="Vencido"?"badge-red":"badge-yellow";x("Cronograma de Pagos",`
+      `,{confirmText:"Generar PDF",onConfirm:async()=>{var i,c;const r=new FormData(document.getElementById("pdf-form")),o=Object.fromEntries(r),d=await u.post(`/contracts/${n.dataset.id}/termination-letter`,o);if(b("PDF Generado","success"),d.pdf_url){const p=((c=(i=u.opts)==null?void 0:i.baseUrl)==null?void 0:c.replace("/api/v1",""))||"";window.open(p+d.pdf_url,"_blank")}}})})),document.querySelectorAll(".payments-btn").forEach(n=>n.addEventListener("click",async()=>{var c;const[l,r]=await Promise.all([u.get(`/contracts/${n.dataset.id}/payments`),u.get("/accounts")]),o=r.items||r||[],d=p=>p==="Pagado"?"badge-green":p==="Vencido"?"badge-red":"badge-yellow";x("Cronograma de Pagos",`
       <div class="space-y-4">
         <div class="max-h-80 overflow-y-auto border border-surface-100 rounded-xl">
           <table class="data-table text-xs">
@@ -955,7 +955,7 @@
               <tr><th>Fecha</th><th>Monto</th><th>Estado</th><th class="text-right">Acción</th></tr>
             </thead>
             <tbody>
-              ${i.map(p=>`
+              ${l.map(p=>`
                 <tr class="hover:bg-surface-50">
                   <td class="font-medium">${E(p.due_date)}</td>
                   <td class="font-black text-accent-700">${f(p.amount)}</td>
@@ -987,7 +987,7 @@
           </div>
         </div>
       </div>
-    `,{showCancel:!1}),window.lucide&&lucide.createIcons();let r=null;document.querySelectorAll(".pay-payment-btn").forEach(p=>p.addEventListener("click",()=>{r={pid:p.dataset.pid,cid:p.dataset.cid},document.getElementById("payment-receipt-box").classList.remove("hidden"),document.querySelectorAll(".pay-payment-btn").forEach(g=>g.closest("tr").classList.remove("bg-primary-50")),p.closest("tr").classList.add("bg-primary-50")})),(c=document.getElementById("confirm-pay-btn"))==null||c.addEventListener("click",async()=>{if(!r)return;const p=document.getElementById("pay-account-id").value;if(!p){b("Seleccione una cuenta","error");return}try{await u.post(`/contracts/${r.cid}/payments/${r.pid}/pay?account_id=${p}`,{}),b("✅ Pago registrado — transacción bancaria creada","success"),await G(a||document.getElementById("page-content"))}catch(g){b(g.message||"Error al registrar pago","error")}})}))}function qe(t=[],s){const e=new Date().toISOString().split("T")[0];x("Nuevo Contrato",`<form id="cf" class="space-y-4">
+    `,{showCancel:!1}),window.lucide&&lucide.createIcons();let i=null;document.querySelectorAll(".pay-payment-btn").forEach(p=>p.addEventListener("click",()=>{i={pid:p.dataset.pid,cid:p.dataset.cid},document.getElementById("payment-receipt-box").classList.remove("hidden"),document.querySelectorAll(".pay-payment-btn").forEach(g=>g.closest("tr").classList.remove("bg-primary-50")),p.closest("tr").classList.add("bg-primary-50")})),(c=document.getElementById("confirm-pay-btn"))==null||c.addEventListener("click",async()=>{if(!i)return;const p=document.getElementById("pay-account-id").value;if(!p){b("Seleccione una cuenta","error");return}try{await u.post(`/contracts/${i.cid}/payments/${i.pid}/pay?account_id=${p}`,{}),b("✅ Pago registrado — transacción bancaria creada","success"),await G(a||document.getElementById("page-content"))}catch(g){b(g.message||"Error al registrar pago","error")}})}))}function qe(t=[],s){const e=new Date().toISOString().split("T")[0];x("Nuevo Contrato",`<form id="cf" class="space-y-4">
     <div>
       <label class="label">Propiedad *</label>
       <select class="select" name="property_id" required>
@@ -1015,7 +1015,7 @@
       <div><label class="label">Depósito</label><input class="input" name="deposit_amount" type="number" step="0.01" /></div>
       <div><label class="label">Incremento Anual %</label><input class="input" name="annual_increment_pct" type="number" step="0.01" value="5" /></div>
     </div>
-  </form>`,{confirmText:"Crear",onConfirm:async()=>{const a=new FormData(document.getElementById("cf")),n={};a.forEach((i,l)=>{i&&(n[l]=["monthly_rent","deposit_amount","annual_increment_pct"].includes(l)?parseFloat(i):i)}),n.auto_renewal=!1,await u.post("/contracts",n),b("Contrato creado en Borrador — use ✓ para activarlo","success"),await G(s||document.getElementById("page-content"))}})}function Fe(t,s){const e={};s.forEach(n=>{e[n.tenant_name]||(e[n.tenant_name]={name:n.tenant_name,email:n.tenant_email,phone:n.tenant_phone,document:n.tenant_document,active_contracts:0}),n.status==="Activo"&&e[n.tenant_name].active_contracts++});const a=Object.values(e);t.innerHTML=`
+  </form>`,{confirmText:"Crear",onConfirm:async()=>{const a=new FormData(document.getElementById("cf")),n={};a.forEach((l,r)=>{l&&(n[r]=["monthly_rent","deposit_amount","annual_increment_pct"].includes(r)?parseFloat(l):l)}),n.auto_renewal=!1,await u.post("/contracts",n),b("Contrato creado en Borrador — use ✓ para activarlo","success"),await G(s||document.getElementById("page-content"))}})}function Fe(t,s){const e={};s.forEach(n=>{e[n.tenant_name]||(e[n.tenant_name]={name:n.tenant_name,email:n.tenant_email,phone:n.tenant_phone,document:n.tenant_document,active_contracts:0}),n.status==="Activo"&&e[n.tenant_name].active_contracts++});const a=Object.values(e);t.innerHTML=`
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
         ${a.length?a.map(n=>`
             <div class="glass-card-static p-5 flex items-start gap-4">
@@ -1062,7 +1062,7 @@
           <i data-lucide="calendar-days" class="w-3.5 h-3.5 text-surface-400"></i>
           <select id="filter-month" class="bg-transparent text-sm font-medium focus:outline-none w-full appearance-none">
             <option value="">Todos los meses</option>
-            ${Array.from({length:12},(l,o)=>`<option value="${o+1}">${new Date(0,o).toLocaleString("es",{month:"long"})}</option>`).join("")}
+            ${Array.from({length:12},(r,o)=>`<option value="${o+1}">${new Date(0,o).toLocaleString("es",{month:"long"})}</option>`).join("")}
           </select>
         </div>
 
@@ -1088,25 +1088,25 @@
         </div>
       </div>
     </div>
-  `,window.lucide&&lucide.createIcons();const[s,e]=await Promise.all([u.get("/properties?limit=100"),u.get("/properties?limit=1").then(l=>{var o;return((o=l.items.find(d=>d.name==="Gastos Generales"))==null?void 0:o.id)||"GENERAL"})]),a=s.items||[],n=document.getElementById("filter-property");a.filter(l=>l.id!==e).forEach(l=>{const o=document.createElement("option");o.value=l.id,o.textContent=l.name,n.appendChild(o)});const i=async()=>{const l=document.getElementById("budgets-table-container"),o=document.getElementById("filter-property").value,d=document.getElementById("filter-year").value,r=document.getElementById("filter-month").value,c=document.getElementById("filter-status").value;let p="/budgets?limit=100";o&&(p+=`&property_id=${o}`),d&&(p+=`&year=${d}`),r&&(p+=`&month=${r}`);try{const g=await u.get(p);let v=g;c&&(v=g.filter(h=>h.semaphore===c)),ce(l,v,a,e,i)}catch(g){l.innerHTML=`<div class="p-8 text-center text-rose-500">Error al cargar presupuestos: ${g.message}</div>`}};document.getElementById("apply-filters").addEventListener("click",i),document.getElementById("add-budget-btn").addEventListener("click",()=>ue(a,null,i)),i()}function ce(t,s,e,a,n,i="",l=1){if(!s.length){t.innerHTML='<div class="py-20 text-center text-surface-400">No se encontraron presupuestos con los filtros seleccionados.</div>';return}t.innerHTML=`
+  `,window.lucide&&lucide.createIcons();const[s,e]=await Promise.all([u.get("/properties?limit=100"),u.get("/properties?limit=1").then(r=>{var o;return((o=r.items.find(d=>d.name==="Gastos Generales"))==null?void 0:o.id)||"GENERAL"})]),a=s.items||[],n=document.getElementById("filter-property");a.filter(r=>r.id!==e).forEach(r=>{const o=document.createElement("option");o.value=r.id,o.textContent=r.name,n.appendChild(o)});const l=async()=>{const r=document.getElementById("budgets-table-container"),o=document.getElementById("filter-property").value,d=document.getElementById("filter-year").value,i=document.getElementById("filter-month").value,c=document.getElementById("filter-status").value;let p="/budgets?limit=100";o&&(p+=`&property_id=${o}`),d&&(p+=`&year=${d}`),i&&(p+=`&month=${i}`);try{const g=await u.get(p);let v=g;c&&(v=g.filter(h=>h.semaphore===c)),ce(r,v,a,e,l)}catch(g){r.innerHTML=`<div class="p-8 text-center text-rose-500">Error al cargar presupuestos: ${g.message}</div>`}};document.getElementById("apply-filters").addEventListener("click",l),document.getElementById("add-budget-btn").addEventListener("click",()=>ue(a,null,l)),l()}function ce(t,s,e,a,n,l="",r=1){if(!s.length){t.innerHTML='<div class="py-20 text-center text-surface-400">No se encontraron presupuestos con los filtros seleccionados.</div>';return}t.innerHTML=`
     <table class="data-table">
       <thead>
         <tr>
           <th class="sortable cursor-pointer hover:bg-surface-100" data-sort="property">
-            Propiedad ${i==="property"?`<i data-lucide="chevron-${l===1?"up":"down"}" class="w-3 h-3 inline ml-1"></i>`:'<i data-lucide="chevrons-up-down" class="w-3 h-3 inline ml-1 opacity-50"></i>'}
+            Propiedad ${l==="property"?`<i data-lucide="chevron-${r===1?"up":"down"}" class="w-3 h-3 inline ml-1"></i>`:'<i data-lucide="chevrons-up-down" class="w-3 h-3 inline ml-1 opacity-50"></i>'}
           </th>
           <th class="sortable cursor-pointer hover:bg-surface-100" data-sort="date">
-            Periodo ${i==="date"?`<i data-lucide="chevron-${l===1?"up":"down"}" class="w-3 h-3 inline ml-1"></i>`:'<i data-lucide="chevrons-up-down" class="w-3 h-3 inline ml-1 opacity-50"></i>'}
+            Periodo ${l==="date"?`<i data-lucide="chevron-${r===1?"up":"down"}" class="w-3 h-3 inline ml-1"></i>`:'<i data-lucide="chevrons-up-down" class="w-3 h-3 inline ml-1 opacity-50"></i>'}
           </th>
           <th class="sortable cursor-pointer hover:bg-surface-100" data-sort="status">
-            Estado ${i==="status"?`<i data-lucide="chevron-${l===1?"up":"down"}" class="w-3 h-3 inline ml-1"></i>`:'<i data-lucide="chevrons-up-down" class="w-3 h-3 inline ml-1 opacity-50"></i>'}
+            Estado ${l==="status"?`<i data-lucide="chevron-${r===1?"up":"down"}" class="w-3 h-3 inline ml-1"></i>`:'<i data-lucide="chevrons-up-down" class="w-3 h-3 inline ml-1 opacity-50"></i>'}
           </th>
           <th class="sortable cursor-pointer hover:bg-surface-100" data-sort="budget">
-            Presupuesto ${i==="budget"?`<i data-lucide="chevron-${l===1?"up":"down"}" class="w-3 h-3 inline ml-1"></i>`:'<i data-lucide="chevrons-up-down" class="w-3 h-3 inline ml-1 opacity-50"></i>'}
+            Presupuesto ${l==="budget"?`<i data-lucide="chevron-${r===1?"up":"down"}" class="w-3 h-3 inline ml-1"></i>`:'<i data-lucide="chevrons-up-down" class="w-3 h-3 inline ml-1 opacity-50"></i>'}
           </th>
           <th>Ejecutado</th>
           <th class="sortable cursor-pointer hover:bg-surface-100" data-sort="pct">
-            % Ejecución ${i==="pct"?`<i data-lucide="chevron-${l===1?"up":"down"}" class="w-3 h-3 inline ml-1"></i>`:'<i data-lucide="chevrons-up-down" class="w-3 h-3 inline ml-1 opacity-50"></i>'}
+            % Ejecución ${l==="pct"?`<i data-lucide="chevron-${r===1?"up":"down"}" class="w-3 h-3 inline ml-1"></i>`:'<i data-lucide="chevrons-up-down" class="w-3 h-3 inline ml-1 opacity-50"></i>'}
           </th>
           <th class="text-right">Acciones</th>
         </tr>
@@ -1162,19 +1162,19 @@
         `}).join("")}
       </tbody>
     </table>
-  `,window.lucide&&lucide.createIcons(),t.querySelectorAll("th.sortable").forEach(o=>{o.addEventListener("click",()=>{const d=o.dataset.sort;i===d?l*=-1:(i=d,l=1);const r=[...s].sort((c,p)=>{var h,w;let g,v;return d==="property"?(g=((h=e.find($=>$.id===c.property_id))==null?void 0:h.name)||"",v=((w=e.find($=>$.id===p.property_id))==null?void 0:w.name)||""):d==="date"?(g=c.year*100+c.month,v=p.year*100+p.month):d==="status"?(g=c.semaphore,v=p.semaphore):d==="budget"?(g=c.total_budget,v=p.total_budget):d==="pct"&&(g=c.execution_pct,v=p.execution_pct),(g>v?1:-1)*l});ce(t,r,e,a,n,d,l)})}),t.querySelectorAll(".edit-btn").forEach(o=>{o.addEventListener("click",async()=>{const d=s.find(r=>r.id===o.dataset.id);ue(e,d,n)})}),t.querySelectorAll(".duplicate-btn").forEach(o=>{o.addEventListener("click",()=>{const d=s.find(r=>r.id===o.dataset.id);Ge(e,d,n)})}),t.querySelectorAll(".delete-budget-btn").forEach(o=>{o.addEventListener("click",async()=>{x("¿Eliminar Presupuesto?","Esta acción borrará el presupuesto de este periodo y sus categorías.",{confirmText:"Eliminar",onConfirm:async()=>{await u.delete(`/budgets/${o.dataset.id}`),b("Presupuesto eliminado","success"),n()}})})})}function ue(t,s=null,e){const a=!!s,n=a?s.year:new Date().getFullYear(),i=a?s.month:new Date().getMonth()+1,l=t.map(c=>`<option value="${c.id}" ${a&&s.property_id===c.id?"selected":""}>${c.name}</option>`).join("");x(a?"Editar Presupuesto":"Nuevo Presupuesto",`
+  `,window.lucide&&lucide.createIcons(),t.querySelectorAll("th.sortable").forEach(o=>{o.addEventListener("click",()=>{const d=o.dataset.sort;l===d?r*=-1:(l=d,r=1);const i=[...s].sort((c,p)=>{var h,w;let g,v;return d==="property"?(g=((h=e.find($=>$.id===c.property_id))==null?void 0:h.name)||"",v=((w=e.find($=>$.id===p.property_id))==null?void 0:w.name)||""):d==="date"?(g=c.year*100+c.month,v=p.year*100+p.month):d==="status"?(g=c.semaphore,v=p.semaphore):d==="budget"?(g=c.total_budget,v=p.total_budget):d==="pct"&&(g=c.execution_pct,v=p.execution_pct),(g>v?1:-1)*r});ce(t,i,e,a,n,d,r)})}),t.querySelectorAll(".edit-btn").forEach(o=>{o.addEventListener("click",async()=>{const d=s.find(i=>i.id===o.dataset.id);ue(e,d,n)})}),t.querySelectorAll(".duplicate-btn").forEach(o=>{o.addEventListener("click",()=>{const d=s.find(i=>i.id===o.dataset.id);Ge(e,d,n)})}),t.querySelectorAll(".delete-budget-btn").forEach(o=>{o.addEventListener("click",async()=>{x("¿Eliminar Presupuesto?","Esta acción borrará el presupuesto de este periodo y sus categorías.",{confirmText:"Eliminar",onConfirm:async()=>{await u.delete(`/budgets/${o.dataset.id}`),b("Presupuesto eliminado","success"),n()}})})})}function ue(t,s=null,e){const a=!!s,n=a?s.year:new Date().getFullYear(),l=a?s.month:new Date().getMonth()+1,r=t.map(c=>`<option value="${c.id}" ${a&&s.property_id===c.id?"selected":""}>${c.name}</option>`).join("");x(a?"Editar Presupuesto":"Nuevo Presupuesto",`
     <form id="bf" class="space-y-4">
       <div class="${a?"pointer-events-none opacity-60":""}">
         <label class="label">Propiedad *</label>
         <select class="select" name="property_id" required>
           <option value="GENERAL" ${a&&s.property_id==="GENERAL"?"selected":""}>Gastos Generales (Distribuible)</option>
-          ${l}
+          ${r}
         </select>
         ${a?'<p class="text-[10px] text-surface-400 mt-1">La propiedad y periodo no se pueden cambiar. Duplique el presupuesto si lo desea en otro lugar.</p>':""}
       </div>
       <div class="grid grid-cols-3 gap-4 items-end ${a?"pointer-events-none opacity-60":""}">
         <div><label class="label">Año *</label><input class="input" name="year" type="number" value="${n}" required /></div>
-        <div><label class="label">Mes *</label><input class="input" name="month" type="number" min="1" max="12" value="${i}" required /></div>
+        <div><label class="label">Mes *</label><input class="input" name="month" type="number" min="1" max="12" value="${l}" required /></div>
         <div id="total-budget-container">
            <label class="label">Presupuesto *</label>
            <input class="input" name="total_budget" id="total_budget_input" type="number" step="0.01" value="${a?s.total_budget:""}" ${a&&s.auto_calculate_total?"disabled":""} />
@@ -1211,7 +1211,7 @@
         <textarea class="textarea text-sm" name="notes" placeholder="Opcional...">${a&&s.notes||""}</textarea>
       </div>
     </form>
-  `,{confirmText:a?"Guardar Cambios":"Crear Presupuesto",onConfirm:async()=>{var w;const c=document.getElementById("bf"),p=new FormData(c),g=document.getElementById("auto_calculate_total").checked,v=[];c.querySelectorAll(".cat-row").forEach($=>{const T=$.querySelector('[name="cat_name"]').value,k=$.querySelector('[name="cat_amount"]').value,C=$.querySelector('[name="cat_dist"]').checked;T&&k&&v.push({category_name:T,budgeted_amount:parseFloat(k),is_distributable:C})});const h={property_id:p.get("property_id"),year:parseInt(p.get("year")),month:parseInt(p.get("month")),total_budget:g?0:parseFloat(p.get("total_budget"))||0,categories:v,auto_calculate_total:g,notes:p.get("notes")};a?(await u.put(`/budgets/${s.id}`,h),b("Presupuesto actualizado","success")):(h.is_annual=((w=document.getElementById("is_annual"))==null?void 0:w.checked)||!1,await u.post("/budgets",h),b("Presupuesto creado","success")),e&&e()}});const o=document.getElementById("auto_calculate_total"),d=document.getElementById("total_budget_input");o.addEventListener("change",()=>{d.disabled=o.checked,o.checked&&r()});const r=()=>{if(!o.checked)return;let c=0;document.querySelectorAll(".cat-row").forEach(p=>{c+=parseFloat(p.querySelector('[name="cat_amount"]').value||0)}),d.value=c};document.getElementById("add-cat-btn").addEventListener("click",()=>{const c=document.getElementById("cats-list"),p=document.createElement("div");p.innerHTML=oe();const g=p.firstElementChild;c.appendChild(g),window.lucide&&lucide.createIcons(),g.querySelector('[name="cat_amount"]').addEventListener("input",r)}),document.querySelectorAll('.cat-row [name="cat_amount"]').forEach(c=>{c.addEventListener("input",r)}),window.lucide&&lucide.createIcons()}function oe(t="",s="",e=!1){return`
+  `,{confirmText:a?"Guardar Cambios":"Crear Presupuesto",onConfirm:async()=>{var w;const c=document.getElementById("bf"),p=new FormData(c),g=document.getElementById("auto_calculate_total").checked,v=[];c.querySelectorAll(".cat-row").forEach($=>{const T=$.querySelector('[name="cat_name"]').value,k=$.querySelector('[name="cat_amount"]').value,C=$.querySelector('[name="cat_dist"]').checked;T&&k&&v.push({category_name:T,budgeted_amount:parseFloat(k),is_distributable:C})});const h={property_id:p.get("property_id"),year:parseInt(p.get("year")),month:parseInt(p.get("month")),total_budget:g?0:parseFloat(p.get("total_budget"))||0,categories:v,auto_calculate_total:g,notes:p.get("notes")};a?(await u.put(`/budgets/${s.id}`,h),b("Presupuesto actualizado","success")):(h.is_annual=((w=document.getElementById("is_annual"))==null?void 0:w.checked)||!1,await u.post("/budgets",h),b("Presupuesto creado","success")),e&&e()}});const o=document.getElementById("auto_calculate_total"),d=document.getElementById("total_budget_input");o.addEventListener("change",()=>{d.disabled=o.checked,o.checked&&i()});const i=()=>{if(!o.checked)return;let c=0;document.querySelectorAll(".cat-row").forEach(p=>{c+=parseFloat(p.querySelector('[name="cat_amount"]').value||0)}),d.value=c};document.getElementById("add-cat-btn").addEventListener("click",()=>{const c=document.getElementById("cats-list"),p=document.createElement("div");p.innerHTML=oe();const g=p.firstElementChild;c.appendChild(g),window.lucide&&lucide.createIcons(),g.querySelector('[name="cat_amount"]').addEventListener("input",i)}),document.querySelectorAll('.cat-row [name="cat_amount"]').forEach(c=>{c.addEventListener("input",i)}),window.lucide&&lucide.createIcons()}function oe(t="",s="",e=!1){return`
     <div class="cat-row flex gap-2 items-center animate-fade-in group">
       <input class="input text-sm py-1.5 flex-1" name="cat_name" value="${t}" placeholder="Ej: Mantenimiento" />
       <input class="input text-sm py-1.5 w-40" name="cat_amount" type="number" step="0.01" value="${s}" placeholder="$" />
@@ -1223,7 +1223,7 @@
         <i data-lucide="x" class="w-4 h-4"></i>
       </button>
     </div>
-  `}document.addEventListener("catChange",()=>{const t=document.getElementById("auto_calculate_total");if(t&&t.checked){let s=0;document.querySelectorAll(".cat-row").forEach(a=>{s+=parseFloat(a.querySelector('[name="cat_amount"]').value||0)});const e=document.getElementById("total_budget_input");e&&(e.value=s)}});function Ge(t,s,e){const a=new Date().getFullYear(),n=t.map(i=>`<option value="${i.id}" ${s.property_id===i.id?"selected":""}>${i.name}</option>`).join("");x("Duplicar Periodo",`
+  `}document.addEventListener("catChange",()=>{const t=document.getElementById("auto_calculate_total");if(t&&t.checked){let s=0;document.querySelectorAll(".cat-row").forEach(a=>{s+=parseFloat(a.querySelector('[name="cat_amount"]').value||0)});const e=document.getElementById("total_budget_input");e&&(e.value=s)}});function Ge(t,s,e){const a=new Date().getFullYear(),n=t.map(l=>`<option value="${l.id}" ${s.property_id===l.id?"selected":""}>${l.name}</option>`).join("");x("Duplicar Periodo",`
     <form id="df" class="space-y-4">
       <div class="bg-indigo-50 p-3 rounded-xl border border-indigo-100 mb-4 flex gap-3 items-center">
         <i data-lucide="copy" class="w-5 h-5 text-indigo-600"></i>
@@ -1250,7 +1250,7 @@
         </div>
       </div>
     </form>
-  `,{confirmText:"Procesar Duplicación",onConfirm:async()=>{const i=new FormData(document.getElementById("df")),l={target_year:parseInt(i.get("target_year")),target_month:parseInt(i.get("target_month")),target_property_id:i.get("target_property_id"),percentage_increase:parseFloat(i.get("percentage_increase")||0)};await u.post(`/budgets/${s.id}/duplicate`,l),b("Presupuesto duplicado","success"),e&&e()}}),window.lucide&&lucide.createIcons()}async function Re(t){const s=new URLSearchParams(window.location.hash.split("?")[1]||""),e=s.get("property_id"),a=s.get("year"),n=s.get("month");if(!e||!a||!n){t.innerHTML='<div class="p-12 text-center text-surface-500">Faltan parámetros para el reporte.</div>';return}const i=await u.get(`/budgets/report/${e}?year=${a}&month=${n}`),l=new Set;i.rows.forEach(d=>{Object.keys(d.distribution).forEach(r=>l.add(r))});const o=Array.from(l);t.innerHTML=`
+  `,{confirmText:"Procesar Duplicación",onConfirm:async()=>{const l=new FormData(document.getElementById("df")),r={target_year:parseInt(l.get("target_year")),target_month:parseInt(l.get("target_month")),target_property_id:l.get("target_property_id"),percentage_increase:parseFloat(l.get("percentage_increase")||0)};await u.post(`/budgets/${s.id}/duplicate`,r),b("Presupuesto duplicado","success"),e&&e()}}),window.lucide&&lucide.createIcons()}async function Re(t){const s=new URLSearchParams(window.location.hash.split("?")[1]||""),e=s.get("property_id"),a=s.get("year"),n=s.get("month");if(!e||!a||!n){t.innerHTML='<div class="p-12 text-center text-surface-500">Faltan parámetros para el reporte.</div>';return}const l=await u.get(`/budgets/report/${e}?year=${a}&month=${n}`),r=new Set;l.rows.forEach(d=>{Object.keys(d.distribution).forEach(i=>r.add(i))});const o=Array.from(r);t.innerHTML=`
     <div class="mb-6 flex items-center justify-between">
       <a href="#/budgets" class="btn-ghost text-sm"><i data-lucide="arrow-left" class="w-4 h-4 mr-1"></i> Volver</a>
       <div class="text-right">
@@ -1270,7 +1270,7 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-surface-100">
-          ${i.rows.length?i.rows.map(d=>{const r=d.budgeted-d.actual,c=r>=0?"text-green-600":"text-red-600";return`
+          ${l.rows.length?l.rows.map(d=>{const i=d.budgeted-d.actual,c=i>=0?"text-green-600":"text-red-600";return`
               <tr class="hover:bg-surface-50/50 transition-colors">
                 <td class="p-4 font-medium text-surface-700">
                   <div class="flex flex-col">
@@ -1285,7 +1285,7 @@
                     ${d.distribution[p]?f(d.distribution[p]):"--"}
                   </td>
                 `).join("")}
-                <td class="p-4 font-bold font-mono text-sm ${c}">${f(r)}</td>
+                <td class="p-4 font-bold font-mono text-sm ${c}">${f(i)}</td>
               </tr>
             `}).join(""):`<tr><td colspan="${4+o.length}" class="p-8 text-center text-surface-400">Sin datos para este periodo</td></tr>`}
         </tbody>
@@ -1295,20 +1295,20 @@
     <div class="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
       <div class="glass-card-static p-4">
         <p class="text-xs text-surface-400 uppercase font-bold mb-1">Total Presupuesto</p>
-        <p class="text-xl font-bold text-surface-900 font-mono">${f(i.rows.reduce((d,r)=>d+r.budgeted,0))}</p>
+        <p class="text-xl font-bold text-surface-900 font-mono">${f(l.rows.reduce((d,i)=>d+i.budgeted,0))}</p>
       </div>
       <div class="glass-card-static p-4">
         <p class="text-xs text-surface-400 uppercase font-bold mb-1">Total Ejecutado</p>
-        <p class="text-xl font-bold text-primary-600 font-mono">${f(i.rows.reduce((d,r)=>d+r.actual,0))}</p>
+        <p class="text-xl font-bold text-primary-600 font-mono">${f(l.rows.reduce((d,i)=>d+i.actual,0))}</p>
       </div>
        <div class="glass-card-static p-4">
         <p class="text-xs text-surface-400 uppercase font-bold mb-1">Cumpimiento</p>
         <p class="text-xl font-bold text-surface-900 font-mono">
-          ${V(i.rows.reduce((d,r)=>d+r.actual,0)/(i.rows.reduce((d,r)=>d+r.budgeted,0)||1)*100)}
+          ${V(l.rows.reduce((d,i)=>d+i.actual,0)/(l.rows.reduce((d,i)=>d+i.budgeted,0)||1)*100)}
         </p>
       </div>
     </div>
-  `,window.lucide&&lucide.createIcons()}async function Y(t,s){const[e,a,n]=await Promise.all([u.get("/assets"),u.get("/inspections"),u.get("/properties?limit=100")]),i=n.items||[];t.innerHTML=`
+  `,window.lucide&&lucide.createIcons()}async function Y(t,s){const[e,a,n]=await Promise.all([u.get("/assets"),u.get("/inspections"),u.get("/properties?limit=100")]),l=n.items||[];t.innerHTML=`
         <div class="space-y-6 animate-fade-in">
             <!-- Tabs -->
             <div class="flex border-b border-surface-200">
@@ -1321,7 +1321,7 @@
                 <!-- Content will be rendered here -->
             </div>
         </div>
-    `;const l=t.querySelector("#tab-content"),o=t.querySelectorAll(".tab-btn");o.forEach(d=>{d.addEventListener("click",()=>{o.forEach(r=>r.classList.remove("active")),d.classList.add("active"),re(d.dataset.tab,l,{assets:e,inspections:a,properties:i})})}),re("assets",l,{assets:e,inspections:a,properties:i})}async function re(t,s,e){switch(t){case"assets":Ne(s,e);break;case"inspections":ze(s,e);break;case"providers":He(s);break}}function Ne(t,{assets:s,properties:e}){t.innerHTML=`
+    `;const r=t.querySelector("#tab-content"),o=t.querySelectorAll(".tab-btn");o.forEach(d=>{d.addEventListener("click",()=>{o.forEach(i=>i.classList.remove("active")),d.classList.add("active"),re(d.dataset.tab,r,{assets:e,inspections:a,properties:l})})}),re("assets",r,{assets:e,inspections:a,properties:l})}async function re(t,s,e){switch(t){case"assets":Ne(s,e);break;case"inspections":ze(s,e);break;case"providers":He(s);break}}function Ne(t,{assets:s,properties:e}){t.innerHTML=`
         <div class="flex justify-between items-center mb-4">
             <h4 class="text-lg font-semibold text-surface-700">Equipos y Mobiliario</h4>
             <button id="add-asset-btn" class="btn-primary btn-sm px-3 py-1.5"><i data-lucide="plus" class="w-4 h-4"></i> Nuevo Activo</button>
@@ -1447,7 +1447,7 @@
         <div class="flex items-center justify-center py-20">
             <div class="animate-spin rounded-full h-8 w-8 border-2 border-primary-500 border-t-transparent"></div>
         </div>
-    `;try{await pe(t,e)}catch(a){t.innerHTML=`<div class="p-8 text-center text-rose-500">Error al cargar datos de la cuenta: ${a.message}</div>`}}async function pe(t,s,e={}){const a=new URLSearchParams;e.date_from&&a.set("date_from",e.date_from),e.date_to&&a.set("date_to",e.date_to),e.tx_type&&a.set("tx_type",e.tx_type),a.set("months",12);const n=await u.get(`/accounts/${s}/history?${a.toString()}`);if(!n)return;const{account:i,monthly_cashflow:l,recent_transactions:o,balance_history:d}=n;t.innerHTML=`
+    `;try{await pe(t,e)}catch(a){t.innerHTML=`<div class="p-8 text-center text-rose-500">Error al cargar datos de la cuenta: ${a.message}</div>`}}async function pe(t,s,e={}){const a=new URLSearchParams;e.date_from&&a.set("date_from",e.date_from),e.date_to&&a.set("date_to",e.date_to),e.tx_type&&a.set("tx_type",e.tx_type),a.set("months",12);const n=await u.get(`/accounts/${s}/history?${a.toString()}`);if(!n)return;const{account:l,monthly_cashflow:r,recent_transactions:o,balance_history:d}=n;t.innerHTML=`
         <div class="flex flex-col gap-6 animate-fade-in">
             <!-- Header & Balance -->
             <div class="flex flex-col md:flex-row gap-6 items-center glass-card-static p-6 border-white/40 shadow-sm relative overflow-hidden">
@@ -1457,14 +1457,14 @@
                         <a href="#/financials" class="p-2 rounded-xl bg-white/50 hover:bg-white text-surface-400 hover:text-primary-600 transition shadow-sm border border-white/20">
                             <i data-lucide="arrow-left" class="w-4 h-4"></i>
                         </a>
-                        <h2 class="text-2xl font-black text-surface-900">${i.account_name}</h2>
+                        <h2 class="text-2xl font-black text-surface-900">${l.account_name}</h2>
                     </div>
-                    <p class="text-surface-500 text-sm ml-11">${i.bank_name||"Sin Banco"} • ${i.account_type} • ${i.currency}</p>
+                    <p class="text-surface-500 text-sm ml-11">${l.bank_name||"Sin Banco"} • ${l.account_type} • ${l.currency}</p>
                 </div>
                 <div class="bg-white/80 backdrop-blur-md px-8 py-4 rounded-2xl shadow-xl shadow-primary-500/5 border border-white text-center z-10 group transition-transform hover:scale-105">
                     <p class="text-[10px] font-bold text-primary-500 uppercase tracking-widest mb-1">Saldo Disponible</p>
-                    <p class="text-3xl font-black ${i.current_balance>=0?"text-accent-600":"text-rose-600"}">
-                        ${f(i.current_balance)}
+                    <p class="text-3xl font-black ${l.current_balance>=0?"text-accent-600":"text-rose-600"}">
+                        ${f(l.current_balance)}
                     </p>
                 </div>
             </div>
@@ -1542,23 +1542,23 @@
                             </tr>
                         </thead>
                         <tbody>
-                            ${o.length>0?o.map(r=>`
+                            ${o.length>0?o.map(i=>`
                                 <tr class="hover:bg-white/50 transition-colors group">
-                                    <td class="text-xs text-surface-400 font-medium italic">${E(r.transaction_date)}</td>
+                                    <td class="text-xs text-surface-400 font-medium italic">${E(i.transaction_date)}</td>
                                     <td>
-                                        <div class="font-bold text-surface-900 text-sm group-hover:text-primary-600 transition-colors">${r.description}</div>
+                                        <div class="font-bold text-surface-900 text-sm group-hover:text-primary-600 transition-colors">${i.description}</div>
                                         <div class="text-[10px] text-surface-400 flex items-center gap-1 mt-0.5">
                                             <i data-lucide="map-pin" class="w-2.5 h-2.5"></i>
-                                            ${r.property_name||"Gasto General Corporativo"}
+                                            ${i.property_name||"Gasto General Corporativo"}
                                         </div>
                                     </td>
                                     <td>
-                                        <span class="badge badge-gray !rounded-lg text-[10px] font-semibold">${r.category}</span>
+                                        <span class="badge badge-gray !rounded-lg text-[10px] font-semibold">${i.category}</span>
                                     </td>
-                                    <td class="text-right font-black text-sm ${r.direction==="Debit"?"text-accent-600":"text-rose-600"}">
+                                    <td class="text-right font-black text-sm ${i.direction==="Debit"?"text-accent-600":"text-rose-600"}">
                                         <div class="flex items-center justify-end gap-1">
-                                            <span>${r.direction==="Debit"?"+":"-"}</span>
-                                            <span>${f(r.amount)}</span>
+                                            <span>${i.direction==="Debit"?"+":"-"}</span>
+                                            <span>${f(i.amount)}</span>
                                         </div>
                                     </td>
                                 </tr>
@@ -1577,7 +1577,7 @@
                 </div>
             </div>
         </div>
-    `,window.lucide&&lucide.createIcons(),document.getElementById("btn-apply-filters").addEventListener("click",()=>{const r={date_from:document.getElementById("filter-date-from").value,date_to:document.getElementById("filter-date-to").value,tx_type:document.getElementById("filter-tx-type").value};pe(t,s,r)}),Ke(l,d)}function Ke(t,s){z&&z.destroy(),H&&H.destroy();const e=document.getElementById("account-history-chart");e&&t.length>0&&(z=new Chart(e,{type:"bar",data:{labels:t.map(n=>n.month),datasets:[{label:"Ingresos",data:t.map(n=>n.income),backgroundColor:"#00d084",borderRadius:8,barThickness:15},{label:"Gastos",data:t.map(n=>n.expenses),backgroundColor:"#ff4d4f",borderRadius:8,barThickness:15}]},options:{responsive:!0,maintainAspectRatio:!1,plugins:{legend:{position:"bottom",labels:{boxWidth:10,usePointStyle:!0,font:{size:11,weight:"600"}}}},scales:{y:{grid:{color:"rgba(0,0,0,0.03)"},ticks:{font:{size:10},callback:n=>"$"+n.toLocaleString()}},x:{grid:{display:!1},ticks:{font:{size:10}}}}}}));const a=document.getElementById("account-balance-chart");a&&s&&s.length>0&&(H=new Chart(a,{type:"line",data:{labels:s.map(n=>E(n.date)),datasets:[{label:"Saldo",data:s.map(n=>n.balance),borderColor:"#4d7cfe",backgroundColor:"rgba(77, 124, 254, 0.1)",fill:!0,tension:.4,pointRadius:2,pointHoverRadius:6,borderWidth:4,pointBackgroundColor:"#fff",pointBorderWidth:2}]},options:{responsive:!0,maintainAspectRatio:!1,plugins:{legend:{display:!1},tooltip:{mode:"index",intersect:!1}},scales:{y:{grid:{color:"rgba(0,0,0,0.03)"},ticks:{font:{size:10},callback:n=>"$"+n.toLocaleString()}},x:{grid:{display:!1},ticks:{font:{size:8},maxRotation:0,autoSkip:!0,maxTicksLimit:12}}}}}))}async function O(t,s){const[e,a,n]=await Promise.all([u.get("/work-groups"),u.get("/properties?limit=100"),u.get("/users?limit=100").catch(()=>({items:[]}))]),i=a.items||[],l=n.items||[];t.innerHTML=`
+    `,window.lucide&&lucide.createIcons(),document.getElementById("btn-apply-filters").addEventListener("click",()=>{const i={date_from:document.getElementById("filter-date-from").value,date_to:document.getElementById("filter-date-to").value,tx_type:document.getElementById("filter-tx-type").value};pe(t,s,i)}),Ke(r,d)}function Ke(t,s){z&&z.destroy(),H&&H.destroy();const e=document.getElementById("account-history-chart");e&&t.length>0&&(z=new Chart(e,{type:"bar",data:{labels:t.map(n=>n.month),datasets:[{label:"Ingresos",data:t.map(n=>n.income),backgroundColor:"#00d084",borderRadius:8,barThickness:15},{label:"Gastos",data:t.map(n=>n.expenses),backgroundColor:"#ff4d4f",borderRadius:8,barThickness:15}]},options:{responsive:!0,maintainAspectRatio:!1,plugins:{legend:{position:"bottom",labels:{boxWidth:10,usePointStyle:!0,font:{size:11,weight:"600"}}}},scales:{y:{grid:{color:"rgba(0,0,0,0.03)"},ticks:{font:{size:10},callback:n=>"$"+n.toLocaleString()}},x:{grid:{display:!1},ticks:{font:{size:10}}}}}}));const a=document.getElementById("account-balance-chart");a&&s&&s.length>0&&(H=new Chart(a,{type:"line",data:{labels:s.map(n=>E(n.date)),datasets:[{label:"Saldo",data:s.map(n=>n.balance),borderColor:"#4d7cfe",backgroundColor:"rgba(77, 124, 254, 0.1)",fill:!0,tension:.4,pointRadius:2,pointHoverRadius:6,borderWidth:4,pointBackgroundColor:"#fff",pointBorderWidth:2}]},options:{responsive:!0,maintainAspectRatio:!1,plugins:{legend:{display:!1},tooltip:{mode:"index",intersect:!1}},scales:{y:{grid:{color:"rgba(0,0,0,0.03)"},ticks:{font:{size:10},callback:n=>"$"+n.toLocaleString()}},x:{grid:{display:!1},ticks:{font:{size:8},maxRotation:0,autoSkip:!0,maxTicksLimit:12}}}}}))}async function O(t,s){const[e,a,n]=await Promise.all([u.get("/work-groups"),u.get("/properties?limit=100"),u.get("/users?limit=100").catch(()=>({items:[]}))]),l=a.items||[],r=n.items||[];t.innerHTML=`
         <div class="flex justify-between items-center mb-6 animate-fade-in">
             <div>
                 <h3 class="text-xl font-bold text-surface-900">Grupos de Trabajo</h3>
@@ -1589,7 +1589,7 @@
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fade-in">
-            ${e.length?e.map(o=>{var d,r;return`
+            ${e.length?e.map(o=>{var d,i;return`
                 <div class="glass-card-static p-5 flex flex-col space-y-4">
                     <div class="flex justify-between items-start">
                         <div>
@@ -1606,7 +1606,7 @@
                         </div>
                         <div class="flex justify-between text-sm">
                             <span class="text-surface-600 font-medium">Propiedades Asignadas</span>
-                            <span class="font-bold text-surface-900">${((r=o.assigned_properties)==null?void 0:r.length)||0}</span>
+                            <span class="font-bold text-surface-900">${((i=o.assigned_properties)==null?void 0:i.length)||0}</span>
                         </div>
                     </div>
 
@@ -1632,7 +1632,7 @@
                     <textarea class="input" name="description" rows="3" placeholder="Descripción breve del propósito"></textarea>
                 </div>
             </form>
-        `,{confirmText:"Crear",onConfirm:async()=>{const o=new FormData(document.getElementById("wg-form")),d=Object.fromEntries(o);await u.post("/work-groups",d),b("Grupo creado","success"),O(t,s)}})}),window.addMemberModal=async o=>{const d=l.length?l.map(r=>`<option value="${r.id}">${r.full_name||r.email} (${r.role})</option>`).join(""):'<option value="" disabled>No se encontraron usuarios</option>';x("Añadir Miembro",`
+        `,{confirmText:"Crear",onConfirm:async()=>{const o=new FormData(document.getElementById("wg-form")),d=Object.fromEntries(o);await u.post("/work-groups",d),b("Grupo creado","success"),O(t,s)}})}),window.addMemberModal=async o=>{const d=r.length?r.map(i=>`<option value="${i.id}">${i.full_name||i.email} (${i.role})</option>`).join(""):'<option value="" disabled>No se encontraron usuarios</option>';x("Añadir Miembro",`
             <form id="wm-form" class="space-y-4">
                 <div>
                     <label class="label">Usuario *</label>
@@ -1649,7 +1649,7 @@
                     </select>
                 </div>
             </form>
-        `,{confirmText:"Añadir",onConfirm:async()=>{const r=new FormData(document.getElementById("wm-form")),c=Object.fromEntries(r);if(!c.user_id){b("Seleccione un usuario","error");return}await u.post(`/work-groups/${o}/members`,c),b("Miembro añadido","success"),O(t,s)}})},window.addPropertyModal=async o=>{const d=i.length?i.map(r=>`<option value="${r.id}">${r.name} (${r.property_type})</option>`).join(""):'<option value="" disabled>No se encontraron propiedades</option>';x("Asignar Propiedad",`
+        `,{confirmText:"Añadir",onConfirm:async()=>{const i=new FormData(document.getElementById("wm-form")),c=Object.fromEntries(i);if(!c.user_id){b("Seleccione un usuario","error");return}await u.post(`/work-groups/${o}/members`,c),b("Miembro añadido","success"),O(t,s)}})},window.addPropertyModal=async o=>{const d=l.length?l.map(i=>`<option value="${i.id}">${i.name} (${i.property_type})</option>`).join(""):'<option value="" disabled>No se encontraron propiedades</option>';x("Asignar Propiedad",`
             <form id="wp-form" class="space-y-4">
                 <div>
                     <label class="label">Propiedad *</label>
@@ -1659,7 +1659,7 @@
                     </select>
                 </div>
             </form>
-        `,{confirmText:"Asignar",onConfirm:async()=>{const r=new FormData(document.getElementById("wp-form")),c=Object.fromEntries(r);if(!c.property_id){b("Seleccione una propiedad","error");return}await u.post(`/work-groups/${o}/properties`,c),b("Propiedad asignada","success"),O(t,s)}})},window.lucide&&lucide.createIcons()}async function Ye(t,s){const e=await u.get("/audits?limit=50");t.innerHTML=`
+        `,{confirmText:"Asignar",onConfirm:async()=>{const i=new FormData(document.getElementById("wp-form")),c=Object.fromEntries(i);if(!c.property_id){b("Seleccione una propiedad","error");return}await u.post(`/work-groups/${o}/properties`,c),b("Propiedad asignada","success"),O(t,s)}})},window.lucide&&lucide.createIcons()}async function Ye(t,s){const e=await u.get("/audits?limit=50");t.innerHTML=`
         <div class="flex justify-between items-center mb-6 animate-fade-in">
             <div>
                 <h3 class="text-xl font-bold text-surface-900">Registro de Auditoría</h3>
@@ -1718,7 +1718,7 @@
                 <div id="pms-calendar" style="min-height: 600px;"></div>
             </div>
         </div>
-    `;try{const e=((await u.get("/reports/upcoming-events?days=90")).events||[]).map(n=>({title:n.title,date:n.date,extendedProps:{detail:n.detail,type:n.type,severity:n.severity},backgroundColor:n.severity==="high"?"#f43f5e":n.severity==="medium"?"#f59e0b":"#60a5fa",borderColor:n.severity==="high"?"#e11d48":n.severity==="medium"?"#d97706":"#3b82f6",textColor:"#ffffff"}));new FullCalendar.Calendar(document.getElementById("pms-calendar"),{initialView:"dayGridMonth",locale:"es",height:620,headerToolbar:{left:"prev,next today",center:"title",right:"dayGridMonth,timeGridWeek,listMonth"},buttonText:{today:"Hoy",month:"Mes",week:"Semana",list:"Lista"},events:e,eventClick(n){const{title:i,extendedProps:l}=n.event;b(`${i} — ${l.detail}`,"info")},eventDidMount(n){n.el.title=`${n.event.title}
+    `;try{const e=((await u.get("/reports/upcoming-events?days=90")).events||[]).map(n=>({title:n.title,date:n.date,extendedProps:{detail:n.detail,type:n.type,severity:n.severity},backgroundColor:n.severity==="high"?"#f43f5e":n.severity==="medium"?"#f59e0b":"#60a5fa",borderColor:n.severity==="high"?"#e11d48":n.severity==="medium"?"#d97706":"#3b82f6",textColor:"#ffffff"}));new FullCalendar.Calendar(document.getElementById("pms-calendar"),{initialView:"dayGridMonth",locale:"es",height:620,headerToolbar:{left:"prev,next today",center:"title",right:"dayGridMonth,timeGridWeek,listMonth"},buttonText:{today:"Hoy",month:"Mes",week:"Semana",list:"Lista"},events:e,eventClick(n){const{title:l,extendedProps:r}=n.event;b(`${l} — ${r.detail}`,"info")},eventDidMount(n){n.el.title=`${n.event.title}
 ${n.event.extendedProps.detail}`}}).render()}catch(s){console.error("Calendar error:",s),b("Error cargando eventos del calendario","error")}}function Ze(){return new Promise((t,s)=>{if(window.FullCalendar)return t();const e=document.createElement("script");e.src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js",e.onload=t,e.onerror=s,document.head.appendChild(e)})}const I={user:null,currentPage:"dashboard"},Qe={dashboard:{title:"Dashboard",subtitle:"Vista general de su cartera inmobiliaria",render:Ie},properties:{title:"Propiedades",subtitle:"Gestión de su portfolio inmobiliario",render:W},financials:{title:"Finanzas",subtitle:"Ledger contable y conciliación bancaria",render:B},maintenance:{title:"Mantenimientos",subtitle:"Órdenes de trabajo y calendario",render:K},contracts:{title:"Contratos",subtitle:"Gestión de arrendamientos",render:G},budgets:{title:"Presupuestos",subtitle:"Control presupuestario y semáforo",render:Oe},"budget-report":{title:"Reporte de Presupuesto",subtitle:"Distribución y cumplimiento detallado",render:Re},facility:{title:"Facility Management",subtitle:"Gestión de activos e inspecciones",render:Y},"account-detail":{title:"Detalle de Cuenta",subtitle:"Historial de movimientos y análisis de saldo",render:We},"work-groups":{title:"Grupos de Trabajo",subtitle:"Gestión de equipos de mantenimiento",render:O},audits:{title:"Auditoría",subtitle:"Registro de actividades y log del sistema",render:Ye},calendar:{title:"Calendario",subtitle:"Eventos y fechas importantes próximas",render:Je}};function me(){return(window.location.hash.replace("#/","")||"dashboard").split("?")[0].split("/")[0]}async function be(t){const s=Qe[t];if(!s){window.location.hash="#/dashboard";return}I.currentPage=t,document.getElementById("page-title").textContent=s.title,document.getElementById("page-subtitle").textContent=s.subtitle,document.querySelectorAll(".sidebar-link").forEach(a=>{a.classList.toggle("active",a.dataset.page===t)});const e=document.getElementById("page-content");e.innerHTML='<div class="flex items-center justify-center py-20"><div class="w-8 h-8 border-3 border-primary-500 border-t-transparent rounded-full animate-spin"></div></div>';try{await s.render(e,I)}catch(a){console.error(`Error rendering ${t}:`,a),e.innerHTML=`
       <div class="text-center py-20">
         <i data-lucide="alert-circle" class="w-12 h-12 text-rose-400 mx-auto mb-4"></i>
