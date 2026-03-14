@@ -1,0 +1,108 @@
+2026-03-14 09:46:09,642 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-03-14 09:46:09,647 INFO sqlalchemy.engine.Engine SELECT count(*) AS count_1 
+FROM (SELECT maintenance_orders.id AS id, maintenance_orders.property_id AS property_id, maintenance_orders.title AS title, maintenance_orders.maintenance_type AS maintenance_type, maintenance_orders.status AS status, maintenance_orders.priority AS priority, maintenance_orders.estimated_cost AS estimated_cost, maintenance_orders.actual_cost AS actual_cost, maintenance_orders.supplier_name AS supplier_name, maintenance_orders.scheduled_date AS scheduled_date, maintenance_orders.completed_date AS completed_date, maintenance_orders.invoice_file AS invoice_file, maintenance_orders.notes AS notes, maintenance_orders.created_by AS created_by, maintenance_orders.source AS source, maintenance_orders.telegram_chat_id AS telegram_chat_id, maintenance_orders.telegram_message_id AS telegram_message_id, maintenance_orders.supplier_id AS supplier_id, maintenance_orders.created_at AS created_at 
+FROM maintenance_orders) AS anon_1
+2026-03-14 09:46:09,647 INFO sqlalchemy.engine.Engine [generated in 0.00022s] ()
+2026-03-14 09:46:09,648 INFO sqlalchemy.engine.Engine ROLLBACK
+Traceback (most recent call last):
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 147, in execute
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 298, in _handle_exception
+    raise error
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 129, in execute
+    self.await_(_cursor.execute(operation, parameters))
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\cursor.py", line 48, in execute
+    await self._execute(self._cursor.execute, sql, parameters)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\cursor.py", line 40, in _execute
+    return await self._conn._execute(fn, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\core.py", line 132, in _execute
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\core.py", line 115, in run
+    result = function()
+             ^^^^^^^^^^
+sqlite3.OperationalError: no such column: maintenance_orders.supplier_id
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\jupa_\Desktop\proyecto real state\pms-backend\test_maint.py", line 9, in main
+    orders, total = await list_maintenance(session, limit=5)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\Desktop\proyecto real state\pms-backend\app\services\maintenance_service.py", line 37, in list_maintenance
+    result = await db.execute(count_stmt)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\ext\asyncio\session.py", line 461, in execute
+    result = await greenlet_spawn(
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 201, in greenlet_spawn
+    result = context.throw(*sys.exc_info())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\session.py", line 2362, in execute
+    return self._execute_internal(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\session.py", line 2247, in _execute_internal
+    result: Result[Any] = compile_state_cls.orm_execute_statement(
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\context.py", line 305, in orm_execute_statement
+    result = conn.execute(
+             ^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1418, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\sql\elements.py", line 515, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1640, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 147, in execute
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 298, in _handle_exception
+    raise error
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 129, in execute
+    self.await_(_cursor.execute(operation, parameters))
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\cursor.py", line 48, in execute
+    await self._execute(self._cursor.execute, sql, parameters)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\cursor.py", line 40, in _execute
+    return await self._conn._execute(fn, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\core.py", line 132, in _execute
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\core.py", line 115, in run
+    result = function()
+             ^^^^^^^^^^
+sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: maintenance_orders.supplier_id
+[SQL: SELECT count(*) AS count_1 
+FROM (SELECT maintenance_orders.id AS id, maintenance_orders.property_id AS property_id, maintenance_orders.title AS title, maintenance_orders.maintenance_type AS maintenance_type, maintenance_orders.status AS status, maintenance_orders.priority AS priority, maintenance_orders.estimated_cost AS estimated_cost, maintenance_orders.actual_cost AS actual_cost, maintenance_orders.supplier_name AS supplier_name, maintenance_orders.scheduled_date AS scheduled_date, maintenance_orders.completed_date AS completed_date, maintenance_orders.invoice_file AS invoice_file, maintenance_orders.notes AS notes, maintenance_orders.created_by AS created_by, maintenance_orders.source AS source, maintenance_orders.telegram_chat_id AS telegram_chat_id, maintenance_orders.telegram_message_id AS telegram_message_id, maintenance_orders.supplier_id AS supplier_id, maintenance_orders.created_at AS created_at 
+FROM maintenance_orders) AS anon_1]
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
