@@ -140,3 +140,17 @@ class IncomeStatementResponse(BaseModel):
     total_income: float
     total_expense: float
     net_income: float
+
+class AccountProfitabilityMonth(BaseModel):
+    month: int
+    month_name: str
+    starting_balance: float
+    interest_earned: float
+    profitability_pct: float
+
+class AccountProfitabilityReport(BaseModel):
+    account_id: str
+    year: int
+    total_interest_earned: float
+    average_profitability_pct: float
+    months: list[AccountProfitabilityMonth]

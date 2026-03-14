@@ -21,7 +21,7 @@ class BudgetCreate(BaseModel):
     total_budget: float = Field(ge=0, default=0.0) # Can be 0 if auto-calculating
     categories: list[BudgetCategoryCreate] = []
     notes: Optional[str] = None
-    is_annual: bool = False
+    period_type: str = Field(default="Mensual", pattern="^(Mensual|Bimestral|Trimestral|Semestral|Anual)$")
     auto_calculate_total: bool = False
 
 
@@ -29,6 +29,7 @@ class BudgetUpdate(BaseModel):
     total_budget: Optional[float] = None
     categories: Optional[list[BudgetCategoryCreate]] = None
     notes: Optional[str] = None
+    period_type: Optional[str] = Field(None, pattern="^(Mensual|Bimestral|Trimestral|Semestral|Anual)$")
     auto_calculate_total: Optional[bool] = None
 
 
@@ -56,6 +57,7 @@ class BudgetResponse(BaseModel):
     property_id: str
     year: int
     month: int
+    period_type: str
     total_budget: float
     total_executed: float
     auto_calculate_total: bool
@@ -80,3 +82,31 @@ class BudgetReport(BaseModel):
     rows: list[BudgetReportRow]
 
     model_config = {"from_attributes": True}
+
+
+class BudgetMonthlyCategoryBreakdown(BaseModel):
+    category_name: str
+    budgeted: float
+    actual: float
+    execution_pct: float
+    semaphore: str
+
+class BudgetMonthBreakdown(BaseModel):
+    month: int
+    month_name: str
+    budgeted: float
+    actual: float
+    execution_pct: float
+    semaphore: str
+    categories: list[BudgetMonthlyCategoryBreakdown] = []
+
+class BudgetBreakdownResponse(BaseModel):
+    budget_id: str
+    property_id: str
+    year: int
+    period_type: str
+    total_budget: float
+    total_actual: float
+    execution_pct: float
+    semaphore: str
+    months: list[BudgetMonthBreakdown] = []

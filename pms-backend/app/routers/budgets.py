@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetReport, BudgetDuplicate, BudgetUpdate
+from app.schemas.budget import BudgetCreate, BudgetResponse, BudgetReport, BudgetDuplicate, BudgetUpdate, BudgetBreakdownResponse
 from app.services import budget_service
 from app.utils.security import get_current_user, require_role
 
@@ -46,6 +46,20 @@ async def get_budget(
 ):
     """Obtener detalle de presupuesto con semáforo."""
     return await budget_service.get_budget(db, budget_id)
+
+
+@router.get("/{budget_id}/monthly-breakdown", response_model=BudgetBreakdownResponse)
+async def get_budget_monthly_breakdown(
+    budget_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Obtener desglose detallado mensual del presupuesto interactivo."""
+    from fastapi import HTTPException
+    result = await budget_service.get_budget_monthly_breakdown(db, budget_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
+    return result
 
 
 @router.put("/{budget_id}", response_model=BudgetResponse)

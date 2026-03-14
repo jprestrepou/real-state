@@ -21,6 +21,14 @@ class BudgetSemaphore(str, enum.Enum):
     ROJO = "Rojo"
 
 
+class BudgetPeriod(str, enum.Enum):
+    MENSUAL = "Mensual"
+    BIMESTRAL = "Bimestral"
+    TRIMESTRAL = "Trimestral"
+    SEMESTRAL = "Semestral"
+    ANUAL = "Anual"
+
+
 class Budget(Base):
     __tablename__ = "budgets"
 
@@ -32,6 +40,10 @@ class Budget(Base):
     )
     year: Mapped[int] = mapped_column(Integer, nullable=False)
     month: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    period_type: Mapped[str] = mapped_column(
+        SAEnum(BudgetPeriod, values_callable=lambda e: [x.value for x in e]),
+        default=BudgetPeriod.MENSUAL.value,
+    )
     total_budget: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
     total_executed: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     auto_calculate_total: Mapped[bool] = mapped_column(Boolean, default=False)

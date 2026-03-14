@@ -637,3 +637,104 @@ async def get_account_balance_history(db: AsyncSession, account_id: str, days: i
                 
     history.reverse()
     return history
+
+
+async def get_account_profitability(db: AsyncSession, account_id: str, year: int) -> dict:
+    """Calculates monthly profitability percentage for a specific account over a year."""
+    account = await get_account(db, account_id)
+    
+    # We will compute the balances directly by reading transactions
+    stmt = select(Transaction).where(Transaction.account_id == account_id).order_by(Transaction.transaction_date)
+    result_txs = await db.execute(stmt)
+    txs = result_txs.scalars().all()
+    
+    # Calculate starting balances per month based on the chronological sequence of transactions up to that month
+    # But since initial_balance isn't perfectly stored historically, we will work backwards:
+    current_balance = float(account.current_balance)
+    
+    txs_by_month = defaultdict(list)
+    txs_by_type = defaultdict(float)
+    
+    for tx in txs:
+        if tx.transaction_date.year == year:
+            txs_by_month[tx.transaction_date.month].append(tx)
+            if tx.transaction_type == "Interés" and tx.direction == TransactionDirection.DEBIT.value:
+                txs_by_type[tx.transaction_date.month] += float(tx.amount)
+
+    # Let's compute end of month balance by walking back
+    monthly_end_balances = {}
+    temp_bal = current_balance
+    
+    today = date.today()
+    # Walk back from today's month year all the way to start of year
+    txs_desc = sorted(txs, key=lambda x: x.transaction_date, reverse=True)
+    
+    for month in range(12, 0, -1):
+        if year > today.year or (year == today.year and month > today.month):
+            monthly_end_balances[month] = current_balance
+            continue
+
+        # Subtract all transactions that happened AFTER this month
+        for tx in txs_desc:
+            if tx.transaction_date.year > year or (tx.transaction_date.year == year and tx.transaction_date.month > month):
+                # Rollback this transaction from temp_bal
+                if tx.direction == TransactionDirection.DEBIT.value:
+                    temp_bal -= float(tx.amount)
+                else:
+                    temp_bal += float(tx.amount)
+            else:
+                break
+                
+        monthly_end_balances[month] = temp_bal
+        # reset temp_bal to current_balance for the next loop
+        temp_bal = current_balance
+
+    months_data = []
+    months_names = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+    
+    total_interest_earned = 0.0
+    profitability_sum = 0.0
+    valid_months = 0
+    
+    for month in range(1, 13):
+        # Starting balance is the ending balance of the PREVIOUS month
+        if month == 1:
+            # We need end of december last year
+            temp_bal = current_balance
+            for tx in txs_desc:
+                if tx.transaction_date.year >= year:
+                    if tx.direction == TransactionDirection.DEBIT.value:
+                        temp_bal -= float(tx.amount)
+                    else:
+                        temp_bal += float(tx.amount)
+                else: break
+            starting_balance = temp_bal
+        else:
+            starting_balance = monthly_end_balances[month - 1]
+            
+        interest_earned = txs_by_type[month]
+        total_interest_earned += interest_earned
+        
+        pct = 0.0
+        if starting_balance > 0:
+            pct = round((interest_earned / starting_balance) * 100, 4)
+            profitability_sum += pct
+            valid_months += 1
+            
+        months_data.append({
+            "month": month,
+            "month_name": months_names[month],
+            "starting_balance": round(starting_balance, 2),
+            "interest_earned": round(interest_earned, 2),
+            "profitability_pct": pct
+        })
+        
+    avg_profitability = round(profitability_sum / valid_months, 4) if valid_months > 0 else 0.0
+
+    return {
+        "account_id": account_id,
+        "year": year,
+        "total_interest_earned": total_interest_earned,
+        "average_profitability_pct": avg_profitability,
+        "months": months_data
+    }

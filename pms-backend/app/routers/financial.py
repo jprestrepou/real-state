@@ -11,7 +11,7 @@ from app.schemas.financial import (
     AccountCreate, AccountResponse, AccountUpdate,
     TransactionCreate, TransactionResponse, TransferCreate, TransactionUpdate,
     CashFlowReport, FinancialSummary, PropertyPerformanceResponse,
-    BalanceSheetResponse, IncomeStatementResponse,
+    BalanceSheetResponse, IncomeStatementResponse, AccountProfitabilityReport
 )
 from app.services import ledger_service, financial_reports
 from app.utils.security import get_current_user, require_role
@@ -89,6 +89,17 @@ async def get_account_history(
         "recent_transactions": [TransactionResponse.model_validate(t) for t in result["recent_transactions"]],
         "balance_history": result.get("balance_history", []),
     }
+
+
+@router.get("/accounts/{account_id}/profitability", response_model=AccountProfitabilityReport)
+async def get_account_profitability(
+    account_id: str,
+    year: int = Query(default_factory=lambda: date.today().year),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
+):
+    """Obtener reporte de rentabilidad mensual y anual por cuenta bancaria."""
+    return await ledger_service.get_account_profitability(db, account_id, year)
 
 
 @router.post("/accounts/transfer", status_code=201)

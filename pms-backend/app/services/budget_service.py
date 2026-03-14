@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.models.property import Property
 from app.models.contract import Contract, ContractStatus
 from app.models.budget import Budget, BudgetCategory
-from app.models.financial import Transaction
+from app.models.financial import Transaction, TransactionDirection
 from app.schemas.budget import BudgetCreate, BudgetDuplicate
 
 GENERAL_PROPERTY_NAME = "Gastos Generales"
@@ -67,11 +67,24 @@ async def _refresh_budget_totals(db: AsyncSession, budget: Budget):
     # Base query for all credit transactions in this period
     # Use strftime for SQLite compatibility (extract() is not supported)
     from sqlalchemy import func as sa_func, cast, Integer
+    
+    # Determine the months included in the period
+    period = getattr(budget, "period_type", "Mensual")
+    start_m = budget.month
+    if period == "Bimestral": end_m = start_m + 1
+    elif period == "Trimestral": end_m = start_m + 2
+    elif period == "Semestral": end_m = start_m + 5
+    elif period == "Anual": 
+        start_m = 1
+        end_m = 12
+    else: end_m = start_m
+    
     query = select(Transaction.category, sa_func.coalesce(sa_func.sum(Transaction.amount), 0.0)).where(
         and_(
             Transaction.direction == TransactionDirection.CREDIT.value,
             cast(sa_func.strftime('%Y', Transaction.transaction_date), Integer) == budget.year,
-            cast(sa_func.strftime('%m', Transaction.transaction_date), Integer) == budget.month
+            cast(sa_func.strftime('%m', Transaction.transaction_date), Integer) >= start_m,
+            cast(sa_func.strftime('%m', Transaction.transaction_date), Integer) <= end_m
         )
     )
 
@@ -146,48 +159,39 @@ async def create_budget(db: AsyncSession, data: BudgetCreate):
     if property_id == "GENERAL":
         property_id = await _ensure_general_property(db)
 
-    # If annual, we create 12 budgets
-    months_to_create = range(1, 13) if data.is_annual else [data.month]
-    created_budgets = []
+    # We create exactly 1 budget record for the specified period_type
+    if data.auto_calculate_total:
+        amount = sum(c.budgeted_amount for c in data.categories)
+    else:
+        amount = data.total_budget
 
-    for m in months_to_create:
-        if data.auto_calculate_total:
-            amount = sum(c.budgeted_amount for c in data.categories) / (12 if data.is_annual else 1)
-        else:
-            amount = data.total_budget / 12 if data.is_annual else data.total_budget
+    new_budget = Budget(
+        property_id=property_id,
+        year=data.year,
+        month=data.month, # Typically 1 for Annual, but could be specific starting month
+        period_type=data.period_type,
+        total_budget=amount,
+        auto_calculate_total=data.auto_calculate_total,
+        notes=data.notes
+    )
+    db.add(new_budget)
+    await db.flush()
 
-        new_budget = Budget(
-            property_id=property_id,
-            year=data.year,
-            month=m,
-            total_budget=amount,
-            auto_calculate_total=data.auto_calculate_total,
-            notes=data.notes
+    for cat_data in data.categories:
+        cat = BudgetCategory(
+            budget_id=new_budget.id,
+            category_name=cat_data.category_name,
+            budgeted_amount=cat_data.budgeted_amount,
+            is_distributable=cat_data.is_distributable
         )
-        db.add(new_budget)
-        await db.flush()
-
-        for cat_data in data.categories:
-            cat_amount = cat_data.budgeted_amount / 12 if data.is_annual else cat_data.budgeted_amount
-            cat = BudgetCategory(
-                budget_id=new_budget.id,
-                category_name=cat_data.category_name,
-                budgeted_amount=cat_amount,
-                is_distributable=cat_data.is_distributable
-            )
-            db.add(cat)
-        created_budgets.append(new_budget)
+        db.add(cat)
     
     await db.commit()
 
     # Re-query with eager-loaded categories (db.refresh won't load relationships)
-    loaded_budgets = []
-    for b in created_budgets:
-        stmt = select(Budget).options(selectinload(Budget.categories)).where(Budget.id == b.id)
-        result = await db.execute(stmt)
-        loaded_budgets.append(result.scalar_one())
-    
-    return loaded_budgets[0] if not data.is_annual else loaded_budgets
+    stmt = select(Budget).options(selectinload(Budget.categories)).where(Budget.id == new_budget.id)
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 async def duplicate_budget(db: AsyncSession, budget_id: str, data: BudgetDuplicate):
     source = await get_budget(db, budget_id)
@@ -252,9 +256,12 @@ async def update_budget(db: AsyncSession, budget_id: str, data: Any): # Using An
             )
             db.add(new_cat)
         
-        if budget.auto_calculate_total:
+        if data.auto_calculate_total:
             budget.total_budget = sum(c.budgeted_amount for c in data.categories)
     
+    if hasattr(data, "period_type") and data.period_type is not None:
+        budget.period_type = data.period_type
+
     # Manual total update if provided and not auto-calculating
     if data.total_budget is not None and not budget.auto_calculate_total:
         budget.total_budget = data.total_budget
@@ -393,6 +400,104 @@ async def get_budget_vs_actual_report(
         "year": year,
         "month": month,
         "rows": rows
+    }
+
+async def get_budget_monthly_breakdown(db: AsyncSession, budget_id: str) -> Dict[str, Any]:
+    budget = await get_budget(db, budget_id)
+    if not budget:
+        return None
+
+    period = getattr(budget, "period_type", "Mensual")
+    start_m = budget.month
+    if period == "Bimestral": num_months = 2
+    elif period == "Trimestral": num_months = 3
+    elif period == "Semestral": num_months = 6
+    elif period == "Anual": 
+        start_m = 1
+        num_months = 12
+    else: num_months = 1
+
+    months_data = []
+    months_names = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+    
+    dist_keys = await calculate_distribution_keys(db, budget.property_id)
+    stmt_gen = select(Property).where(Property.name == GENERAL_PROPERTY_NAME).limit(1)
+    gen_result = await db.execute(stmt_gen)
+    gen_prop = gen_result.scalar_one_or_none()
+    
+    all_prop_ids = list(dist_keys.keys()) + [budget.property_id]
+    if gen_prop and budget.property_id == gen_prop.id:
+        all_prop_ids.append(None)
+        
+    from sqlalchemy import func, cast, Integer
+    
+    for i in range(num_months):
+        target_m = start_m + i
+        if target_m > 12: break
+        
+        m_budgeted = float(budget.total_budget) / num_months
+        m_actual = 0.0
+        
+        m_cats = []
+        for cat in budget.categories:
+            c_budgeted = float(cat.budgeted_amount) / num_months
+            
+            cat_search_terms = {cat.category_name.lower()}
+            lower_cat = cat.category_name.lower()
+            if "mantenimiento" in lower_cat: cat_search_terms.update(["gastos mantenimiento", "mantenimiento general", "mantenimiento"])
+            elif "administracion" in lower_cat or "administración" in lower_cat: cat_search_terms.update(["cuotas de administración", "gastos administrativos", "honorarios gestión"])
+            elif "servicio" in lower_cat: cat_search_terms.add("servicios públicos")
+
+            trans_stmt = select(func.sum(Transaction.amount)).where(
+                and_(
+                    func.lower(Transaction.category).in_(cat_search_terms),
+                    Transaction.direction == TransactionDirection.CREDIT.value,
+                    cast(func.strftime('%Y', Transaction.transaction_date), Integer) == budget.year,
+                    cast(func.strftime('%m', Transaction.transaction_date), Integer) == target_m
+                )
+            )
+            
+            if None in all_prop_ids:
+                trans_stmt = trans_stmt.where((Transaction.property_id.in_([p for p in all_prop_ids if p])) | (Transaction.property_id == None))
+            else:
+                trans_stmt = trans_stmt.where(Transaction.property_id.in_(all_prop_ids))
+                
+            res = await db.execute(trans_stmt)
+            c_actual = float(res.scalar() or 0.0)
+            m_actual += c_actual
+            
+            c_exec_pct = (c_actual / c_budgeted * 100) if c_budgeted > 0 else 0
+            
+            m_cats.append({
+                "category_name": cat.category_name,
+                "budgeted": c_budgeted,
+                "actual": c_actual,
+                "execution_pct": round(c_exec_pct, 2),
+                "semaphore": "Verde" if c_exec_pct <= 85 else ("Amarillo" if c_exec_pct <= 100 else "Rojo")
+            })
+            
+        m_exec_pct = (m_actual / m_budgeted * 100) if m_budgeted > 0 else 0
+        
+        months_data.append({
+            "month": target_m,
+            "month_name": months_names[target_m],
+            "budgeted": m_budgeted,
+            "actual": m_actual,
+            "execution_pct": round(m_exec_pct, 2),
+            "semaphore": "Verde" if m_exec_pct <= 85 else ("Amarillo" if m_exec_pct <= 100 else "Rojo"),
+            "categories": m_cats
+        })
+        
+    return {
+        "budget_id": budget.id,
+        "property_id": budget.property_id,
+        "year": budget.year,
+        "period_type": period,
+        "total_budget": float(budget.total_budget),
+        "total_actual": float(budget.total_executed),
+        "execution_pct": budget.execution_pct,
+        "semaphore": budget.semaphore,
+        "months": months_data
     }
 
 async def delete_budget(db: AsyncSession, budget_id: str):
