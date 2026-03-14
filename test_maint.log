@@ -1,0 +1,197 @@
+2026-03-13 19:49:24,057 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-03-13 19:49:24,057 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("users")
+2026-03-13 19:49:24,057 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,058 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("properties")
+2026-03-13 19:49:24,058 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,059 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("bank_accounts")
+2026-03-13 19:49:24,059 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,060 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("transactions")
+2026-03-13 19:49:24,060 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,061 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("maintenance_orders")
+2026-03-13 19:49:24,061 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,062 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("maintenance_photos")
+2026-03-13 19:49:24,062 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,063 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("contracts")
+2026-03-13 19:49:24,063 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,065 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("payment_schedules")
+2026-03-13 19:49:24,065 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,066 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("budgets")
+2026-03-13 19:49:24,066 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,067 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("budget_categories")
+2026-03-13 19:49:24,068 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,069 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("notifications")
+2026-03-13 19:49:24,069 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,070 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("contacts")
+2026-03-13 19:49:24,070 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,071 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("work_groups")
+2026-03-13 19:49:24,071 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,072 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("work_group_members")
+2026-03-13 19:49:24,072 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,074 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("work_group_properties")
+2026-03-13 19:49:24,074 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,076 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("audit_logs")
+2026-03-13 19:49:24,076 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,077 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("property_occupants")
+2026-03-13 19:49:24,077 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,078 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("assets")
+2026-03-13 19:49:24,078 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,079 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("inspections")
+2026-03-13 19:49:24,079 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,080 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("insurance_policies")
+2026-03-13 19:49:24,080 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,080 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("property_inventories")
+2026-03-13 19:49:24,080 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,081 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("inventory_items")
+2026-03-13 19:49:24,081 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,082 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("inventory_photos")
+2026-03-13 19:49:24,082 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,082 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("tenant_scorings")
+2026-03-13 19:49:24,082 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,082 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("contract_signatures")
+2026-03-13 19:49:24,082 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,083 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("termination_letters")
+2026-03-13 19:49:24,083 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,084 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("global_configs")
+2026-03-13 19:49:24,084 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:49:24,086 INFO sqlalchemy.engine.Engine COMMIT
+2026-03-13 19:49:24,094 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-03-13 19:49:24,234 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.role, users.phone, users.is_active, users.work_group_id, users.last_login, users.login_attempts, users.created_at, users.updated_at 
+FROM users
+2026-03-13 19:49:24,234 INFO sqlalchemy.engine.Engine [generated in 0.00028s] ()
+2026-03-13 19:49:24,241 INFO sqlalchemy.engine.Engine SELECT properties.id, properties.owner_id, properties.manager_id, properties.name, properties.property_type, properties.address, properties.city, properties.country, properties.latitude, properties.longitude, properties.area_sqm, properties.bedrooms, properties.bathrooms, properties.cadastral_id, properties.commercial_value, properties.administration_fee, properties.status, properties.notes, properties.is_active, properties.has_insurance, properties.risk_score_avg, properties.telegram_unit_id, properties.parent_id, properties.created_at 
+FROM properties
+2026-03-13 19:49:24,241 INFO sqlalchemy.engine.Engine [generated in 0.00038s] ()
+2026-03-13 19:49:24,246 INFO sqlalchemy.engine.Engine INSERT INTO users (id, email, password_hash, full_name, role, phone, is_active, work_group_id, last_login, login_attempts) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING created_at, updated_at
+2026-03-13 19:49:24,246 INFO sqlalchemy.engine.Engine [generated in 0.00028s] ('bf979605-0e8f-4876-8d54-ee4c8fd5976b', 'test@test.com', 'hash', 'Test', 'Admin', None, 1, None, None, 0)
+2026-03-13 19:49:24,248 INFO sqlalchemy.engine.Engine INSERT INTO properties (id, owner_id, manager_id, name, property_type, address, city, country, latitude, longitude, area_sqm, bedrooms, bathrooms, cadastral_id, commercial_value, administration_fee, status, notes, is_active, has_insurance, risk_score_avg, telegram_unit_id, parent_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING created_at
+2026-03-13 19:49:24,248 INFO sqlalchemy.engine.Engine [generated in 0.00032s] ('30ad3296-dbb5-40f6-bedc-73914b98cbcc', 'bf979605-0e8f-4876-8d54-ee4c8fd5976b', None, 'Test Prop', 'Casa', '123', 'Pop', 'Colombia', 0.0, 0.0, None, None, None, None, None, None, 'Disponible', None, 1, 0, None, None, None)
+2026-03-13 19:49:24,249 INFO sqlalchemy.engine.Engine ROLLBACK
+Traceback (most recent call last):
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 147, in execute
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 298, in _handle_exception
+    raise error
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 129, in execute
+    self.await_(_cursor.execute(operation, parameters))
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\cursor.py", line 48, in execute
+    await self._execute(self._cursor.execute, sql, parameters)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\cursor.py", line 40, in _execute
+    return await self._conn._execute(fn, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\core.py", line 132, in _execute
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\core.py", line 115, in run
+    result = function()
+             ^^^^^^^^^^
+sqlite3.IntegrityError: NOT NULL constraint failed: properties.area_sqm
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\jupa_\Desktop\proyecto real state\test_maint.py", line 61, in <module>
+    asyncio.run(test_create())
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\Desktop\proyecto real state\test_maint.py", line 37, in test_create
+    await db.commit()
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\ext\asyncio\session.py", line 1009, in commit
+    await greenlet_spawn(self.sync_session.commit)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 203, in greenlet_spawn
+    result = context.switch(value)
+             ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\session.py", line 2028, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\session.py", line 1313, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\state_changes.py", line 139, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\session.py", line 1288, in _prepare_impl
+    self.session.flush()
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\session.py", line 4352, in flush
+    self._flush(objects)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\session.py", line 4487, in _flush
+    with util.safe_reraise():
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\session.py", line 4448, in _flush
+    flush_context.execute()
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 466, in execute
+    rec.execute(self)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\unitofwork.py", line 642, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\persistence.py", line 93, in save_obj
+    _emit_insert_statements(
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\persistence.py", line 1233, in _emit_insert_statements
+    result = connection.execute(
+             ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1418, in execute
+    return meth(
+           ^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\sql\elements.py", line 515, in _execute_on_connection
+    return connection._execute_clauseelement(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1640, in _execute_clauseelement
+    ret = self._execute_context(
+          ^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1846, in _execute_context
+    return self._exec_single_context(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1986, in _exec_single_context
+    self._handle_dbapi_exception(
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 2355, in _handle_dbapi_exception
+    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\base.py", line 1967, in _exec_single_context
+    self.dialect.do_execute(
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\default.py", line 941, in do_execute
+    cursor.execute(statement, parameters)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 147, in execute
+    self._adapt_connection._handle_exception(error)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 298, in _handle_exception
+    raise error
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py", line 129, in execute
+    self.await_(_cursor.execute(operation, parameters))
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 132, in await_only
+    return current.parent.switch(awaitable)  # type: ignore[no-any-return,attr-defined] # noqa: E501
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\_concurrency_py3k.py", line 196, in greenlet_spawn
+    value = await result
+            ^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\cursor.py", line 48, in execute
+    await self._execute(self._cursor.execute, sql, parameters)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\cursor.py", line 40, in _execute
+    return await self._conn._execute(fn, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\core.py", line 132, in _execute
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\aiosqlite\core.py", line 115, in run
+    result = function()
+             ^^^^^^^^^^
+sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) NOT NULL constraint failed: properties.area_sqm
+[SQL: INSERT INTO properties (id, owner_id, manager_id, name, property_type, address, city, country, latitude, longitude, area_sqm, bedrooms, bathrooms, cadastral_id, commercial_value, administration_fee, status, notes, is_active, has_insurance, risk_score_avg, telegram_unit_id, parent_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING created_at]
+[parameters: ('30ad3296-dbb5-40f6-bedc-73914b98cbcc', 'bf979605-0e8f-4876-8d54-ee4c8fd5976b', None, 'Test Prop', 'Casa', '123', 'Pop', 'Colombia', 0.0, 0.0, None, None, None, None, None, None, 'Disponible', None, 1, 0, None, None, None)]
+(Background on this error at: https://sqlalche.me/e/20/gkpj)

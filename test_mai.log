@@ -1,0 +1,89 @@
+2026-03-13 19:45:36,355 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-03-13 19:45:36,356 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("users")
+2026-03-13 19:45:36,356 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,357 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("properties")
+2026-03-13 19:45:36,357 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,358 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("bank_accounts")
+2026-03-13 19:45:36,358 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,359 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("transactions")
+2026-03-13 19:45:36,359 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,360 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("maintenance_orders")
+2026-03-13 19:45:36,360 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,361 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("maintenance_photos")
+2026-03-13 19:45:36,361 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,361 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("contracts")
+2026-03-13 19:45:36,361 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,362 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("payment_schedules")
+2026-03-13 19:45:36,362 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,362 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("budgets")
+2026-03-13 19:45:36,362 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,364 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("budget_categories")
+2026-03-13 19:45:36,364 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,364 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("notifications")
+2026-03-13 19:45:36,364 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,367 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("contacts")
+2026-03-13 19:45:36,367 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,367 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("work_groups")
+2026-03-13 19:45:36,367 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,369 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("work_group_members")
+2026-03-13 19:45:36,369 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,370 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("work_group_properties")
+2026-03-13 19:45:36,370 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,371 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("audit_logs")
+2026-03-13 19:45:36,371 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,372 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("property_occupants")
+2026-03-13 19:45:36,372 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,373 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("assets")
+2026-03-13 19:45:36,373 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,374 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("inspections")
+2026-03-13 19:45:36,374 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,374 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("insurance_policies")
+2026-03-13 19:45:36,374 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,375 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("property_inventories")
+2026-03-13 19:45:36,375 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,376 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("inventory_items")
+2026-03-13 19:45:36,376 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,377 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("inventory_photos")
+2026-03-13 19:45:36,377 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,377 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("tenant_scorings")
+2026-03-13 19:45:36,377 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,378 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("contract_signatures")
+2026-03-13 19:45:36,378 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,378 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("termination_letters")
+2026-03-13 19:45:36,379 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,379 INFO sqlalchemy.engine.Engine PRAGMA main.table_info("global_configs")
+2026-03-13 19:45:36,379 INFO sqlalchemy.engine.Engine [raw sql] ()
+2026-03-13 19:45:36,381 INFO sqlalchemy.engine.Engine COMMIT
+2026-03-13 19:45:36,388 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+2026-03-13 19:45:36,498 INFO sqlalchemy.engine.Engine SELECT users.id, users.email, users.password_hash, users.full_name, users.role, users.phone, users.is_active, users.work_group_id, users.last_login, users.login_attempts, users.created_at, users.updated_at 
+FROM users
+2026-03-13 19:45:36,498 INFO sqlalchemy.engine.Engine [generated in 0.00023s] ()
+2026-03-13 19:45:36,501 INFO sqlalchemy.engine.Engine SELECT properties.id, properties.owner_id, properties.manager_id, properties.name, properties.property_type, properties.address, properties.city, properties.country, properties.latitude, properties.longitude, properties.area_sqm, properties.bedrooms, properties.bathrooms, properties.cadastral_id, properties.commercial_value, properties.administration_fee, properties.status, properties.notes, properties.is_active, properties.has_insurance, properties.risk_score_avg, properties.telegram_unit_id, properties.parent_id, properties.created_at 
+FROM properties
+2026-03-13 19:45:36,502 INFO sqlalchemy.engine.Engine [generated in 0.00021s] ()
+2026-03-13 19:45:36,504 INFO sqlalchemy.engine.Engine ROLLBACK
+Traceback (most recent call last):
+  File "C:\Users\jupa_\Desktop\proyecto real state\test_maint.py", line 61, in <module>
+    asyncio.run(test_create())
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 190, in run
+    return runner.run(main)
+           ^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py", line 654, in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+  File "C:\Users\jupa_\Desktop\proyecto real state\test_maint.py", line 33, in test_create
+    user = User(id=str(uuid.uuid4()), email="test@test.com", hashed_password="hash", name="Test", role="Admin", is_active=True)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 4, in __init__
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\state.py", line 571, in _initialize_instance
+    with util.safe_reraise():
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\langhelpers.py", line 146, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\state.py", line 569, in _initialize_instance
+    manager.original_init(*mixed[1:], **kwargs)
+  File "C:\Users\jupa_\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\orm\decl_base.py", line 2167, in _declarative_constructor
+    raise TypeError(
+TypeError: 'hashed_password' is an invalid keyword argument for User

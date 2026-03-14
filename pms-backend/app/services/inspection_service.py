@@ -19,7 +19,10 @@ async def create_inspection(db: AsyncSession, data: InspectionCreate) -> Inspect
     return new_insp
 
 async def get_inspection(db: AsyncSession, inspection_id: str) -> Optional[Inspection]:
-    return await db.get(Inspection, inspection_id)
+    from sqlalchemy.orm import selectinload
+    stmt = select(Inspection).options(selectinload(Inspection.property)).where(Inspection.id == inspection_id)
+    result = await db.execute(stmt)
+    return result.scalar_one_or_none()
 
 async def update_inspection(db: AsyncSession, inspection_id: str, data: InspectionUpdate) -> Optional[Inspection]:
     insp = await get_inspection(db, inspection_id)

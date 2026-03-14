@@ -161,7 +161,7 @@ class TelegramService:
                 MaintenanceOrder.status == MaintenanceStatus.PENDIENTE.value
             ).order_by(MaintenanceOrder.created_at.desc())
             result = await db.execute(stmt)
-            order = result.scalar_one_or_none()
+            order = result.scalars().first()
             
             if order:
                 # Get the largest photo (last in the list)

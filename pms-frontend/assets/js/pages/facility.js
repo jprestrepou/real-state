@@ -3,11 +3,19 @@ import { showToast, showModal } from '../components/modal.js';
 import { formatCurrency, formatDate } from '../utils/formatters.js';
 
 export async function renderFacility(container, state) {
-    const [assets, inspections, propertiesData] = await Promise.all([
-        api.get('/assets'),
-        api.get('/inspections'),
-        api.get('/properties?limit=100')
-    ]);
+    let assets = [], inspections = [], propertiesData = { items: [] };
+    try {
+        const [a, i, p] = await Promise.all([
+            api.get('/assets').catch(e => { console.error('Error fetching assets:', e); return []; }),
+            api.get('/inspections').catch(e => { console.error('Error fetching inspections:', e); return []; }),
+            api.get('/properties?limit=100').catch(e => { console.error('Error fetching properties:', e); return {items: []}; })
+        ]);
+        assets = a || [];
+        inspections = i || [];
+        propertiesData = p || { items: [] };
+    } catch (e) {
+        console.error('Unhandled error fetching facility data:', e);
+    }
 
     const properties = propertiesData.items || [];
 

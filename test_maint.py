@@ -18,8 +18,23 @@ async def test_create():
         # Get a user and property to use
         from app.models.user import User
         from app.models.property import Property
+        from app.database import engine, Base
+        import uuid
+        
+        # Ensure tables exist
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
         user = (await db.execute(select(User))).scalars().first()
         prop = (await db.execute(select(Property))).scalars().first()
+        
+        if not user or not prop:
+            # Create mock user and prop
+            user = User(id=str(uuid.uuid4()), email="test@test.com", password_hash="hash", full_name="Test", role="Admin", is_active=True)
+            prop = Property(id=str(uuid.uuid4()), name="Test Prop", address="123", city="Pop", property_type="Casa", owner_id=user.id, latitude=0, longitude=0, area_sqm=100.0)
+            db.add(user)
+            db.add(prop)
+            await db.commit()
         
         if not user or not prop:
             print("Need user and property in DB.")
