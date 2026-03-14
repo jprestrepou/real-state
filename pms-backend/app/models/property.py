@@ -60,6 +60,10 @@ class Property(Base):
     cadastral_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     commercial_value: Mapped[float | None] = mapped_column(Numeric(15, 2), nullable=True)
     administration_fee: Mapped[float | None] = mapped_column(Numeric(15, 2), nullable=True)
+    pays_administration: Mapped[bool] = mapped_column(Boolean, default=True)
+    administration_day: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    administration_payment_method: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    administration_payment_info: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(
         SAEnum(PropertyStatus, values_callable=lambda e: [x.value for x in e]),
         default=PropertyStatus.DISPONIBLE.value,

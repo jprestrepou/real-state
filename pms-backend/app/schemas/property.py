@@ -22,6 +22,10 @@ class PropertyCreate(BaseModel):
     cadastral_id: Optional[str] = Field(None, max_length=50)
     commercial_value: Optional[float] = Field(None, ge=0)
     administration_fee: Optional[float] = Field(None, ge=0)
+    pays_administration: bool = Field(default=True)
+    administration_day: Optional[int] = Field(None, ge=1, le=31)
+    administration_payment_method: Optional[str] = Field(None, max_length=100)
+    administration_payment_info: Optional[str] = None
     status: str = Field(
         default="Disponible",
         pattern="^(Disponible|Arrendada|En Mantenimiento|Vendida)$",
@@ -44,6 +48,10 @@ class PropertyUpdate(BaseModel):
     cadastral_id: Optional[str] = None
     commercial_value: Optional[float] = Field(None, ge=0)
     administration_fee: Optional[float] = Field(None, ge=0)
+    pays_administration: Optional[bool] = None
+    administration_day: Optional[int] = Field(None, ge=1, le=31)
+    administration_payment_method: Optional[str] = Field(None, max_length=100)
+    administration_payment_info: Optional[str] = None
     status: Optional[str] = Field(None, pattern="^(Disponible|Arrendada|En Mantenimiento|Vendida)$")
     notes: Optional[str] = None
     manager_id: Optional[str] = None
@@ -66,6 +74,10 @@ class PropertyResponse(BaseModel):
     cadastral_id: Optional[str] = None
     commercial_value: Optional[float] = None
     administration_fee: Optional[float] = None
+    pays_administration: bool
+    administration_day: Optional[int] = None
+    administration_payment_method: Optional[str] = None
+    administration_payment_info: Optional[str] = None
     status: str
     notes: Optional[str] = None
     is_active: bool

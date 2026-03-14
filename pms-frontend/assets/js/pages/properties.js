@@ -259,6 +259,33 @@ function openPropertyModal(property = null) {
           </select>
         </div>
       </div>
+      <div class="p-4 bg-primary-50/50 rounded-xl border border-primary-100 space-y-4">
+        <h4 class="text-sm font-bold text-primary-700 flex items-center gap-2">
+          <i data-lucide="credit-card" class="w-4 h-4"></i> Parámetros de Administración
+        </h4>
+        <div class="flex items-center gap-2 mb-2">
+          <input type="checkbox" name="pays_administration" id="pays_administration" class="w-4 h-4 rounded text-primary-600" ${property?.pays_administration !== false ? 'checked' : ''} />
+          <label for="pays_administration" class="text-sm font-medium cursor-pointer">Paga Administración</label>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="label">Día de Pago (1-31)</label>
+            <input class="input" name="administration_day" type="number" min="1" max="31" value="${property?.administration_day || ''}" placeholder="5" />
+          </div>
+          <div>
+            <label class="label">Valor Administración</label>
+            <input class="input" name="administration_fee" type="number" value="${property?.administration_fee || ''}" placeholder="250000" />
+          </div>
+        </div>
+        <div>
+          <label class="label">Método de Pago</label>
+          <input class="input" name="administration_payment_method" value="${property?.administration_payment_method || ''}" placeholder="Transferencia Bancaria, Link de Pago, etc." />
+        </div>
+        <div>
+          <label class="label">Cuenta o Link de Pago</label>
+          <textarea class="input" name="administration_payment_info" rows="2" placeholder="Número de cuenta o URL de pago...">${property?.administration_payment_info || ''}</textarea>
+        </div>
+      </div>
       <div>
         <label class="label">Notas</label>
         <textarea class="input" name="notes" rows="2" placeholder="Observaciones adicionales...">${property?.notes || ''}</textarea>
@@ -273,15 +300,20 @@ function openPropertyModal(property = null) {
       const formData = new FormData(form);
       const payload = {};
       formData.forEach((val, key) => {
-        if (val === '') return;
-        if (['latitude', 'longitude', 'area_sqm', 'commercial_value'].includes(key)) {
+        if (val === '' && key !== 'pays_administration') return;
+        if (['latitude', 'longitude', 'area_sqm', 'commercial_value', 'administration_fee'].includes(key)) {
           payload[key] = parseFloat(val);
-        } else if (['bedrooms', 'bathrooms'].includes(key)) {
+        } else if (['bedrooms', 'bathrooms', 'administration_day'].includes(key)) {
           payload[key] = parseInt(val);
+        } else if (key === 'pays_administration') {
+            payload[key] = document.getElementById('pays_administration').checked;
         } else {
           payload[key] = val;
         }
       });
+      if (!payload.hasOwnProperty('pays_administration')) {
+          payload['pays_administration'] = document.getElementById('pays_administration').checked;
+      }
 
       if (isEdit) {
         await api.put(`/properties/${property.id}`, payload);
@@ -337,6 +369,17 @@ async function openPropertyDetailModal(propertyId) {
           <p class="text-sm"><strong>Tipo:</strong> ${property.property_type}</p>
           <p class="text-sm"><strong>Área:</strong> ${property.area_sqm} m²</p>
           <p class="text-sm"><strong>Estado:</strong> <span class="badge ${statusBadge(property.status)}">${property.status}</span></p>
+          <hr class="my-3 border-surface-100" />
+          <h5 class="text-xs font-bold text-surface-400 uppercase mb-2">Administración</h5>
+          <p class="text-sm"><strong>Paga:</strong> ${property.pays_administration ? 'Sí' : 'No'}</p>
+          ${property.pays_administration ? `
+            <p class="text-sm"><strong>Valor:</strong> ${formatCurrency(property.administration_fee)}</p>
+            <p class="text-sm"><strong>Día pago:</strong> ${property.administration_day || 'No definido'}</p>
+            <p class="text-sm"><strong>Método:</strong> ${property.administration_payment_method || 'No definido'}</p>
+            ${property.administration_payment_info ? `
+              <p class="text-sm"><strong>Info Pago:</strong> <span class="text-xs break-all text-primary-600">${property.administration_payment_info}</span></p>
+            ` : ''}
+          ` : ''}
         </div>
         <div class="glass-card-static p-4">
           <h4 class="text-xs font-bold text-surface-400 uppercase mb-3 flex items-center gap-1"><i data-lucide="users" class="w-3 h-3"></i> Ocupantes (Viven aquí)</h4>
