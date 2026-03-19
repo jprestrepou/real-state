@@ -38,6 +38,7 @@ async def lifespan(app: FastAPI):
     os.makedirs(os.path.join(settings.UPLOAD_DIR, "invoices"), exist_ok=True)
     os.makedirs(os.path.join(settings.UPLOAD_DIR, "images"), exist_ok=True)
     os.makedirs(os.path.join(settings.UPLOAD_DIR, "contracts"), exist_ok=True)
+    os.makedirs(os.path.join(settings.UPLOAD_DIR, "maintenance"), exist_ok=True)
 
     logger.info("Application startup complete.")
     yield

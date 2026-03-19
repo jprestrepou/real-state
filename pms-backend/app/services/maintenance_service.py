@@ -64,8 +64,17 @@ async def create_maintenance(db: AsyncSession, data: MaintenanceCreate, user_id:
     )
     db.add(order)
     await db.commit()
-    await db.refresh(order)
-    return order
+    # Reload with relationships to prevent lazy-load errors during async serialization
+    stmt = (
+        select(MaintenanceOrder)
+        .options(
+            selectinload(MaintenanceOrder.photos),
+            selectinload(MaintenanceOrder.supplier),
+        )
+        .where(MaintenanceOrder.id == order.id)
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 async def update_maintenance(db: AsyncSession, order_id: str, data: MaintenanceUpdate) -> MaintenanceOrder:
@@ -74,8 +83,17 @@ async def update_maintenance(db: AsyncSession, order_id: str, data: MaintenanceU
     for key, value in update_data.items():
         setattr(order, key, value)
     await db.commit()
-    await db.refresh(order)
-    return order
+    # Reload with relationships to prevent lazy-load errors during async serialization
+    stmt = (
+        select(MaintenanceOrder)
+        .options(
+            selectinload(MaintenanceOrder.photos),
+            selectinload(MaintenanceOrder.supplier),
+        )
+        .where(MaintenanceOrder.id == order_id)
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 async def update_status(db: AsyncSession, order_id: str, new_status: str, notes: str | None = None) -> MaintenanceOrder:
@@ -86,8 +104,17 @@ async def update_status(db: AsyncSession, order_id: str, new_status: str, notes:
     if new_status == MaintenanceStatus.COMPLETADO.value:
         order.completed_date = date.today()
     await db.commit()
-    await db.refresh(order)
-    return order
+    # Reload with relationships to prevent lazy-load errors during async serialization
+    stmt = (
+        select(MaintenanceOrder)
+        .options(
+            selectinload(MaintenanceOrder.photos),
+            selectinload(MaintenanceOrder.supplier),
+        )
+        .where(MaintenanceOrder.id == order_id)
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one()
 
 
 async def complete_maintenance(

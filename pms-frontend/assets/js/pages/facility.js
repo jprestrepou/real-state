@@ -38,16 +38,25 @@ export async function renderFacility(container, state) {
     const tabContent = container.querySelector('#tab-content');
     const tabs = container.querySelectorAll('.tab-btn');
 
+    // Restore the previously active tab from sessionStorage (persists across refresh)
+    const savedTab = sessionStorage.getItem('facility_active_tab') || 'assets';
+
     tabs.forEach(tab => {
         tab.addEventListener('click', async () => {
             tabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
+            sessionStorage.setItem('facility_active_tab', tab.dataset.tab);
             await renderTab(tab.dataset.tab, tabContent, { assets, inspections, properties });
         });
     });
 
-    // Default tab
-    await renderTab('assets', tabContent, { assets, inspections, properties });
+    // Activate saved tab button
+    const activeTabBtn = container.querySelector(`.tab-btn[data-tab="${savedTab}"]`);
+    if (activeTabBtn) {
+        tabs.forEach(t => t.classList.remove('active'));
+        activeTabBtn.classList.add('active');
+    }
+    await renderTab(savedTab, tabContent, { assets, inspections, properties });
 }
 
 async function renderTab(tab, container, data) {

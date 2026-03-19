@@ -11,6 +11,11 @@ class ApiClient {
         this._onUnauthorized = null;
     }
 
+    /** Base URL of the API (e.g. https://host/api/v1) — used to construct upload URLs. */
+    get baseUrl() {
+        return API_BASE;
+    }
+
     /** Set callback for 401 responses (logout). */
     onUnauthorized(callback) {
         this._onUnauthorized = callback;
