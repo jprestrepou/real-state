@@ -60,8 +60,58 @@ async def get_db():
             await session.close()
 
 
+async def _migrate_missing_columns(conn) -> None:
+    """
+    SQLite-safe migration: adds any columns present in the model but missing
+    from the actual DB table. Uses PRAGMA table_info + ALTER TABLE ADD COLUMN.
+    Safe to run multiple times (idempotent).
+    """
+    if not _is_sqlite:
+        return  # PostgreSQL handles this via Alembic
+
+    from sqlalchemy import text
+
+    for table in Base.metadata.sorted_tables:
+        result = await conn.execute(text(f"PRAGMA table_info({table.name})"))
+        existing_cols = {row[1] for row in result.fetchall()}
+
+        for col in table.columns:
+            if col.name not in existing_cols:
+                # Build a safe default clause
+                col_type = col.type.compile(dialect=conn.dialect)
+                nullable = "" if col.nullable else " NOT NULL"
+                default_clause = ""
+                if col.default is not None and col.default.is_scalar:
+                    val = col.default.arg
+                    if isinstance(val, str):
+                        default_clause = f" DEFAULT '{val}'"
+                    elif isinstance(val, bool):
+                        default_clause = f" DEFAULT {1 if val else 0}"
+                    elif val is not None:
+                        default_clause = f" DEFAULT {val}"
+                elif col.nullable:
+                    default_clause = " DEFAULT NULL"
+                else:
+                    # NOT NULL without default — add a safe default so ALTER doesn't fail
+                    default_clause = " DEFAULT ''"
+
+                sql = f"ALTER TABLE {table.name} ADD COLUMN {col.name} {col_type}{default_clause}"
+                try:
+                    await conn.execute(text(sql))
+                    import logging
+                    logging.getLogger("pms-backend").info(
+                        f"Migration: added column '{col.name}' to table '{table.name}'"
+                    )
+                except Exception as exc:
+                    import logging
+                    logging.getLogger("pms-backend").warning(
+                        f"Migration skipped '{col.name}' on '{table.name}': {exc}"
+                    )
+
+
 async def init_db():
-    """Create all tables (dev only — use Alembic in prod)."""
+    """Create all tables and apply any missing column migrations."""
     import app.models  # noqa: F401 — ensure models are imported
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await _migrate_missing_columns(conn)

@@ -8,6 +8,16 @@ from typing import Optional
 from pydantic import BaseModel, Field
 
 
+class SupplierInfo(BaseModel):
+    """Minimal contact info for maintenance supplier relationship."""
+    id: str
+    name: str
+    phone: Optional[str] = None
+    email: Optional[str] = None
+
+    model_config = {"from_attributes": True}
+
+
 class MaintenanceCreate(BaseModel):
     property_id: str
     title: str = Field(min_length=3, max_length=300)
@@ -63,6 +73,7 @@ class MaintenanceResponse(BaseModel):
     actual_cost: Optional[float] = None
     supplier_name: Optional[str] = None
     supplier_id: Optional[str] = None
+    supplier: Optional[SupplierInfo] = None
     scheduled_date: Optional[date] = None
     completed_date: Optional[date] = None
     invoice_file: Optional[str] = None

@@ -4,12 +4,15 @@ Maintenance router — /api/v1/maintenance endpoints.
 
 from fastapi import APIRouter, Depends, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.schemas.maintenance import (
     MaintenanceCreate, MaintenanceUpdate,
     MaintenanceStatusUpdate, MaintenanceComplete, MaintenanceResponse,
 )
+from app.models.maintenance import MaintenanceOrder
 from app.services import maintenance_service
 from app.utils.security import get_current_user, require_role
 from app.config import settings
@@ -114,7 +117,7 @@ async def upload_invoice(
     current_user=Depends(get_current_user),
 ):
     """Cargar factura del proveedor."""
-    order = await maintenance_service.get_maintenance(db, order_id)
+    order_obj = await maintenance_service.get_maintenance(db, order_id)
 
     upload_dir = os.path.join(settings.UPLOAD_DIR, "invoices")
     os.makedirs(upload_dir, exist_ok=True)
@@ -124,8 +127,18 @@ async def upload_invoice(
         content = await file.read()
         f.write(content)
 
-    order.invoice_file = file_path
-    order.status = "Esperando Factura"
+    order_obj.invoice_file = file_path
+    order_obj.status = "Esperando Factura"
     await db.commit()
-    await db.refresh(order)
-    return order
+
+    # Reload with relationships to avoid lazy-load errors during serialization
+    stmt = (
+        select(MaintenanceOrder)
+        .options(
+            selectinload(MaintenanceOrder.photos),
+            selectinload(MaintenanceOrder.supplier),
+        )
+        .where(MaintenanceOrder.id == order_id)
+    )
+    result = await db.execute(stmt)
+    return result.scalar_one()

@@ -162,7 +162,8 @@ function renderInspectionsTab(container, { inspections, properties }) {
 }
 
 async function renderProvidersTab(container) {
-    const providers = await api.get('/contacts?type=Proveedor');
+    const resp = await api.get('/contacts?contact_type=Proveedor&limit=100');
+    const providers = resp.items || [];
     container.innerHTML = `
         <div class="flex justify-between items-center mb-4">
             <h4 class="text-lg font-semibold text-surface-700">Directorio de Proveedores</h4>
@@ -232,31 +233,56 @@ async function renderMaintenanceTab(container, { properties }) {
       </div>
       <button id="add-maint-btn" class="btn-primary btn-sm"><i data-lucide="plus" class="w-4 h-4"></i> Nueva Orden</button>
     </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 animate-fade-in px-4">
+      <div class="glass-card-static p-4 text-center">
+        <p class="text-2xl font-bold text-amber-500">${orders.filter(o => o.status === 'Pendiente').length}</p>
+        <p class="text-xs text-surface-500 mt-1">Pendientes</p>
+      </div>
+      <div class="glass-card-static p-4 text-center">
+        <p class="text-2xl font-bold text-primary-500">${orders.filter(o => o.status === 'En Progreso').length}</p>
+        <p class="text-xs text-surface-500 mt-1">En Progreso</p>
+      </div>
+      <div class="glass-card-static p-4 text-center">
+        <p class="text-2xl font-bold text-emerald-500">${orders.filter(o => o.status === 'Completado').length}</p>
+        <p class="text-xs text-surface-500 mt-1">Completados</p>
+      </div>
+      <div class="glass-card-static p-4 text-center">
+        <p class="text-2xl font-bold text-rose-500">${formatCurrency(orders.reduce((s, o) => s + (o.actual_cost || 0), 0))}</p>
+        <p class="text-xs text-surface-500 mt-1">Costo Total</p>
+      </div>
+    </div>
     <div class="glass-card-static overflow-hidden animate-fade-in mx-4">
       <table class="data-table">
-        <thead><tr><th></th><th>Título</th><th>Tipo</th><th>Estado</th><th>Proveedor</th><th>Costo</th><th></th></tr></thead>
+        <thead><tr><th></th><th>Título</th><th>Tipo</th><th>Prioridad</th><th>Estado</th><th>Proveedor</th><th>Costo</th><th></th></tr></thead>
         <tbody>
         ${orders.length ? orders.map(o => `<tr>
-          <td class="w-10">
-            ${o.photos && o.photos.length > 0 ? `<img src="${api.baseUrl.replace('/api/v1', '')}/${o.photos[0].photo_path}" class="w-8 h-8 rounded object-cover cursor-pointer" onclick="viewPhotos('${o.id}')" />` : ''}
+          <td class="w-12">
+            ${o.photos && o.photos.length > 0 ?
+              `<div class="relative group cursor-pointer" onclick="viewPhotos('${o.id}')">
+                <img src="${api.baseUrl.replace('/api/v1', '')}/${o.photos[0].photo_path}" class="w-10 h-10 rounded object-cover border border-surface-200" />
+                <span class="absolute -top-1 -right-1 bg-primary-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">${o.photos.length}</span>
+              </div>` :
+              `<div class="w-10 h-10 rounded bg-surface-100 flex items-center justify-center text-surface-400"><i data-lucide="image" class="w-5 h-5"></i></div>`
+            }
           </td>
           <td><div class="font-semibold text-sm">${o.title}</div><div class="text-[10px] text-surface-400">${formatDate(o.scheduled_date)}</div></td>
           <td><span class="badge badge-gray text-[10px]">${o.maintenance_type}</span></td>
+          <td><span class="badge ${o.priority === 'Urgente' ? 'badge-red' : o.priority === 'Alta' ? 'badge-amber' : 'badge-gray'} text-[10px]">${o.priority}</span></td>
           <td><span class="badge ${statusBadge(o.status)} text-[10px]">${o.status}</span></td>
-          <td class="text-xs">${o.supplier_name || (o.supplier ? o.supplier.name : 'N/A')}</td>
+          <td class="text-xs">${o.supplier?.name || o.supplier_name || '<span class="text-surface-400">—</span>'}</td>
           <td class="text-sm font-medium">${formatCurrency(o.actual_cost || o.estimated_cost)}</td>
           <td class="text-right">
              <button class="btn-ghost p-1 edit-maint-btn" data-id="${o.id}"><i data-lucide="edit-3" class="w-4 h-4 text-surface-400"></i></button>
           </td>
-        </tr>`).join('') : '<tr><td colspan="7" class="text-center py-10 text-surface-400">No hay mantenimientos.</td></tr>'}
+        </tr>`).join('') : '<tr><td colspan="8" class="text-center py-10 text-surface-400">No hay mantenimientos.</td></tr>'}
         </tbody>
       </table>
     </div>
     `;
     
     if (window.lucide) lucide.createIcons();
-    document.getElementById('add-maint-btn').addEventListener('click', () => openMaintModal(properties));
-    document.querySelectorAll('.edit-maint-btn').forEach(b => b.addEventListener('click', () => openEditMaintModal(b.dataset.id, properties)));
+    document.getElementById('add-maint-btn').addEventListener('click', () => openMaintModal(properties, container));
+    document.querySelectorAll('.edit-maint-btn').forEach(b => b.addEventListener('click', () => openEditMaintModal(b.dataset.id, properties, container)));
 }
 
 function statusBadge(status) {
@@ -264,8 +290,9 @@ function statusBadge(status) {
     return map[status] || 'badge-gray';
 }
 
-async function openMaintModal(properties) {
-    const providers = await api.get('/contacts?type=Proveedor');
+async function openMaintModal(properties, tabContainer) {
+    const resp = await api.get('/contacts?contact_type=Proveedor&limit=100');
+    const providers = resp.items || [];
     const providerOptions = providers.length ? providers.map(p => `<option value="${p.id}|${p.name}">${p.name}</option>`).join('') : '<option value="">No hay proveedores</option>';
     const propertyOptions = properties.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
 
@@ -288,12 +315,17 @@ async function openMaintModal(properties) {
                 <div><label class="label">Costo Estimado</label><input class="input" type="number" name="estimated_cost" step="0.01" /></div>
                 <div><label class="label">Fecha</label><input class="input" type="date" name="scheduled_date" /></div>
             </div>
+            <div><label class="label">Notas</label><textarea class="input" name="notes" rows="2"></textarea></div>
         </form>
     `, {
         confirmText: 'Crear',
         onConfirm: async () => {
             const formData = new FormData(document.getElementById('mf'));
-            const payload = Object.fromEntries(formData);
+            const payload = {};
+            formData.forEach((v, k) => {
+                if (k === 'estimated_cost') { payload[k] = v ? parseFloat(v) : undefined; }
+                else if (v) { payload[k] = v; }
+            });
             const supVal = document.getElementById('maint-supplier-select').value;
             if (supVal) {
                 const [id, name] = supVal.split('|');
@@ -302,16 +334,20 @@ async function openMaintModal(properties) {
             }
             await api.post('/maintenance', payload);
             showToast('Orden creada', 'success');
-            await renderFacility(document.getElementById('page-content'));
+            // Re-render the maintenance tab only — do NOT call renderFacility() which resets to assets tab
+            if (tabContainer) {
+                await renderMaintenanceTab(tabContainer, { properties });
+            }
         }
     });
 }
 
-async function openEditMaintModal(id, properties) {
-    const [order, providers] = await Promise.all([
+async function openEditMaintModal(id, properties, tabContainer) {
+    const [order, resp] = await Promise.all([
         api.get(`/maintenance/${id}`),
-        api.get('/contacts?type=Proveedor')
+        api.get('/contacts?contact_type=Proveedor&limit=100')
     ]);
+    const providers = resp.items || [];
 
     const providerOptions = providers.length ? providers.map(p => `<option value="${p.id}|${p.name}" ${order.supplier_id === p.id ? 'selected' : ''}>${p.name}</option>`).join('') : '<option value="">No hay proveedores</option>';
 
@@ -322,6 +358,7 @@ async function openEditMaintModal(id, properties) {
                 <div><label class="label">Estado</label><select class="select" name="status">
                     <option value="Pendiente" ${order.status === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
                     <option value="En Progreso" ${order.status === 'En Progreso' ? 'selected' : ''}>En Progreso</option>
+                    <option value="Esperando Factura" ${order.status === 'Esperando Factura' ? 'selected' : ''}>Esperando Factura</option>
                     <option value="Completado" ${order.status === 'Completado' ? 'selected' : ''}>Completado</option>
                     <option value="Cancelado" ${order.status === 'Cancelado' ? 'selected' : ''}>Cancelado</option>
                 </select></div>
@@ -329,6 +366,7 @@ async function openEditMaintModal(id, properties) {
                     <option value="Baja" ${order.priority === 'Baja' ? 'selected' : ''}>Baja</option>
                     <option value="Media" ${order.priority === 'Media' ? 'selected' : ''}>Media</option>
                     <option value="Alta" ${order.priority === 'Alta' ? 'selected' : ''}>Alta</option>
+                    <option value="Urgente" ${order.priority === 'Urgente' ? 'selected' : ''}>Urgente</option>
                 </select></div>
             </div>
             <div>
@@ -339,24 +377,39 @@ async function openEditMaintModal(id, properties) {
                 </select>
             </div>
             <div class="grid grid-cols-2 gap-4">
+                <div><label class="label">Costo Estimado</label><input class="input" type="number" name="estimated_cost" step="0.01" value="${order.estimated_cost || ''}" /></div>
                 <div><label class="label">Costo Real</label><input class="input" type="number" name="actual_cost" step="0.01" value="${order.actual_cost || ''}" /></div>
-                <div><label class="label">Notas</label><textarea class="input" name="notes">${order.notes || ''}</textarea></div>
             </div>
+            <div><label class="label">Fecha Programada</label><input class="input" type="date" name="scheduled_date" value="${order.scheduled_date || ''}" /></div>
+            <div><label class="label">Notas</label><textarea class="input" name="notes" rows="3">${order.notes || ''}</textarea></div>
         </form>
     `, {
         confirmText: 'Guardar',
         onConfirm: async () => {
             const formData = new FormData(document.getElementById('e-mf'));
-            const payload = Object.fromEntries(formData);
+            const payload = {};
+            formData.forEach((v, k) => {
+                if (k === 'estimated_cost' || k === 'actual_cost') {
+                    payload[k] = v ? parseFloat(v) : null;
+                } else if (v) {
+                    payload[k] = v;
+                }
+            });
             const supVal = document.getElementById('e-maint-supplier-select').value;
             if (supVal) {
                 const [pid, pname] = supVal.split('|');
                 payload.supplier_id = pid;
                 payload.supplier_name = pname;
+            } else {
+                payload.supplier_id = null;
+                payload.supplier_name = null;
             }
             await api.put(`/maintenance/${id}`, payload);
             showToast('Actualizado', 'success');
-            await renderFacility(document.getElementById('page-content'));
+            // Re-render the maintenance tab only — do NOT call renderFacility() which resets to assets tab
+            if (tabContainer) {
+                await renderMaintenanceTab(tabContainer, { properties });
+            }
         }
     });
 }
