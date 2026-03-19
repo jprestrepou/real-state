@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { showToast, showModal, closeActiveModal } from '../components/modal.js';
+import { showToast, showModal, closeModal } from '../components/modal.js';
 import { formatDate } from '../utils/formatters.js';
 
 export async function renderWorkGroups(container, state) {
@@ -211,7 +211,7 @@ export async function renderWorkGroups(container, state) {
             `, {
                 cancelText: 'Cerrar',
                 confirmText: 'Aceptar',
-                onConfirm: () => closeActiveModal()
+                onConfirm: () => closeModal()
             });
 
             if (window.lucide) lucide.createIcons();
@@ -227,7 +227,7 @@ export async function renderWorkGroups(container, state) {
         try {
             await api.delete(`/work-groups/${wgId}/members/${userId}`);
             showToast('Miembro eliminado', 'success');
-            closeActiveModal();
+            closeModal();
             renderWorkGroups(container, state);
             // Optionally reopened the viewGroupDetails modal
             setTimeout(() => window.viewGroupDetails(wgId), 300);
@@ -241,7 +241,7 @@ export async function renderWorkGroups(container, state) {
         try {
             await api.delete(`/work-groups/${wgId}/properties/${propId}`);
             showToast('Propiedad deasignada', 'success');
-            closeActiveModal();
+            closeModal();
             renderWorkGroups(container, state);
             setTimeout(() => window.viewGroupDetails(wgId), 300);
         } catch (error) {
