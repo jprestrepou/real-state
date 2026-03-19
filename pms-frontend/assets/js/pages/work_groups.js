@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { showToast, showModal } from '../components/modal.js';
+import { showToast, showModal, closeActiveModal } from '../components/modal.js';
 import { formatDate } from '../utils/formatters.js';
 
 export async function renderWorkGroups(container, state) {
@@ -11,6 +11,9 @@ export async function renderWorkGroups(container, state) {
     ]);
     const properties = propertiesData.items || [];
     const users = usersData.items || [];
+
+    // Filter out users that don't have an ID (sanity check)
+    const validUsers = users.filter(u => u.id);
 
     container.innerHTML = `
         <div class="flex justify-between items-center mb-6 animate-fade-in">
@@ -37,21 +40,26 @@ export async function renderWorkGroups(container, state) {
                     <div class="space-y-2 flex-grow">
                         <div class="flex justify-between text-sm">
                             <span class="text-surface-600 font-medium">Miembros</span>
-                            <span class="font-bold text-surface-900">${wg.members?.length || 0}</span>
+                            <span class="font-bold text-surface-900">${wg.members_count || 0}</span>
                         </div>
                         <div class="flex justify-between text-sm">
                             <span class="text-surface-600 font-medium">Propiedades Asignadas</span>
-                            <span class="font-bold text-surface-900">${wg.assigned_properties?.length || 0}</span>
+                            <span class="font-bold text-surface-900">${wg.properties_count || 0}</span>
                         </div>
                     </div>
 
-                    <div class="pt-4 border-t border-surface-100 flex gap-2">
-                        <button class="btn-secondary btn-sm flex-1" onclick="window.addMemberModal('${wg.id}')">
-                            <i data-lucide="user-plus" class="w-4 h-4 mr-1"></i> Miembro
+                    <div class="pt-4 border-t border-surface-100 flex flex-col gap-2">
+                        <button class="btn-ghost btn-sm w-full font-medium" onclick="window.viewGroupDetails('${wg.id}')">
+                            <i data-lucide="eye" class="w-4 h-4 mr-1"></i> Ver Detalles
                         </button>
-                        <button class="btn-secondary btn-sm flex-1" onclick="window.addPropertyModal('${wg.id}')">
-                            <i data-lucide="home" class="w-4 h-4 mr-1"></i> Propiedad
-                        </button>
+                        <div class="flex gap-2">
+                            <button class="btn-secondary btn-sm flex-1" onclick="window.addMemberModal('${wg.id}')">
+                                <i data-lucide="user-plus" class="w-4 h-4 mr-1"></i> Miembro
+                            </button>
+                            <button class="btn-secondary btn-sm flex-1" onclick="window.addPropertyModal('${wg.id}')">
+                                <i data-lucide="home" class="w-4 h-4 mr-1"></i> Propiedad
+                            </button>
+                        </div>
                     </div>
                 </div>
             `).join('') : '<div class="col-span-full py-12 text-center text-surface-500">No hay grupos de trabajo creados.</div>'}
@@ -84,8 +92,8 @@ export async function renderWorkGroups(container, state) {
 
     // Attach to window so onclick works
     window.addMemberModal = async (wgId) => {
-        const userOptions = users.length
-            ? users.map(u => `<option value="${u.id}">${u.full_name || u.email} (${u.role})</option>`).join('')
+        const userOptions = validUsers.length
+            ? validUsers.map(u => `<option value="${u.id}">${u.full_name || u.email} (${u.role})</option>`).join('')
             : '<option value="" disabled>No se encontraron usuarios</option>';
 
         showModal('Añadir Miembro', `
@@ -112,7 +120,7 @@ export async function renderWorkGroups(container, state) {
                 const payload = Object.fromEntries(fd);
                 if (!payload.user_id) {
                     showToast('Seleccione un usuario', 'error');
-                    return;
+                    throw new Error('Seleccione un usuario');
                 }
                 await api.post(`/work-groups/${wgId}/members`, payload);
                 showToast('Miembro añadido', 'success');
@@ -143,13 +151,102 @@ export async function renderWorkGroups(container, state) {
                 const payload = Object.fromEntries(fd);
                 if (!payload.property_id) {
                     showToast('Seleccione una propiedad', 'error');
-                    return;
+                    throw new Error('Seleccione una propiedad');
                 }
                 await api.post(`/work-groups/${wgId}/properties`, payload);
                 showToast('Propiedad asignada', 'success');
                 renderWorkGroups(container, state);
             }
         });
+    };
+
+    window.viewGroupDetails = async (wgId) => {
+        try {
+            const [wgData, members, props] = await Promise.all([
+                api.get(`/work-groups/${wgId}`),
+                api.get(`/work-groups/${wgId}/members`),
+                api.get(`/work-groups/${wgId}/properties`)
+            ]);
+
+            const membersHtml = members.length ? members.map(m => `
+                <div class="flex justify-between items-center p-2 border-b border-surface-100 last:border-0 hover:bg-surface-50">
+                    <div>
+                        <p class="font-medium text-sm text-surface-900">${m.user?.full_name || 'Desconocido'}</p>
+                        <p class="text-[10px] text-surface-500">${m.user?.email || 'N/A'}</p>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="badge ${m.role === 'Admin' || m.role === 'Super Admin' ? 'badge-primary' : 'badge-gray'} text-xs">${m.role}</span>
+                        ${m.user_id !== state.user?.id && m.role !== 'Super Admin' ? 
+                          `<button class="text-rose-500 hover:text-rose-700" onclick="window.removeMember('${wgId}', '${m.user_id}')" title="Eliminar miembro"><i data-lucide="user-minus" class="w-4 h-4"></i></button>` 
+                          : ''}
+                    </div>
+                </div>
+            `).join('') : '<p class="text-surface-500 text-sm py-2">No hay miembros adicionales.</p>';
+
+            const propsHtml = props.length ? props.map(p => `
+                <div class="flex justify-between items-center p-2 border-b border-surface-100 last:border-0 hover:bg-surface-50">
+                    <div>
+                        <p class="font-medium text-sm text-surface-900">${p.name}</p>
+                        <p class="text-[10px] text-surface-500">${p.property_type} • ${p.address || ''}</p>
+                    </div>
+                    <button class="text-rose-500 hover:text-rose-700" onclick="window.removeProperty('${wgId}', '${p.id}')" title="Quitar propiedad"><i data-lucide="unlink" class="w-4 h-4"></i></button>
+                </div>
+            `).join('') : '<p class="text-surface-500 text-sm py-2">No hay propiedades asignadas.</p>';
+
+            showModal(`Detalles: ${wgData.name}`, `
+                <div class="space-y-6">
+                    <div>
+                        <h4 class="text-sm font-bold text-surface-700 border-b border-surface-200 pb-1 mb-2">Miembros del Equipo</h4>
+                        <div class="max-h-48 overflow-y-auto">
+                            ${membersHtml}
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="text-sm font-bold text-surface-700 border-b border-surface-200 pb-1 mb-2">Propiedades Asignadas</h4>
+                        <div class="max-h-48 overflow-y-auto">
+                            ${propsHtml}
+                        </div>
+                    </div>
+                </div>
+            `, {
+                cancelText: 'Cerrar',
+                confirmText: 'Aceptar',
+                onConfirm: () => closeActiveModal()
+            });
+
+            if (window.lucide) lucide.createIcons();
+
+        } catch (error) {
+            console.error(error);
+            showToast('Error al cargar los detalles', 'error');
+        }
+    };
+
+    window.removeMember = async (wgId, userId) => {
+        if (!confirm('¿Está seguro de eliminar este miembro del grupo?')) return;
+        try {
+            await api.delete(`/work-groups/${wgId}/members/${userId}`);
+            showToast('Miembro eliminado', 'success');
+            closeActiveModal();
+            renderWorkGroups(container, state);
+            // Optionally reopened the viewGroupDetails modal
+            setTimeout(() => window.viewGroupDetails(wgId), 300);
+        } catch (error) {
+            showToast(error.message || 'Error al eliminar', 'error');
+        }
+    };
+
+    window.removeProperty = async (wgId, propId) => {
+        if (!confirm('¿Está seguro de deasignar esta propiedad del grupo?')) return;
+        try {
+            await api.delete(`/work-groups/${wgId}/properties/${propId}`);
+            showToast('Propiedad deasignada', 'success');
+            closeActiveModal();
+            renderWorkGroups(container, state);
+            setTimeout(() => window.viewGroupDetails(wgId), 300);
+        } catch (error) {
+            showToast(error.message || 'Error al deasignar', 'error');
+        }
     };
 
     if (window.lucide) lucide.createIcons();
