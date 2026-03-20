@@ -1,0 +1,24 @@
+Tras haber interactuado a fondo con el código del módulo de presupuestos y la lógica financiera del sistema, detecté varias áreas de oportunidad muy interesantes. Aquí te dejo las 5 mejores recomendaciones que llevarían tu módulo de presupuestos a un nivel completamente profesional y robusto:
+
+1. Vincular Transacciones y Presupuestos por ID (No por Texto)
+El problema: Actualmente, el cálculo de qué gastos "suman" a la ejecución del presupuesto se hace buscando palabras clave en el nombre de la transacción (ej. si dice "mantenimiento" o "administración"). Esto es frágil porque si un usuario escribe "Reparación" en lugar de "Mantenimiento", el gasto no se sumará al presupuesto y el semáforo será irreal. La solución: Crear un catálogo contable estandarizado (Plan de Cuentas) o hacer que cada Transaction de tipo Egreso deba seleccionar mediante un menú desplegable a qué 
+
+BudgetCategory
+ pertenece (su ID). Así la métrica de cruce será 100% precisa e irrompible.
+
+2. Notificaciones Automáticas (Alertas Preventivas)
+El problema: Actualmente el semáforo (Verde, Amarillo, Rojo) sólo se ve si el usuario entra explícitamente a la plataforma y revisa el mes. La solución: Ya que tienes el stack con Celery + Redis, podemos crear una tarea programada (cron job) que corra todos los días o cada semana. Si el presupuesto de una categoría o general pasa del 85% de ejecución (Amarillo), el sistema envía automáticamente un mensaje al bot de Telegram del administrador o un correo electrónico alertando: "Cuidado, la categoría 'Mantenimiento General' ha superado el 85% de su presupuesto para este mes".
+
+3. Congelamiento de "Llaves de Distribución"
+El problema: La función 
+
+calculate_distribution_keys
+ calcula qué porcentaje de los Gastos Generales le toca pagar a cada apartamento basándose en la renta de su contrato activo hoy. Si un contrato cambia de precio o un apartamento queda vacío, los cálculos históricos de meses pasados también cambian retrospectivamente. La solución: Crearle un cierre contable al presupuesto. Cuando un mes se acaba, el porcentaje de distribución que se usó ese mes se "congela" y se guarda en base de datos. Así garantizamos inmutabilidad contable (que el reporte de enero no cambie si revisas en diciembre).
+
+4. Versionado e Historial de Modificaciones
+El problema: Los presupuestos suelen requerir incrementos extraordinarios a mitad de año si hay urgencias (ej. daños severos en fachada). Si actualmente vas y editas el monto, se pierde la información de "cuál era el presupuesto original aprobado en la asamblea". La solución: Crear una tabla o historial en los modelos llamado BudgetRevision o un log de auditoría. Si un presupuesto se aprueba en $10.000 y a mitad de mes se modifica a $12.000, debe quedar guardado qué usuario lo hizo, cuándo y por qué (justificación) sin borrar el monto original.
+
+5. Reporte Visual / Exportación a PDF para Asambleas
+El problema: Tenemos la exportación en crudo a Excel que es ideal para contadores o administradores, pero en rentas y copropiedades a menudo se presentan cifras a inversionistas o propietarios que quieren ver algo más digerido. La solución: Utilizando la librería reportlab (que ya agregamos para backend en algunos módulos), generar un PDF de Resumen de Presupuesto donde se incluya un gráfico de barras comparativo, una pequeña torta de dónde se va el dinero, y el listado de lo ejecutado de forma muy estética usando tu misma paleta de colores.
+
+¿Te gustaría que ataquemos alguna de estas mejoras de inmediato? La número 1 (vincular transacciones rígidamente) y la número 2 (Fijar alertas por Telegram) te aportarían un valor enorme a la usabilidad actual del sistema.

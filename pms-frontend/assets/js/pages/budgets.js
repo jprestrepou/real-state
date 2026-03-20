@@ -63,7 +63,7 @@ export async function renderBudgets(container) {
 
   if (window.lucide) lucide.createIcons();
 
-  const [propertiesData, generalPropId] = await Promise.all([
+  const [propertiesData] = await Promise.all([
     api.get('/properties?limit=100'),
   ]);
   const properties = propertiesData.items || [];
