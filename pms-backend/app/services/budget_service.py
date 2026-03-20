@@ -12,51 +12,15 @@ from app.models.budget import Budget, BudgetCategory
 from app.models.financial import Transaction, TransactionDirection
 from app.schemas.budget import BudgetCreate, BudgetDuplicate
 
-GENERAL_PROPERTY_NAME = "Gastos Generales"
 
-async def _ensure_general_property(db: AsyncSession) -> str:
-    """Ensures the 'Gastos Generales' property exists and returns its ID."""
-    stmt = select(Property).where(Property.name == GENERAL_PROPERTY_NAME)
-    result = await db.execute(stmt)
-    prop = result.scalar_one_or_none()
-    if not prop:
-        # We need an owner_id. Let's find an admin or the first user.
-        from app.models.user import User
-        user_stmt = select(User).limit(1)
-        user_result = await db.execute(user_stmt)
-        user = user_result.scalar_one_or_none()
-        if not user:
-            raise Exception("No user found to assign Gastos Generales property")
-        
-        prop = Property(
-            name=GENERAL_PROPERTY_NAME,
-            property_type="Otros",
-            address="N/A",
-            city="N/A",
-            latitude=0,
-            longitude=0,
-            area_sqm=0,
-            owner_id=user.id,
-            status="Disponible"
-        )
-        db.add(prop)
-        await db.commit()
-        await db.refresh(prop)
-    return prop.id
 
 async def _refresh_budget_totals(db: AsyncSession, budget: Budget):
     """
     Calculates execution totals for a budget and its categories in real-time.
     Also updates total_budget if auto_calculate_total is True.
     """
-    dist_keys = await calculate_distribution_keys(db, budget.property_id)
-    stmt_gen = select(Property).where(Property.name == GENERAL_PROPERTY_NAME).limit(1)
-    gen_result = await db.execute(stmt_gen)
-    gen_prop = gen_result.scalar_one_or_none()
-    
+    dist_keys = await calculate_distribution_keys(db, budget.property_id) if budget.property_id else {}
     all_prop_ids = list(dist_keys.keys()) + [budget.property_id]
-    if gen_prop and budget.property_id == gen_prop.id:
-        all_prop_ids.append(None)
 
     from sqlalchemy import func, cast, Integer
     from app.models.financial import TransactionDirection
@@ -157,7 +121,7 @@ async def list_budgets(db: AsyncSession, property_id: Optional[str] = None, year
 async def create_budget(db: AsyncSession, data: BudgetCreate):
     property_id = data.property_id
     if property_id == "GENERAL":
-        property_id = await _ensure_general_property(db)
+        property_id = None
 
     # We create exactly 1 budget record for the specified period_type
     if data.auto_calculate_total:
@@ -199,7 +163,7 @@ async def duplicate_budget(db: AsyncSession, budget_id: str, data: BudgetDuplica
         raise Exception("Presupuesto origen no encontrado")
 
     multiplier = 1 + (data.percentage_increase / 100.0)
-    target_prop = data.target_property_id or source.property_id
+    target_prop = None if data.target_property_id == "GENERAL" else (data.target_property_id or source.property_id)
     
     new_budget = Budget(
         property_id=target_prop,
@@ -340,16 +304,8 @@ async def get_budget_vs_actual_report(
     if not budget:
         return {"property_id": property_id, "year": year, "month": month, "rows": []}
 
-    dist_keys = await calculate_distribution_keys(db, property_id)
-    
-    # Check if this property is indeed the 'Gastos Generales' one
-    stmt_gen = select(Property).where(Property.name == GENERAL_PROPERTY_NAME).limit(1)
-    gen_result = await db.execute(stmt_gen)
-    gen_prop = gen_result.scalar_one_or_none()
-    
+    dist_keys = await calculate_distribution_keys(db, property_id) if property_id else {}
     all_prop_ids = list(dist_keys.keys()) + [property_id]
-    if gen_prop and property_id == gen_prop.id:
-        all_prop_ids.append(None) # Include transactions with NO property_id
     
     rows = []
     from sqlalchemy import func
@@ -420,14 +376,8 @@ async def get_budget_monthly_breakdown(db: AsyncSession, budget_id: str) -> Dict
     months_data = []
     months_names = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
     
-    dist_keys = await calculate_distribution_keys(db, budget.property_id)
-    stmt_gen = select(Property).where(Property.name == GENERAL_PROPERTY_NAME).limit(1)
-    gen_result = await db.execute(stmt_gen)
-    gen_prop = gen_result.scalar_one_or_none()
-    
+    dist_keys = await calculate_distribution_keys(db, budget.property_id) if budget.property_id else {}
     all_prop_ids = list(dist_keys.keys()) + [budget.property_id]
-    if gen_prop and budget.property_id == gen_prop.id:
-        all_prop_ids.append(None)
         
     from sqlalchemy import func, cast, Integer
     
@@ -509,3 +459,93 @@ async def delete_budget(db: AsyncSession, budget_id: str):
         await db.delete(budget)
         await db.commit()
     return True
+
+
+async def export_budgets_excel(db: AsyncSession, property_id: Optional[str] = None, start_year: Optional[int] = None, end_year: Optional[int] = None):
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill
+    
+    # Build query for budgets
+    stmt = select(Budget).options(selectinload(Budget.categories))
+    filters = []
+    if property_id is not None:
+        if property_id == "GENERAL" or property_id == "":
+            filters.append(Budget.property_id == None)
+        else:
+            filters.append(Budget.property_id == property_id)
+            
+    if start_year:
+        filters.append(Budget.year >= start_year)
+    if end_year:
+        filters.append(Budget.year <= end_year)
+        
+    if filters:
+        stmt = stmt.where(and_(*filters))
+        
+    stmt = stmt.order_by(Budget.year.asc())
+    result = await db.execute(stmt)
+    budgets = result.scalars().all()
+    
+    for b in budgets:
+        await _refresh_budget_totals(db, b)
+        
+    category_data = {}
+    years = sorted(list(set(b.year for b in budgets)))
+    if not years:
+        years = [start_year] if start_year else [2026] # fallback
+    
+    for b in budgets:
+        for cat in b.categories:
+            cat_name = cat.category_name
+            if cat_name not in category_data:
+                category_data[cat_name] = {}
+            if b.year not in category_data[cat_name]:
+                category_data[cat_name][b.year] = {"budgeted": 0.0, "actual": 0.0}
+            
+            category_data[cat_name][b.year]["budgeted"] += float(cat.budgeted_amount)
+            category_data[cat_name][b.year]["actual"] += float(cat.executed_amount)
+            
+    # Create Excel workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Presupuestos"
+    
+    header_fill = PatternFill(start_color="4F46E5", end_color="4F46E5", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    
+    # Headers
+    headers = ["Categoría"]
+    for y in years:
+        headers.extend([f"Pto. {y}", f"Ejec. {y}", f"% {y}"])
+        
+    ws.append(headers)
+    
+    for col_num in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+        
+    for cat_name, data_by_year in sorted(category_data.items()):
+        row = [cat_name]
+        for y in years:
+            b_val = data_by_year.get(y, {}).get("budgeted", 0.0)
+            a_val = data_by_year.get(y, {}).get("actual", 0.0)
+            pct = (a_val / b_val * 100) if b_val > 0 else 0.0
+            row.extend([b_val, a_val, round(pct, 2)])
+        ws.append(row)
+        
+    for row in ws.iter_rows(min_row=2, max_col=len(headers)):
+        for idx, cell in enumerate(row):
+            if idx > 0 and (idx % 3 == 1 or idx % 3 == 2):
+                cell.number_format = '"$"#,##0.00'
+            elif idx > 0 and idx % 3 == 0:
+                cell.number_format = '0.00"%"'
+                
+    ws.column_dimensions['A'].width = 30
+    
+    stream = io.BytesIO()
+    wb.save(stream)
+    stream.seek(0)
+    return stream

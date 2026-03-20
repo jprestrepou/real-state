@@ -65,13 +65,13 @@ export async function renderBudgets(container) {
 
   const [propertiesData, generalPropId] = await Promise.all([
     api.get('/properties?limit=100'),
-    api.get('/properties?limit=1').then(res => res.items.find(p => p.name === 'Gastos Generales')?.id || 'GENERAL')
   ]);
   const properties = propertiesData.items || [];
+  const generalPropId = null; // Backend now uses null for General
 
   // Fill property filter
   const propFilter = document.getElementById('filter-property');
-  properties.filter(p => p.id !== generalPropId).forEach(p => {
+  properties.forEach(p => {
     const opt = document.createElement('option');
     opt.value = p.id;
     opt.textContent = p.name;
@@ -108,6 +108,43 @@ export async function renderBudgets(container) {
 
   document.getElementById('apply-filters').addEventListener('click', loadContent);
   document.getElementById('add-budget-btn').addEventListener('click', () => openBudgetModal(properties, null, loadContent));
+  
+  // Add Export to Excel Button next to filters
+  const filtersContainer = document.querySelector('.glass-card-static.flex.flex-wrap');
+  const exportBtn = document.createElement('button');
+  exportBtn.className = 'btn-secondary !rounded-xl shadow-sm py-2 px-4 flex items-center gap-2 bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 ml-auto';
+  exportBtn.innerHTML = '<i data-lucide="download" class="w-4 h-4"></i> Exportar a Excel';
+  exportBtn.addEventListener('click', () => {
+    const prop_id = document.getElementById('filter-property').value;
+    const year = document.getElementById('filter-year').value;
+    let url = `${api.baseURL}/budgets/export/excel`;
+    const params = new URLSearchParams();
+    if (prop_id) params.append('property_id', prop_id === 'GENERAL' ? '' : prop_id);
+    if (year) {
+       params.append('start_year', parseInt(year) - 2); // default export recent years
+       params.append('end_year', parseInt(year) + 2);
+    }
+    if ([...params].length) url += '?' + params.toString();
+    
+    // Auth token
+    const token = localStorage.getItem('token');
+    fetch(url, { headers: token ? { 'Authorization': `Bearer ${token}` } : {} })
+    .then(async res => {
+      if (!res.ok) throw new Error('Error limitando exportación');
+      const blob = await res.blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `Presupuestos_${year || 'Todos'}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      showToast('Exportación exitosa', 'success');
+    }).catch(err => {
+      showToast('Error exportando Excel', 'error');
+      console.error(err);
+    });
+  });
+  filtersContainer.appendChild(exportBtn);
 
   // Initial load
   loadContent();
@@ -145,12 +182,12 @@ function renderTable(container, budgets, properties, generalPropId, onReload, so
       <tbody>
         ${budgets.map(b => {
     const prop = properties.find(p => p.id === b.property_id);
-    const propName = b.property_id === generalPropId ? 'Gastos Generales' : (prop ? prop.name : 'Unidad Borrada');
+    const propName = b.property_id === null ? 'Gastos Generales' : (prop ? prop.name : 'Unidad Borrada');
     return `
           <tr class="hover:bg-surface-50 transition-colors">
             <td>
               <div class="font-semibold text-surface-900">${propName}</div>
-              <div class="text-[10px] text-surface-400 italic">${b.property_id.slice(0, 8)}...</div>
+              <div class="text-[10px] text-surface-400 italic">${b.property_id ? b.property_id.slice(0, 8) + '...' : 'General'}</div>
             </td>
             <td>
               <span class="text-sm font-medium text-surface-700">${b.year} - ${new Date(0, b.month - 1).toLocaleString('es', { month: 'short', year: 'numeric' }).toUpperCase()}</span>
@@ -270,7 +307,7 @@ function openBudgetModal(properties, existingBudget = null, onSuccess) {
       <div class="${isEdit ? 'pointer-events-none opacity-60' : ''}">
         <label class="label">Propiedad *</label>
         <select class="select" name="property_id" required>
-          <option value="GENERAL" ${isEdit && existingBudget.property_id === 'GENERAL' ? 'selected' : ''}>Gastos Generales (Distribuible)</option>
+          <option value="GENERAL" ${isEdit && b_prop === null ? 'selected' : ''}>Gastos Generales (Distribuible)</option>
           ${propertyOptions}
         </select>
         ${isEdit ? '<p class="text-[10px] text-surface-400 mt-1">La propiedad y periodo no se pueden cambiar. Duplique el presupuesto si lo desea en otro lugar.</p>' : ''}
@@ -330,7 +367,7 @@ function openBudgetModal(properties, existingBudget = null, onSuccess) {
       });
 
       const payload = {
-        property_id: fd.get('property_id'),
+        property_id: fd.get('property_id') === 'GENERAL' ? null : fd.get('property_id'),
         year: parseInt(fd.get('year')),
         month: parseInt(fd.get('month')),
         total_budget: is_auto ? 0 : (parseFloat(fd.get('total_budget')) || 0),

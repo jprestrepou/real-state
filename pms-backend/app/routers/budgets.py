@@ -3,6 +3,7 @@ Budgets router — /api/v1/budgets endpoints.
 """
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -87,6 +88,22 @@ async def get_budget_report(
 ):
     """Obtener reporte presupuesto vs real con distribución."""
     return await budget_service.get_budget_vs_actual_report(db, property_id, year, month)
+@router.get("/export/excel")
+async def export_budgets_excel(
+    property_id: str | None = None,
+    start_year: int | None = None,
+    end_year: int | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Exportar presupuestos a Excel."""
+    stream = await budget_service.export_budgets_excel(db, property_id, start_year, end_year)
+    return StreamingResponse(
+        iter([stream.getvalue()]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=presupuestos.xlsx"}
+    )
+    
 @router.post("/{budget_id}/duplicate", response_model=list[BudgetResponse])
 async def duplicate_budget(
     budget_id: str,

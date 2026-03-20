@@ -15,7 +15,7 @@ class BudgetCategoryCreate(BaseModel):
 
 
 class BudgetCreate(BaseModel):
-    property_id: str
+    property_id: Optional[str] = None
     year: int = Field(ge=2020, le=2100)
     month: int = Field(ge=1, le=12, default=1)
     total_budget: float = Field(ge=0, default=0.0) # Can be 0 if auto-calculating
@@ -54,7 +54,7 @@ class BudgetCategoryResponse(BaseModel):
 
 class BudgetResponse(BaseModel):
     id: str
-    property_id: str
+    property_id: Optional[str]
     year: int
     month: int
     period_type: str
@@ -76,7 +76,7 @@ class BudgetReportRow(BaseModel):
     distribution: dict[str, float] = {}
 
 class BudgetReport(BaseModel):
-    property_id: str
+    property_id: Optional[str]
     year: int
     month: int
     rows: list[BudgetReportRow]
@@ -102,7 +102,7 @@ class BudgetMonthBreakdown(BaseModel):
 
 class BudgetBreakdownResponse(BaseModel):
     budget_id: str
-    property_id: str
+    property_id: Optional[str]
     year: int
     period_type: str
     total_budget: float
