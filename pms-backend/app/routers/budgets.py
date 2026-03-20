@@ -120,5 +120,18 @@ async def delete_budget(
     current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
 ):
     """Eliminar presupuesto."""
-    await budget_service.delete_budget(db, budget_id)
+    from fastapi import HTTPException
+    try:
+        await budget_service.delete_budget(db, budget_id)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return None
+
+@router.post("/{budget_id}/close", response_model=BudgetResponse)
+async def close_budget(
+    budget_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
+):
+    """Cerrar el presupuesto y congelar llaves de distribución."""
+    return await budget_service.close_budget(db, budget_id)

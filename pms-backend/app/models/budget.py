@@ -8,7 +8,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     String, Text, Numeric, Integer, Boolean,
-    Enum as SAEnum, DateTime, ForeignKey, func,
+    Enum as SAEnum, DateTime, ForeignKey, func, JSON
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -48,6 +48,8 @@ class Budget(Base):
     total_executed: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     auto_calculate_total: Mapped[bool] = mapped_column(Boolean, default=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_closed: Mapped[bool] = mapped_column(Boolean, default=False)
+    frozen_distribution: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships

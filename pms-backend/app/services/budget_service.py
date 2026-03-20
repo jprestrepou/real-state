@@ -19,7 +19,11 @@ async def _refresh_budget_totals(db: AsyncSession, budget: Budget):
     Calculates execution totals for a budget and its categories in real-time.
     Also updates total_budget if auto_calculate_total is True.
     """
-    dist_keys = await calculate_distribution_keys(db, budget.property_id) if budget.property_id else {}
+    if budget.is_closed and budget.frozen_distribution is not None:
+        dist_keys = budget.frozen_distribution
+    else:
+        dist_keys = await calculate_distribution_keys(db, budget.property_id) if budget.property_id else {}
+        
     all_prop_ids = list(dist_keys.keys()) + [budget.property_id]
 
     from sqlalchemy import func, cast, Integer
@@ -197,6 +201,9 @@ async def update_budget(db: AsyncSession, budget_id: str, data: Any): # Using An
     budget = await get_budget(db, budget_id)
     if not budget:
         return None
+        
+    if budget.is_closed:
+        raise Exception("No se puede editar un presupuesto cerrado. Ábralo primero o duplíquelo.")
     
     if data.notes is not None:
         budget.notes = data.notes
@@ -304,7 +311,11 @@ async def get_budget_vs_actual_report(
     if not budget:
         return {"property_id": property_id, "year": year, "month": month, "rows": []}
 
-    dist_keys = await calculate_distribution_keys(db, property_id) if property_id else {}
+    if budget.is_closed and budget.frozen_distribution is not None:
+        dist_keys = budget.frozen_distribution
+    else:
+        dist_keys = await calculate_distribution_keys(db, property_id) if property_id else {}
+        
     all_prop_ids = list(dist_keys.keys()) + [property_id]
     
     rows = []
@@ -376,7 +387,11 @@ async def get_budget_monthly_breakdown(db: AsyncSession, budget_id: str) -> Dict
     months_data = []
     months_names = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
     
-    dist_keys = await calculate_distribution_keys(db, budget.property_id) if budget.property_id else {}
+    if budget.is_closed and budget.frozen_distribution is not None:
+        dist_keys = budget.frozen_distribution
+    else:
+        dist_keys = await calculate_distribution_keys(db, budget.property_id) if budget.property_id else {}
+        
     all_prop_ids = list(dist_keys.keys()) + [budget.property_id]
         
     from sqlalchemy import func, cast, Integer
@@ -453,6 +468,8 @@ async def get_budget_monthly_breakdown(db: AsyncSession, budget_id: str) -> Dict
 async def delete_budget(db: AsyncSession, budget_id: str):
     budget = await get_budget(db, budget_id)
     if budget:
+        if budget.is_closed:
+            raise Exception("No se puede eliminar un presupuesto que ya ha sido cerrado.")
         # Delete categories first (though they might be cascade)
         for cat in budget.categories:
             await db.delete(cat)
@@ -549,3 +566,25 @@ async def export_budgets_excel(db: AsyncSession, property_id: Optional[str] = No
     wb.save(stream)
     stream.seek(0)
     return stream
+
+async def close_budget(db: AsyncSession, budget_id: str) -> Budget:
+    """Cierra un presupuesto y congela sus llaves de distribución."""
+    budget = await get_budget(db, budget_id)
+    if not budget:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
+        
+    if budget.is_closed:
+        return budget
+
+    # Refresh totals just in case
+    await _refresh_budget_totals(db, budget)
+
+    # Congelar distribución
+    dist_keys = await calculate_distribution_keys(db, budget.property_id) if budget.property_id else {}
+    budget.frozen_distribution = dist_keys
+    budget.is_closed = True
+    
+    await db.commit()
+    await db.refresh(budget)
+    return budget

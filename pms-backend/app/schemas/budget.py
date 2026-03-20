@@ -63,6 +63,8 @@ class BudgetResponse(BaseModel):
     auto_calculate_total: bool
     execution_pct: float
     semaphore: str
+    is_closed: bool
+    frozen_distribution: Optional[dict[str, float]] = None
     categories: list[BudgetCategoryResponse] = []
     notes: Optional[str] = None
     created_at: datetime
@@ -102,11 +104,13 @@ class BudgetMonthBreakdown(BaseModel):
 
 class BudgetBreakdownResponse(BaseModel):
     budget_id: str
-    property_id: Optional[str]
+    property_id: Optional[str] = None
     year: int
     period_type: str
     total_budget: float
     total_actual: float
     execution_pct: float
     semaphore: str
+    is_closed: bool
+    frozen_distribution: Optional[dict[str, float]] = None
     months: list[BudgetMonthBreakdown] = []

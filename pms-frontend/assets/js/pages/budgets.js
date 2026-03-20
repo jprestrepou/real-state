@@ -190,7 +190,10 @@ function renderTable(container, budgets, properties, generalPropId, onReload, so
               <div class="text-[10px] text-surface-400 italic">${b.property_id ? b.property_id.slice(0, 8) + '...' : 'General'}</div>
             </td>
             <td>
-              <span class="text-sm font-medium text-surface-700">${b.year} - ${new Date(0, b.month - 1).toLocaleString('es', { month: 'short', year: 'numeric' }).toUpperCase()}</span>
+              <div class="flex items-center gap-1">
+                <span class="text-sm font-medium text-surface-700">${b.year} - ${new Date(0, b.month - 1).toLocaleString('es', { month: 'short', year: 'numeric' }).toUpperCase()}</span>
+                ${b.is_closed ? '<i data-lucide="lock" class="w-3 h-3 text-surface-400" title="Presupuesto Cerrado"></i>' : ''}
+              </div>
             </td>
             <td>
               <div class="flex items-center gap-2">
@@ -210,23 +213,34 @@ function renderTable(container, budgets, properties, generalPropId, onReload, so
               </div>
             </td>
             <td>
-              <div class="flex justify-end gap-2">
+              <div class="flex justify-end gap-1">
                 <a href="#/budget-report?property_id=${b.property_id}&year=${b.year}&month=${b.month}" 
                   class="p-2 rounded-lg hover:bg-primary-50 text-primary-600 transition" title="Ver Reporte Detallado">
                   <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
                 </a>
+                
+                ${!b.is_closed ? `
+                <button class="close-budget-btn p-2 rounded-lg hover:bg-indigo-50 text-indigo-600 transition" 
+                  data-id="${b.id}" title="Cerrar Mes (Congelar Distribución)">
+                  <i data-lucide="lock" class="w-4 h-4"></i>
+                </button>
                 <button class="edit-btn p-2 rounded-lg hover:bg-blue-50 text-blue-600 transition" 
                   data-id="${b.id}" title="Editar">
                   <i data-lucide="edit-3" class="w-4 h-4"></i>
                 </button>
+                ` : ''}
+                
                 <button class="duplicate-btn p-2 rounded-lg hover:bg-surface-100 text-surface-500 transition" 
                   data-id="${b.id}" title="Duplicar">
                   <i data-lucide="copy" class="w-4 h-4"></i>
                 </button>
+                
+                ${!b.is_closed ? `
                 <button class="delete-budget-btn p-2 rounded-lg hover:bg-rose-50 text-rose-600 transition" 
                   data-id="${b.id}" title="Eliminar">
                   <i data-lucide="trash-2" class="w-4 h-4"></i>
                 </button>
+                ` : ''}
               </div>
             </td>
           </tr>
@@ -289,6 +303,23 @@ function renderTable(container, budgets, properties, generalPropId, onReload, so
           await api.delete(`/budgets/${btn.dataset.id}`);
           showToast('Presupuesto eliminado', 'success');
           onReload();
+        }
+      });
+    });
+  });
+
+  container.querySelectorAll('.close-budget-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      showModal('¿Cerrar y Congelar Presupuesto?', `Esta acción calculará y guardará irreversiblemente los porcentajes de distribución de este mes. El presupuesto quedará bloqueado y no podrá ser editado ni eliminado en el futuro.`, {
+        confirmText: 'Cerrar Presupuesto',
+        onConfirm: async () => {
+          try {
+            await api.post(`/budgets/${btn.dataset.id}/close`);
+            showToast('Presupuesto cerrado exitosamente', 'success');
+            onReload();
+          } catch (err) {
+            showToast(err.message || 'Error al cerrar presupuesto', 'error');
+          }
         }
       });
     });
