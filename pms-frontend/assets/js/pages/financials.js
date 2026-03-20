@@ -470,7 +470,17 @@ function openTransactionModal(accounts, properties = [], isGeneralExpense = fals
     onConfirm: async () => {
       const fd = new FormData(document.getElementById('tx-form'));
       const payload = {};
-      fd.forEach((v, k) => { if (k === 'amount') payload[k] = parseFloat(v); else if (v) payload[k] = v; });
+      
+      const rawCat = fd.get('category');
+      const [bId, cName] = rawCat.includes('|') ? rawCat.split('|') : [null, rawCat];
+      
+      fd.forEach((v, k) => {
+        if (k === 'amount') payload[k] = parseFloat(v);
+        else if (k === 'category') payload[k] = cName;
+        else if (v) payload[k] = v;
+      });
+      payload.budget_category_id = bId || null;
+      
       if (isGeneralExpense) delete payload.property_id;
       if (payload.transaction_type === 'Ingreso') payload.direction = 'Debit';
       else if (payload.transaction_type === 'Gasto') payload.direction = 'Credit';
@@ -505,19 +515,17 @@ function openTransactionModal(accounts, properties = [], isGeneralExpense = fals
       const budgets = await api.get(`/budgets?property_id=${targetPropId}&year=${year}&month=${month}`);
       if (budgets && budgets.length > 0) {
         const budget = budgets[0];
-        const budgetCats = budget.categories.map(c => c.category_name);
-
-        let html = budgetCats.map(c => `<option value="${c}">${c} (Presupuestado)</option>`).join('');
+        let html = budget.categories.map(c => `<option value="${c.id}|${c.category_name}">${c.category_name} (Presupuestado)</option>`).join('');
         html += '<option disabled>──────────</option>';
-        html += categories.map(c => `<option value="${c}">${c}</option>`).join('');
+        html += categories.map(c => `<option value="|${c}">${c}</option>`).join('');
         catSelect.innerHTML = html;
       } else {
         // Reset to defaults if no budget found
-        catSelect.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+        catSelect.innerHTML = categories.map(c => `<option value="|${c}">${c}</option>`).join('');
       }
     } catch (err) {
       console.warn('Could not fetch budget categories:', err);
-      catSelect.innerHTML = categories.map(c => `<option value="${c}">${c}</option>`).join('');
+      catSelect.innerHTML = categories.map(c => `<option value="|${c}">${c}</option>`).join('');
     }
   };
 

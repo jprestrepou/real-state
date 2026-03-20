@@ -43,6 +43,7 @@ class AccountResponse(BaseModel):
 class TransactionCreate(BaseModel):
     account_id: str
     property_id: Optional[str] = None
+    budget_category_id: Optional[str] = None
     transaction_type: str = Field(pattern="^(Ingreso|Gasto|Transferencia|Ajuste|Interés|Abono|Crédito)$")
     category: str = Field(min_length=2, max_length=100)
     amount: float = Field(gt=0)
@@ -64,6 +65,7 @@ class TransferCreate(BaseModel):
 class TransactionUpdate(BaseModel):
     description: Optional[str] = None
     category: Optional[str] = None
+    budget_category_id: Optional[str] = None
     amount: Optional[float] = Field(None, gt=0)
     transaction_type: Optional[str] = Field(None, pattern="^(Ingreso|Gasto|Transferencia|Ajuste|Interés|Abono|Crédito)$")
     transaction_date: Optional[date] = None
@@ -73,6 +75,7 @@ class TransactionResponse(BaseModel):
     id: str
     account_id: str
     property_id: Optional[str] = None
+    budget_category_id: Optional[str] = None
     transaction_type: str
     category: str
     amount: float

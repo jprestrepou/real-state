@@ -95,6 +95,9 @@ class Transaction(Base):
     property_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("properties.id"), nullable=True, index=True
     )
+    budget_category_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("budget_categories.id"), nullable=True, index=True
+    )
     transaction_type: Mapped[str] = mapped_column(
         SAEnum(TransactionType, values_callable=lambda e: [x.value for x in e]),
         nullable=False,
