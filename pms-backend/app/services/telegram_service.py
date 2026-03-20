@@ -51,14 +51,33 @@ class TelegramService:
             
         url = f"{base_url}/setWebhook"
         payload = {"url": webhook_url}
-        async with httpx.AsyncClient() as client:
+        async with aiohttp.ClientSession() as session:
             try:
-                response = await client.post(url, json=payload)
-                return response.status_code == 200
-            except httpx.HTTPError as e:
+                async with session.post(url, json=payload, timeout=5) as response:
+                    data = await response.json()
+                    return data.get("ok", False)
+            except Exception as e:
                 logger.error(f"Telegram webhook error: {e}")
                 return False
-        return False
+
+    @classmethod
+    async def get_webhook_info(cls, db: AsyncSession) -> dict:
+        """Consults the Telegram API for the current webhook status."""
+        conf = await config_service.get_telegram_config(db)
+        token = conf.get("token")
+        if not token:
+            return {"ok": False, "description": "Token no configurado"}
+            
+        base_url = f"https://api.telegram.org/bot{token}"
+        url = f"{base_url}/getWebhookInfo"
+        
+        async with aiohttp.ClientSession() as session:
+            try:
+                async with session.get(url, timeout=5) as response:
+                    return await response.json()
+            except Exception as e:
+                logger.error(f"Telegram getWebhookInfo error: {e}")
+                return {"ok": False, "description": str(e)}
 
     @classmethod
     async def process_update(cls, db: AsyncSession, update: Dict[str, Any]):

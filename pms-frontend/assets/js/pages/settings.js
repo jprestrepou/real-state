@@ -11,28 +11,43 @@ export async function renderSettings(container, state) {
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 animate-fade-in cursor-default">
         <!-- Telegram Config -->
         <div class="glass-card-static p-6 border-t-4 border-t-sky-500">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center text-sky-600">
-                    <i data-lucide="bot" class="w-6 h-6"></i>
+            <div class="flex items-center justify-between gap-3 mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center text-sky-600">
+                        <i data-lucide="bot" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-surface-900">Telegram Bot</h3>
+                        <p class="text-sm text-surface-500">Configuración para notificaciones y alertas</p>
+                    </div>
                 </div>
-                <div>
-                    <h3 class="text-xl font-bold text-surface-900">Telegram Bot</h3>
-                    <p class="text-sm text-surface-500">Configuración para notificaciones y recepción de reportes</p>
+                <div id="webhook-status-badge" class="badge badge-gray flex items-center gap-1">
+                    <i data-lucide="loader" class="w-3 h-3 animate-spin"></i> Verificando...
                 </div>
             </div>
 
             <form id="telegram-config-form" class="space-y-4">
                 <div>
-                    <label class="label text-sm" for="telegram_token">Telegram Bot Token (obtenido de @BotFather)</label>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="label text-sm mb-0" for="telegram_token">Telegram Bot Token</label>
+                        <button type="button" id="btn-edit-token" class="text-xs text-primary-600 hover:text-primary-700 font-medium hidden">
+                            <i data-lucide="edit-2" class="w-3 h-3 inline"></i> Editar
+                        </button>
+                    </div>
                     <input type="password" id="telegram_token" name="TELEGRAM_BOT_TOKEN" class="input font-mono text-sm" placeholder="123456789:ABC...XYZ">
                     <p class="text-xs text-surface-400 mt-1">Paso 1: Pega y guarda el token.</p>
                 </div>
-                <div class="flex justify-end gap-3 pt-4 border-t border-surface-100">
-                    <button type="button" class="btn-outline flex-1" id="btn-activate-webhook">
+                <div>
+                    <label class="label text-sm" for="telegram_chat_id">Chat ID (Administrador/Grupo)</label>
+                    <input type="text" id="telegram_chat_id" name="TELEGRAM_CHAT_ID" class="input font-mono text-sm" placeholder="-100123456789">
+                    <p class="text-xs text-surface-400 mt-1">Requerido para que el Bot sepa dónde enviar las alertas.</p>
+                </div>
+                <div class="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-surface-100">
+                    <button type="button" class="btn-outline flex-1 mt-0" id="btn-activate-webhook">
                         <i data-lucide="link" class="w-4 h-4 mr-2"></i> Paso 2: Activar Webhook
                     </button>
-                    <button type="submit" class="btn-primary flex-1" id="btn-save-telegram">
-                        <i data-lucide="save" class="w-4 h-4 mr-2"></i> Guardar Token
+                    <button type="submit" class="btn-primary flex-1 mt-0" id="btn-save-telegram">
+                        <i data-lucide="save" class="w-4 h-4 mr-2"></i> Guardar Ajustes
                     </button>
                 </div>
             </form>
@@ -90,19 +105,57 @@ export async function renderSettings(container, state) {
             if (tgForm.elements[conf.key]) tgForm.elements[conf.key].value = conf.value;
             if (emForm.elements[conf.key]) emForm.elements[conf.key].value = conf.value;
         });
+
+        const webhookBadge = document.getElementById('webhook-status-badge');
+        const tokenInput = document.getElementById('telegram_token');
+        const btnEditToken = document.getElementById('btn-edit-token');
+        
+        try {
+            const whStatus = await api.get('/telegram/webhook-status');
+            if (whStatus.ok && whStatus.result?.url) {
+                webhookBadge.className = 'badge badge-green flex items-center gap-1';
+                webhookBadge.innerHTML = '<i data-lucide="check-circle" class="w-3 h-3"></i> Conectado';
+                tokenInput.disabled = true;
+                btnEditToken.classList.remove('hidden');
+            } else {
+                webhookBadge.className = 'badge badge-gray flex items-center gap-1';
+                webhookBadge.innerHTML = '<i data-lucide="x-circle" class="w-3 h-3"></i> Inactivo';
+                tokenInput.disabled = false;
+            }
+        } catch (e) {
+            webhookBadge.className = 'badge badge-red flex items-center gap-1';
+            webhookBadge.innerHTML = '<i data-lucide="alert-circle" class="w-3 h-3"></i> Error Webhook';
+        }
+        if (window.lucide) lucide.createIcons();
+
     } catch (e) {
         showToast('Error al cargar la configuración', 'error');
     }
 
     // Handlers
+    document.getElementById('btn-edit-token')?.addEventListener('click', () => {
+        if (confirm('Si editas el token, deberás volver a activar el webhook. ¿Deseas editarlo?')) {
+            document.getElementById('telegram_token').disabled = false;
+            document.getElementById('telegram_token').focus();
+        }
+    });
+
     document.getElementById('telegram-config-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('btn-save-telegram');
         btn.disabled = true;
         const token = e.target.elements['TELEGRAM_BOT_TOKEN'].value.trim();
+        const chat_id = e.target.elements['TELEGRAM_CHAT_ID'].value.trim();
         try {
-            await api.post('/config/batch', { "TELEGRAM_BOT_TOKEN": token });
-            showToast('Token guardado exitosamente', 'success');
+            await api.post('/config/batch', { 
+                "TELEGRAM_BOT_TOKEN": token,
+                "TELEGRAM_CHAT_ID": chat_id 
+            });
+            showToast('Ajustes guardados exitosamente', 'success');
+            if (token) {
+                document.getElementById('telegram_token').disabled = true;
+                document.getElementById('btn-edit-token').classList.remove('hidden');
+            }
         } catch (error) {
             showToast('Error al guardar: ' + error.message, 'error');
         } finally { btn.disabled = false; }
@@ -134,6 +187,7 @@ export async function renderSettings(container, state) {
             const baseUrl = import.meta.env.VITE_API_URL || 'https://real-state-xd5o.onrender.com';
             await api.post('/telegram/register-webhook', { domain: baseUrl });
             showToast('Webhook activado correctamente', 'success');
+            setTimeout(() => window.location.reload(), 1500); // Reload to update status badge
         } catch (err) {
             showToast('Error en Webhook: ' + err.message, 'error');
         } finally { btn.disabled = false; }

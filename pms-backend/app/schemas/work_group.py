@@ -72,18 +72,3 @@ class WorkGroupResponse(WorkGroupBase):
     properties_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
-
-    @field_validator("members_count", mode="before")
-    @classmethod
-    def compute_members_count(cls, v):
-        return v  # will be overridden by validator below
-
-    @classmethod
-    def model_validate(cls, obj, *args, **kwargs):
-        # Derive counts from relationships when available
-        instance = super().model_validate(obj, *args, **kwargs)
-        if hasattr(obj, "members") and obj.members is not None:
-            instance.members_count = len(obj.members)
-        if hasattr(obj, "properties") and obj.properties is not None:
-            instance.properties_count = len(obj.properties)
-        return instance

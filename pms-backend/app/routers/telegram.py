@@ -61,3 +61,13 @@ async def register_telegram_webhook(
         logger.error(f"Error registering Telegram webhook: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/webhook-status")
+async def get_telegram_webhook_status(
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(require_role("Admin"))
+):
+    """
+    Returns the current webhook status from Telegram API directly.
+    """
+    return await TelegramService.get_webhook_info(db)
+

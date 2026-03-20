@@ -34,6 +34,14 @@ class WorkGroup(Base):
     properties = relationship("WorkGroupProperty", back_populates="work_group", cascade="all, delete-orphan")
     users = relationship("User", back_populates="work_group", foreign_keys="User.work_group_id")
 
+    @property
+    def members_count(self) -> int:
+        return len(self.members) if 'members' in self.__dict__ else 0
+
+    @property
+    def properties_count(self) -> int:
+        return len(self.properties) if 'properties' in self.__dict__ else 0
+
 
 class WorkGroupMember(Base):
     __tablename__ = "work_group_members"
