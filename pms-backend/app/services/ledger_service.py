@@ -5,7 +5,7 @@ from sqlalchemy import select, func, extract
 from fastapi import HTTPException, status
 from collections import defaultdict
 
-from app.models.financial import BankAccount, Transaction, TransactionDirection, TransactionCategory
+from app.models.financial import BankAccount, Transaction, TransactionDirection, TransactionCategory, TransactionStatus
 from app.models.property import Property, PropertyStatus
 from app.schemas.financial import TransactionCreate, TransferCreate, TransactionUpdate
 
@@ -73,17 +73,19 @@ async def register_transaction(
         else:
             data.direction = TransactionDirection.DEBIT.value
 
-    if data.direction == TransactionDirection.CREDIT.value:
-        if float(account.current_balance) < data.amount:
-            raise InsufficientFundsError()
-        account.current_balance = float(account.current_balance) - data.amount
-    elif data.direction == TransactionDirection.DEBIT.value:
-        account.current_balance = float(account.current_balance) + data.amount
+    if data.status == TransactionStatus.COMPLETADA.value:
+        if data.direction == TransactionDirection.CREDIT.value:
+            if float(account.current_balance) < data.amount:
+                raise InsufficientFundsError()
+            account.current_balance = float(account.current_balance) - data.amount
+        elif data.direction == TransactionDirection.DEBIT.value:
+            account.current_balance = float(account.current_balance) + data.amount
 
     transaction = Transaction(
         account_id=data.account_id,
         property_id=data.property_id,
         transaction_type=data.transaction_type,
+        status=data.status,
         category=data.category,
         amount=data.amount,
         direction=data.direction,
@@ -196,6 +198,7 @@ async def get_financial_summary(db: AsyncSession, property_id: str | None = None
     """Get financial summary — total income, expenses, net. Excludes internal transfers."""
     income_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
         Transaction.direction == TransactionDirection.DEBIT.value,
+        Transaction.status == TransactionStatus.COMPLETADA.value,
         Transaction.category != TransactionCategory.TRANSFERENCIA_INTERNA.value
     )
     if property_id:
@@ -205,6 +208,7 @@ async def get_financial_summary(db: AsyncSession, property_id: str | None = None
 
     expense_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
         Transaction.direction == TransactionDirection.CREDIT.value,
+        Transaction.status == TransactionStatus.COMPLETADA.value,
         Transaction.category != TransactionCategory.TRANSFERENCIA_INTERNA.value
     )
     if property_id:
@@ -252,6 +256,7 @@ async def get_cashflow_report(db: AsyncSession, property_id: str | None = None, 
 
         inc_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
             Transaction.direction == TransactionDirection.DEBIT.value,
+            Transaction.status == TransactionStatus.COMPLETADA.value,
             Transaction.category != TransactionCategory.TRANSFERENCIA_INTERNA.value,
             Transaction.transaction_date >= month_start,
             Transaction.transaction_date <= month_end,
@@ -263,6 +268,7 @@ async def get_cashflow_report(db: AsyncSession, property_id: str | None = None, 
 
         exp_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
             Transaction.direction == TransactionDirection.CREDIT.value,
+            Transaction.status == TransactionStatus.COMPLETADA.value,
             Transaction.category != TransactionCategory.TRANSFERENCIA_INTERNA.value,
             Transaction.transaction_date >= month_start,
             Transaction.transaction_date <= month_end,
@@ -296,10 +302,12 @@ async def get_property_performance(db: AsyncSession, property_id: str) -> dict:
     inc_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
         Transaction.property_id == property_id,
         Transaction.direction == TransactionDirection.DEBIT.value,
+        Transaction.status == TransactionStatus.COMPLETADA.value,
     )
     exp_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
         Transaction.property_id == property_id,
         Transaction.direction == TransactionDirection.CREDIT.value,
+        Transaction.status == TransactionStatus.COMPLETADA.value,
     )
     result_inc = await db.execute(inc_stmt)
     total_income = float(result_inc.scalar() or 0)
@@ -329,6 +337,7 @@ async def get_property_performance(db: AsyncSession, property_id: str) -> dict:
             select(func.coalesce(func.sum(Transaction.amount), 0)).where(
                 Transaction.property_id == property_id,
                 Transaction.direction == TransactionDirection.DEBIT.value,
+                Transaction.status == TransactionStatus.COMPLETADA.value,
                 Transaction.transaction_date >= month_start,
                 Transaction.transaction_date <= month_end,
             )
@@ -339,6 +348,7 @@ async def get_property_performance(db: AsyncSession, property_id: str) -> dict:
             select(func.coalesce(func.sum(Transaction.amount), 0)).where(
                 Transaction.property_id == property_id,
                 Transaction.direction == TransactionDirection.CREDIT.value,
+                Transaction.status == TransactionStatus.COMPLETADA.value,
                 Transaction.transaction_date >= month_start,
                 Transaction.transaction_date <= month_end,
             )
@@ -358,6 +368,7 @@ async def get_property_performance(db: AsyncSession, property_id: str) -> dict:
         func.sum(Transaction.amount).label("total"),
     ).where(
         Transaction.property_id == property_id,
+        Transaction.status == TransactionStatus.COMPLETADA.value,
     ).group_by(Transaction.category, Transaction.direction)
 
     result_cat = await db.execute(cat_stmt)
@@ -417,6 +428,7 @@ async def get_income_statement(db: AsyncSession, start_date: date, end_date: dat
     ).where(
         Transaction.transaction_date >= start_date,
         Transaction.transaction_date <= end_date,
+        Transaction.status == TransactionStatus.COMPLETADA.value,
         Transaction.category != TransactionCategory.TRANSFERENCIA_INTERNA.value
     ).group_by(Transaction.category, Transaction.direction)
 
@@ -484,6 +496,8 @@ async def update_transaction(db: AsyncSession, tx_id: str, data: TransactionUpda
     old_amount = float(tx.amount)
     old_direction = tx.direction
 
+    old_status = tx.status
+
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         if value is not None and hasattr(tx, key):
@@ -497,14 +511,23 @@ async def update_transaction(db: AsyncSession, tx_id: str, data: TransactionUpda
 
     new_amount = float(tx.amount)
     new_direction = tx.direction
+    new_status = tx.status
 
-    if new_amount != old_amount or new_direction != old_direction:
-        account = await get_account(db, tx.account_id)
+    # Lógica de actualización de saldo:
+    # 1. Si antes estaba COMPLETADA, revertimos su efecto original.
+    # 2. Si ahora está COMPLETADA, aplicamos su nuevo efecto.
+    
+    account = await get_account(db, tx.account_id)
+    
+    # 1. Revertir anterior si estaba completada
+    if old_status == TransactionStatus.COMPLETADA.value:
         if old_direction == TransactionDirection.DEBIT.value:
             account.current_balance = float(account.current_balance) - old_amount
         else:
             account.current_balance = float(account.current_balance) + old_amount
             
+    # 2. Aplicar nuevo si está completada
+    if new_status == TransactionStatus.COMPLETADA.value:
         if new_direction == TransactionDirection.DEBIT.value:
             account.current_balance = float(account.current_balance) + new_amount
         else:
@@ -523,11 +546,12 @@ async def delete_transaction(db: AsyncSession, tx_id: str) -> None:
     if not tx:
         raise HTTPException(status_code=404, detail="Transacción no encontrada")
 
-    account = await get_account(db, tx.account_id)
-    if tx.direction == TransactionDirection.DEBIT.value:
-        account.current_balance = float(account.current_balance) - float(tx.amount)
-    else:
-        account.current_balance = float(account.current_balance) + float(tx.amount)
+    if tx.status == TransactionStatus.COMPLETADA.value:
+        account = await get_account(db, tx.account_id)
+        if tx.direction == TransactionDirection.DEBIT.value:
+            account.current_balance = float(account.current_balance) - float(tx.amount)
+        else:
+            account.current_balance = float(account.current_balance) + float(tx.amount)
 
     await db.delete(tx)
     await db.commit()
@@ -550,6 +574,7 @@ async def get_account_history(db: AsyncSession, account_id: str, months: int = 1
             select(func.coalesce(func.sum(Transaction.amount), 0)).where(
                 Transaction.account_id == account_id,
                 Transaction.direction == TransactionDirection.DEBIT.value,
+                Transaction.status == TransactionStatus.COMPLETADA.value,
                 Transaction.transaction_date >= month_start,
                 Transaction.transaction_date <= month_end,
             )
@@ -560,6 +585,7 @@ async def get_account_history(db: AsyncSession, account_id: str, months: int = 1
             select(func.coalesce(func.sum(Transaction.amount), 0)).where(
                 Transaction.account_id == account_id,
                 Transaction.direction == TransactionDirection.CREDIT.value,
+                Transaction.status == TransactionStatus.COMPLETADA.value,
                 Transaction.transaction_date >= month_start,
                 Transaction.transaction_date <= month_end,
             )
@@ -612,6 +638,7 @@ async def get_account_balance_history(db: AsyncSession, account_id: str, days: i
     
     stmt = select(Transaction).where(
         Transaction.account_id == account_id,
+        Transaction.status == TransactionStatus.COMPLETADA.value,
         Transaction.transaction_date >= start_date
     ).order_by(Transaction.transaction_date.desc())
     
@@ -644,7 +671,10 @@ async def get_account_profitability(db: AsyncSession, account_id: str, year: int
     account = await get_account(db, account_id)
     
     # We will compute the balances directly by reading transactions
-    stmt = select(Transaction).where(Transaction.account_id == account_id).order_by(Transaction.transaction_date)
+    stmt = select(Transaction).where(
+        Transaction.account_id == account_id,
+        Transaction.status == TransactionStatus.COMPLETADA.value
+    ).order_by(Transaction.transaction_date)
     result_txs = await db.execute(stmt)
     txs = result_txs.scalars().all()
     

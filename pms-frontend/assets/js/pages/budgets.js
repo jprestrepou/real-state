@@ -63,10 +63,12 @@ export async function renderBudgets(container) {
 
   if (window.lucide) lucide.createIcons();
 
-  const [propertiesData] = await Promise.all([
+  const [propertiesData, accountsData] = await Promise.all([
     api.get('/properties?limit=100'),
+    api.get('/accounts')
   ]);
   const properties = propertiesData.items || [];
+  const accounts = accountsData || [];
   const generalPropId = null; // Backend now uses null for General
 
   // Fill property filter
@@ -100,14 +102,14 @@ export async function renderBudgets(container) {
         filtered = budgets.filter(b => b.semaphore === status);
       }
 
-      renderTable(tableContainer, filtered, properties, generalPropId, loadContent);
+      renderTable(tableContainer, filtered, properties, accounts, generalPropId, loadContent);
     } catch (err) {
       tableContainer.innerHTML = `<div class="p-8 text-center text-rose-500">Error al cargar presupuestos: ${err.message}</div>`;
     }
   };
 
   document.getElementById('apply-filters').addEventListener('click', loadContent);
-  document.getElementById('add-budget-btn').addEventListener('click', () => openBudgetModal(properties, null, loadContent));
+  document.getElementById('add-budget-btn').addEventListener('click', () => openBudgetModal(properties, accounts, null, loadContent));
   
   // Add Export to Excel Button next to filters
   const filtersContainer = document.querySelector('.glass-card-static.flex.flex-wrap');
@@ -150,7 +152,7 @@ export async function renderBudgets(container) {
   loadContent();
 }
 
-function renderTable(container, budgets, properties, generalPropId, onReload, sortField = '', sortDir = 1) {
+function renderTable(container, budgets, properties, accounts, generalPropId, onReload, sortField = '', sortDir = 1) {
   if (!budgets.length) {
     container.innerHTML = `<div class="py-20 text-center text-surface-400">No se encontraron presupuestos con los filtros seleccionados.</div>`;
     return;
@@ -286,7 +288,7 @@ function renderTable(container, budgets, properties, generalPropId, onReload, so
         }
         return (valA > valB ? 1 : -1) * sortDir;
       });
-      renderTable(container, sorted, properties, generalPropId, onReload, field, sortDir);
+      renderTable(container, sorted, properties, accounts, generalPropId, onReload, field, sortDir);
     });
   });
 
@@ -294,7 +296,7 @@ function renderTable(container, budgets, properties, generalPropId, onReload, so
   container.querySelectorAll('.edit-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
       const budget = budgets.find(x => x.id === btn.dataset.id);
-      openBudgetModal(properties, budget, onReload);
+      openBudgetModal(properties, accounts, budget, onReload);
     });
   });
 
@@ -401,7 +403,7 @@ function openHistoryModal(budget) {
   if (window.lucide) lucide.createIcons();
 }
 
-function openBudgetModal(properties, existingBudget = null, onSuccess) {
+function openBudgetModal(properties, accounts, existingBudget = null, onSuccess) {
   const isEdit = !!existingBudget;
   const year = isEdit ? existingBudget.year : new Date().getFullYear();
   const month = isEdit ? existingBudget.month : new Date().getMonth() + 1;
@@ -449,7 +451,7 @@ function openBudgetModal(properties, existingBudget = null, onSuccess) {
           <button type="button" id="add-cat-btn" class="text-xs text-primary-600 font-bold hover:underline">+ Agregar</button>
         </div>
         <div class="space-y-2 max-h-48 overflow-y-auto pr-2" id="cats-list">
-          ${isEdit ? existingBudget.categories.map(c => renderCatRow(c.category_name, c.budgeted_amount, c.is_distributable)).join('') : ''}
+          ${isEdit ? existingBudget.categories.map(c => renderCatRow(c.category_name, c.budgeted_amount, c.is_distributable, c.account_id, accounts)).join('') : ''}
         </div>
       </div>
       ${isEdit ? `
@@ -476,7 +478,8 @@ function openBudgetModal(properties, existingBudget = null, onSuccess) {
         const n = r.querySelector('[name="cat_name"]').value;
         const a = r.querySelector('[name="cat_amount"]').value;
         const d = r.querySelector('[name="cat_dist"]').checked;
-        if (n && a) cats.push({ category_name: n, budgeted_amount: parseFloat(a), is_distributable: d });
+        const acc = r.querySelector('[name="cat_account"]')?.value;
+        if (n && a) cats.push({ category_name: n, budgeted_amount: parseFloat(a), is_distributable: d, account_id: acc || null });
       });
 
       const payload = {
@@ -525,7 +528,7 @@ function openBudgetModal(properties, existingBudget = null, onSuccess) {
   document.getElementById('add-cat-btn').addEventListener('click', () => {
     const list = document.getElementById('cats-list');
     const temp = document.createElement('div');
-    temp.innerHTML = renderCatRow();
+    temp.innerHTML = renderCatRow('', '', false, null, accounts);
     const row = temp.firstElementChild;
     list.appendChild(row);
     if (window.lucide) lucide.createIcons();
@@ -542,12 +545,16 @@ function openBudgetModal(properties, existingBudget = null, onSuccess) {
   if (window.lucide) lucide.createIcons();
 }
 
-function renderCatRow(name = '', amount = '', dist = false) {
+function renderCatRow(name = '', amount = '', dist = false, accountId = null, accounts = []) {
   return `
-    <div class="cat-row flex gap-2 items-center animate-fade-in group">
-      <input class="input text-sm py-1.5 flex-1" name="cat_name" value="${name}" placeholder="Ej: Mantenimiento" />
-      <input class="input text-sm py-1.5 w-40" name="cat_amount" type="number" step="0.01" value="${amount}" placeholder="$" />
-      <div class="flex items-center gap-1">
+    <div class="cat-row flex gap-2 items-center animate-fade-in group w-full">
+      <input class="input text-sm py-1.5 flex-[4]" name="cat_name" value="${name}" placeholder="Categoría" />
+      <input class="input text-sm py-1.5 flex-[2]" name="cat_amount" type="number" step="0.01" value="${amount}" placeholder="$" />
+      <select class="select text-xs py-1.5 flex-[3]" name="cat_account">
+        <option value="">(Sin Cuenta)</option>
+        ${accounts.map(a => `<option value="${a.id}" ${accountId === a.id ? 'selected' : ''}>${a.account_name}</option>`).join('')}
+      </select>
+      <div class="flex items-center gap-1 w-12">
         <input type="checkbox" name="cat_dist" class="w-4 h-4" ${dist ? 'checked' : ''} />
         <span class="text-[10px] text-surface-400">Dist.</span>
       </div>

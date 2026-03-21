@@ -50,6 +50,7 @@ async def _refresh_budget_totals(db: AsyncSession, budget: Budget):
     query = select(Transaction.budget_category_id, sa_func.coalesce(sa_func.sum(Transaction.amount), 0.0)).where(
         and_(
             Transaction.direction == TransactionDirection.CREDIT.value,
+            Transaction.status == "Completada",
             cast(sa_func.strftime('%Y', Transaction.transaction_date), Integer) == budget.year,
             cast(sa_func.strftime('%m', Transaction.transaction_date), Integer) >= start_m,
             cast(sa_func.strftime('%m', Transaction.transaction_date), Integer) <= end_m,
@@ -139,6 +140,7 @@ async def create_budget(db: AsyncSession, data: BudgetCreate):
         cat = BudgetCategory(
             budget_id=new_budget.id,
             category_name=cat_data.category_name,
+            account_id=cat_data.account_id,
             budgeted_amount=cat_data.budgeted_amount,
             is_distributable=cat_data.is_distributable
         )
@@ -174,6 +176,7 @@ async def duplicate_budget(db: AsyncSession, budget_id: str, data: BudgetDuplica
         new_cat = BudgetCategory(
             budget_id=new_budget.id,
             category_name=cat.category_name,
+            account_id=cat.account_id,
             budgeted_amount=float(cat.budgeted_amount) * multiplier,
             is_distributable=cat.is_distributable
         )
@@ -214,6 +217,7 @@ async def update_budget(db: AsyncSession, budget_id: str, data: Any, user_id: st
             new_cat = BudgetCategory(
                 budget_id=budget.id,
                 category_name=cat_data.category_name,
+                account_id=cat_data.account_id,
                 budgeted_amount=cat_data.budgeted_amount,
                 is_distributable=cat_data.is_distributable
             )
@@ -328,6 +332,7 @@ async def get_budget_vs_actual_report(
         trans_stmt = select(func.sum(Transaction.amount)).where(
             and_(
                 Transaction.budget_category_id == cat.id,
+                Transaction.status == "Completada",
                 Transaction.property_id.in_(all_prop_ids),
                 cast(func.strftime('%Y', Transaction.transaction_date), Integer) == year,
                 cast(func.strftime('%m', Transaction.transaction_date), Integer) == month
@@ -400,6 +405,7 @@ async def get_budget_monthly_breakdown(db: AsyncSession, budget_id: str) -> Dict
                 and_(
                     Transaction.budget_category_id == cat.id,
                     Transaction.direction == TransactionDirection.CREDIT.value,
+                    Transaction.status == "Completada",
                     cast(func.strftime('%Y', Transaction.transaction_date), Integer) == budget.year,
                     cast(func.strftime('%m', Transaction.transaction_date), Integer) == target_m
                 )

@@ -45,6 +45,7 @@ class TransactionCreate(BaseModel):
     property_id: Optional[str] = None
     budget_category_id: Optional[str] = None
     transaction_type: str = Field(pattern="^(Ingreso|Gasto|Transferencia|Ajuste|Interés|Abono|Crédito)$")
+    status: str = Field(default="Completada", pattern="^(Pendiente|Completada|Cancelada)$")
     category: str = Field(min_length=2, max_length=100)
     amount: float = Field(gt=0)
     direction: Optional[str] = Field(None, pattern="^(Debit|Credit)$")
@@ -68,6 +69,7 @@ class TransactionUpdate(BaseModel):
     budget_category_id: Optional[str] = None
     amount: Optional[float] = Field(None, gt=0)
     transaction_type: Optional[str] = Field(None, pattern="^(Ingreso|Gasto|Transferencia|Ajuste|Interés|Abono|Crédito)$")
+    status: Optional[str] = Field(None, pattern="^(Pendiente|Completada|Cancelada)$")
     transaction_date: Optional[date] = None
 
 
@@ -77,6 +79,7 @@ class TransactionResponse(BaseModel):
     property_id: Optional[str] = None
     budget_category_id: Optional[str] = None
     transaction_type: str
+    status: str
     category: str
     amount: float
     direction: str

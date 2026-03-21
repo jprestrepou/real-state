@@ -87,6 +87,9 @@ class BudgetCategory(Base):
     budget_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("budgets.id"), nullable=False, index=True
     )
+    account_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("bank_accounts.id"), nullable=True, index=True
+    )
     category_name: Mapped[str] = mapped_column(String(100), nullable=False)
     budgeted_amount: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
     executed_amount: Mapped[float] = mapped_column(Numeric(15, 2), default=0)

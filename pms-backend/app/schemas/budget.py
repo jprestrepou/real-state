@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 class BudgetCategoryCreate(BaseModel):
     category_name: str = Field(min_length=2, max_length=100)
+    account_id: Optional[str] = None
     budgeted_amount: float = Field(gt=0)
     is_distributable: bool = False
 
@@ -44,6 +45,7 @@ class BudgetDuplicate(BaseModel):
 class BudgetCategoryResponse(BaseModel):
     id: str
     category_name: str
+    account_id: Optional[str] = None
     budgeted_amount: float
     executed_amount: float
     execution_pct: float

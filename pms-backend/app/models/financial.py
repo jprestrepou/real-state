@@ -37,6 +37,12 @@ class TransactionDirection(str, enum.Enum):
     CREDIT = "Credit"
 
 
+class TransactionStatus(str, enum.Enum):
+    PENDIENTE = "Pendiente"
+    COMPLETADA = "Completada"
+    CANCELADA = "Cancelada"
+
+
 class TransactionCategory(str, enum.Enum):
     ARRIENDO = "Ingresos por Arriendo"
     MANTENIMIENTO = "Gastos Mantenimiento"
@@ -101,6 +107,12 @@ class Transaction(Base):
     transaction_type: Mapped[str] = mapped_column(
         SAEnum(TransactionType, values_callable=lambda e: [x.value for x in e]),
         nullable=False,
+    )
+    status: Mapped[str] = mapped_column(
+        SAEnum(TransactionStatus, values_callable=lambda e: [x.value for x in e]),
+        nullable=False,
+        default=TransactionStatus.COMPLETADA.value,
+        server_default=TransactionStatus.COMPLETADA.value,
     )
     category: Mapped[str] = mapped_column(String(100), nullable=False)
     amount: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)

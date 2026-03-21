@@ -112,6 +112,7 @@ export async function renderFinancials(container) {
                 <th>Categoría</th>
                 <th>Propiedad</th>
                 <th>Tipo</th>
+                <th>Estado</th>
                 <th>Monto</th>
                 <th>Dirección</th>
                 <th>Acciones</th>
@@ -127,6 +128,7 @@ export async function renderFinancials(container) {
                     ${tx.property_id ? `<span class="badge badge-blue text-xs">Propiedad</span>` : `<span class="badge badge-amber text-xs">General</span>`}
                   </td>
                   <td class="text-xs text-surface-500">${tx.transaction_type}</td>
+                  <td><span class="badge ${(!tx.status || tx.status === 'Completada') ? 'badge-green' : tx.status === 'Pendiente' ? 'badge-amber' : 'badge-gray'} text-xs">${tx.status || 'Completada'}</span></td>
                   <td class="font-semibold ${tx.direction === 'Debit' ? 'text-accent-600' : 'text-rose-600'}">
                     ${tx.direction === 'Debit' ? '+' : '-'}${formatCurrency(tx.amount)}
                   </td>
@@ -137,7 +139,7 @@ export async function renderFinancials(container) {
                   </td>
                   <td>
                     <div class="flex items-center gap-1">
-                      <button class="edit-tx-btn p-1.5 rounded-lg hover:bg-primary-50 text-surface-400 hover:text-primary-600 transition" data-id="${tx.id}" data-desc="${tx.description}" data-cat="${tx.category}" data-amount="${tx.amount}" data-type="${tx.transaction_type}" data-date="${tx.transaction_date}" title="Editar">
+                      <button class="edit-tx-btn p-1.5 rounded-lg hover:bg-primary-50 text-surface-400 hover:text-primary-600 transition" data-id="${tx.id}" data-desc="${tx.description}" data-cat="${tx.category}" data-amount="${tx.amount}" data-type="${tx.transaction_type}" data-date="${tx.transaction_date}" data-status="${tx.status || 'Completada'}" title="Editar">
                         <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
                       </button>
                       <button class="delete-tx-btn p-1.5 rounded-lg hover:bg-rose-50 text-surface-400 hover:text-rose-600 transition" data-id="${tx.id}" data-desc="${tx.description}" title="Eliminar">
@@ -254,7 +256,7 @@ export async function renderFinancials(container) {
   // Edit transaction buttons
   document.querySelectorAll('.edit-tx-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      openEditTransactionModal(btn.dataset.id, btn.dataset.desc, btn.dataset.cat, btn.dataset.amount, btn.dataset.type, btn.dataset.date);
+      openEditTransactionModal(btn.dataset.id, btn.dataset.desc, btn.dataset.cat, btn.dataset.amount, btn.dataset.type, btn.dataset.date, btn.dataset.status);
     });
   });
 
@@ -309,6 +311,7 @@ export async function renderFinancials(container) {
                 ${tx.property_id ? `<span class="badge badge-blue text-xs">Propiedad</span>` : `<span class="badge badge-amber text-xs">General</span>`}
               </td>
               <td class="text-xs text-surface-500">${tx.transaction_type}</td>
+              <td><span class="badge ${(!tx.status || tx.status === 'Completada') ? 'badge-green' : tx.status === 'Pendiente' ? 'badge-amber' : 'badge-gray'} text-xs">${tx.status || 'Completada'}</span></td>
               <td class="font-semibold ${tx.direction === 'Debit' ? 'text-accent-600' : 'text-rose-600'}">
                 ${tx.direction === 'Debit' ? '+' : '-'}${formatCurrency(tx.amount)}
               </td>
@@ -321,7 +324,7 @@ export async function renderFinancials(container) {
                 <div class="flex items-center gap-1">
                   <button class="edit-tx-btn p-1.5 rounded-lg hover:bg-primary-50 text-surface-400 hover:text-primary-600 transition" 
                     data-id="${tx.id}" data-desc="${tx.description}" data-cat="${tx.category}" 
-                    data-amount="${tx.amount}" data-type="${tx.transaction_type}" data-date="${tx.transaction_date}">
+                    data-amount="${tx.amount}" data-type="${tx.transaction_type}" data-date="${tx.transaction_date}" data-status="${tx.status || 'Completada'}">
                     <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
                   </button>
                   <button class="delete-tx-btn p-1.5 rounded-lg hover:bg-rose-50 text-surface-400 hover:text-rose-600 transition" 
@@ -336,7 +339,7 @@ export async function renderFinancials(container) {
             // Re-attach event listeners for new buttons
             tr.querySelector('.edit-tx-btn').addEventListener('click', () => {
               const btn = tr.querySelector('.edit-tx-btn');
-              openEditTransactionModal(btn.dataset.id, btn.dataset.desc, btn.dataset.cat, btn.dataset.amount, btn.dataset.type, btn.dataset.date);
+              openEditTransactionModal(btn.dataset.id, btn.dataset.desc, btn.dataset.cat, btn.dataset.amount, btn.dataset.type, btn.dataset.date, btn.dataset.status);
             });
             tr.querySelector('.delete-tx-btn').addEventListener('click', () => {
               const btn = tr.querySelector('.delete-tx-btn');
@@ -459,9 +462,14 @@ function openTransactionModal(accounts, properties = [], isGeneralExpense = fals
         </select></div>
         <div><label class="label">Categoría *</label><select class="select" name="category" required>${categories.map(c => `<option value="${c}">${c}</option>`).join('')}</select></div>
       </div>
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-3 gap-4">
         <div><label class="label">Monto *</label><input class="input" name="amount" type="number" step="0.01" min="0.01" required placeholder="1500000" /></div>
         <div><label class="label">Fecha *</label><input class="input" name="transaction_date" type="date" required value="${new Date().toISOString().split('T')[0]}" /></div>
+        <div><label class="label">Estado *</label><select class="select" name="status" required>
+          <option value="Completada">Completada</option>
+          <option value="Pendiente">Pendiente</option>
+          <option value="Cancelada">Cancelada</option>
+        </select></div>
       </div>
       <div><label class="label">Descripción *</label><input class="input" name="description" required placeholder="${isGeneralExpense ? 'Pago servicios oficina' : 'Pago canon mes de marzo'}" /></div>
     </form>
@@ -538,7 +546,7 @@ function openTransactionModal(accounts, properties = [], isGeneralExpense = fals
   }
 }
 
-function openEditTransactionModal(id, desc, cat, amount, type, txDate) {
+function openEditTransactionModal(id, desc, cat, amount, type, txDate, status) {
   const allCats = [...new Set([...CATEGORIES_GENERAL, ...CATEGORIES_PROPERTY])];
   showModal('Editar Transacción', `
     <form id="edit-tx-form" class="space-y-4">
@@ -549,9 +557,14 @@ function openEditTransactionModal(id, desc, cat, amount, type, txDate) {
           ${['Ingreso', 'Gasto', 'Transferencia', 'Ajuste', 'Interés', 'Abono', 'Crédito'].map(t => `<option value="${t}" ${t === type ? 'selected' : ''}>${t}</option>`).join('')}
         </select></div>
       </div>
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-3 gap-4">
         <div><label class="label">Monto</label><input class="input" name="amount" type="number" step="0.01" value="${amount}" /></div>
         <div><label class="label">Fecha</label><input class="input" name="transaction_date" type="date" value="${txDate}" /></div>
+        <div><label class="label">Estado</label><select class="select" name="status">
+          <option value="Completada" ${(!status || status === 'Completada') ? 'selected' : ''}>Completada</option>
+          <option value="Pendiente" ${status === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+          <option value="Cancelada" ${status === 'Cancelada' ? 'selected' : ''}>Cancelada</option>
+        </select></div>
       </div>
     </form>
   `, {
