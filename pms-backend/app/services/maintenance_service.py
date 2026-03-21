@@ -2,6 +2,7 @@
 Maintenance service — lifecycle management for work orders.
 """
 
+import logging
 from datetime import date
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -12,6 +13,28 @@ from app.models.maintenance import MaintenanceOrder, MaintenanceStatus
 from app.schemas.maintenance import MaintenanceCreate, MaintenanceUpdate
 from app.schemas.financial import TransactionCreate
 from app.models.financial import TransactionDirection, TransactionType
+
+logger = logging.getLogger(__name__)
+
+# Status emoji map for Telegram messages
+_STATUS_EMOJI = {
+    "Pendiente": "⏳",
+    "En Progreso": "🔧",
+    "Esperando Factura": "🧾",
+    "Completado": "✅",
+    "Cancelado": "❌",
+}
+
+
+async def _notify_reporter(db: AsyncSession, order: MaintenanceOrder, message: str) -> None:
+    """Send a Telegram message to the original reporter if they used the bot."""
+    if not order.telegram_chat_id:
+        return
+    try:
+        from app.services.telegram_service import TelegramService
+        await TelegramService.send_message(db, order.telegram_chat_id, message)
+    except Exception as e:
+        logger.warning(f"Could not send Telegram update to reporter: {e}")
 
 
 async def list_maintenance(
@@ -79,6 +102,7 @@ async def create_maintenance(db: AsyncSession, data: MaintenanceCreate, user_id:
 
 async def update_maintenance(db: AsyncSession, order_id: str, data: MaintenanceUpdate) -> MaintenanceOrder:
     order = await get_maintenance(db, order_id)
+    old_status = order.status
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(order, key, value)
@@ -93,11 +117,26 @@ async def update_maintenance(db: AsyncSession, order_id: str, data: MaintenanceU
         .where(MaintenanceOrder.id == order_id)
     )
     result = await db.execute(stmt)
-    return result.scalar_one()
+    refreshed = result.scalar_one()
+
+    # Notify Telegram reporter if status changed via general update
+    new_status = refreshed.status
+    if old_status != new_status and refreshed.telegram_chat_id:
+        emoji = _STATUS_EMOJI.get(new_status, "📢")
+        msg = (
+            f"{emoji} *Actualización de tu reporte*\n\n"
+            f"📋 *Reporte:* {refreshed.title}\n"
+            f"🔄 *Estado:* {new_status}\n"
+            f"_Ticket: `{refreshed.id[:8]}...`_"
+        )
+        await _notify_reporter(db, refreshed, msg)
+
+    return refreshed
 
 
 async def update_status(db: AsyncSession, order_id: str, new_status: str, notes: str | None = None) -> MaintenanceOrder:
     order = await get_maintenance(db, order_id)
+    old_status = order.status
     order.status = new_status
     if notes:
         order.notes = (order.notes or "") + f"\n[{date.today()}] {notes}"
@@ -114,7 +153,24 @@ async def update_status(db: AsyncSession, order_id: str, new_status: str, notes:
         .where(MaintenanceOrder.id == order_id)
     )
     result = await db.execute(stmt)
-    return result.scalar_one()
+    refreshed = result.scalar_one()
+
+    # Notify Telegram reporter if status changed
+    if old_status != new_status and refreshed.telegram_chat_id:
+        emoji = _STATUS_EMOJI.get(new_status, "📢")
+        msg_lines = [
+            f"{emoji} *Actualización de tu reporte*",
+            f"",
+            f"🏠 *Propiedad:* {refreshed.property_id}",
+            f"📋 *Reporte:* {refreshed.title}",
+            f"🔄 *Estado:* {new_status}",
+        ]
+        if notes:
+            msg_lines.append(f"📝 *Nota:* {notes}")
+        msg_lines.append(f"\'\n_Ticket: `{refreshed.id[:8]}...`_")
+        await _notify_reporter(db, refreshed, "\n".join(msg_lines))
+
+    return refreshed
 
 
 async def complete_maintenance(
@@ -147,6 +203,22 @@ async def complete_maintenance(
 
     await db.commit()
     await db.refresh(order)
+
+    # Notify Telegram reporter that the work is done
+    if order.telegram_chat_id:
+        cost_str = f"${actual_cost:,.2f}" if actual_cost else "No indicado"
+        msg = (
+            f"✅ *¡Tu reporte fue resuelto!*\n\n"
+            f"📋 *Reporte:* {order.title}\n"
+            f"🔄 *Estado:* Completado\n"
+            f"💰 *Costo real:* {cost_str}\n"
+            f"📅 *Fecha:* {date.today().strftime('%d/%m/%Y')}\n"
+        )
+        if notes:
+            msg += f"📝 *Notas:* {notes}\n"
+        msg += f"_Ticket: `{order.id[:8]}...`_"
+        await _notify_reporter(db, order, msg)
+
     return order
 
 
