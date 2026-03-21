@@ -219,6 +219,16 @@ function renderTable(container, budgets, properties, generalPropId, onReload, so
                   <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
                 </a>
                 
+                <button class="export-pdf-btn p-2 rounded-lg hover:bg-rose-50 text-rose-600 transition" 
+                  data-id="${b.id}" data-ym="${b.year}_${b.month}" title="Exportar PDF de Asamblea">
+                  <i data-lucide="file-text" class="w-4 h-4"></i>
+                </button>
+
+                <button class="history-btn p-2 rounded-lg hover:bg-purple-50 text-purple-600 transition" 
+                  data-id="${b.id}" title="Ver Historial de Cambios">
+                  <i data-lucide="history" class="w-4 h-4"></i>
+                </button>
+                
                 ${!b.is_closed ? `
                 <button class="close-budget-btn p-2 rounded-lg hover:bg-indigo-50 text-indigo-600 transition" 
                   data-id="${b.id}" title="Cerrar Mes (Congelar Distribución)">
@@ -324,6 +334,71 @@ function renderTable(container, budgets, properties, generalPropId, onReload, so
       });
     });
   });
+
+  container.querySelectorAll('.export-pdf-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const budgetId = btn.dataset.id;
+      const ym = btn.dataset.ym;
+      showToast('Generando PDF...', 'info');
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${api.baseURL}/budgets/${budgetId}/export/pdf`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
+        if (!res.ok) throw new Error('Error al generar PDF');
+        const blob = await res.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `Presupuesto_${ym}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast('PDF generado exitosamente', 'success');
+      } catch (err) {
+        showToast(err.message || 'Error al exportar PDF', 'error');
+      }
+    });
+  });
+
+  container.querySelectorAll('.history-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const budget = budgets.find(x => x.id === btn.dataset.id);
+      openHistoryModal(budget);
+    });
+  });
+}
+
+function openHistoryModal(budget) {
+  if (!budget.revisions || budget.revisions.length === 0) {
+    showModal('Historial de Cambios', '<p class="text-surface-500 py-4 text-center">No hay revisiones registradas para este presupuesto.</p>', { confirmText: 'Cerrar' });
+    return;
+  }
+
+  const listHtml = budget.revisions.map(rev => {
+    return `
+      <div class="p-4 bg-surface-50 rounded-xl border border-surface-200 mb-3 animate-fade-in">
+        <div class="flex justify-between items-start mb-2">
+          <div>
+            <span class="text-xs font-bold text-primary-600 bg-primary-50 px-2 py-1 rounded-md border border-primary-100">${new Date(rev.created_at).toLocaleString()}</span>
+          </div>
+          <span class="text-xs text-surface-500 italic">Usuario ID: ${rev.user_id?.slice(0,8) || 'Sistema'}</span>
+        </div>
+        <div class="flex items-center gap-3 text-sm font-medium text-surface-700 my-2">
+          <span class="text-surface-500 line-through">${formatCurrency(rev.old_amount)}</span>
+          <i data-lucide="arrow-right" class="w-4 h-4 text-surface-400"></i>
+          <span class="text-emerald-600">${formatCurrency(rev.new_amount)}</span>
+        </div>
+        ${rev.justification ? \`<div class="text-xs text-surface-600 bg-white p-2 border border-surface-200 rounded-lg mt-2 font-medium"><b>Justificación:</b> \${rev.justification}</div>\` : ''}
+      </div>
+    `;
+  }).join('');
+
+  showModal('Historial de Modificaciones', `
+    <div class="max-h-96 overflow-y-auto pr-2">
+      ${listHtml}
+    </div>
+  `, { confirmText: 'Cerrar' });
+  if (window.lucide) lucide.createIcons();
 }
 
 function openBudgetModal(properties, existingBudget = null, onSuccess) {
@@ -377,8 +452,15 @@ function openBudgetModal(properties, existingBudget = null, onSuccess) {
           ${isEdit ? existingBudget.categories.map(c => renderCatRow(c.category_name, c.budgeted_amount, c.is_distributable)).join('') : ''}
         </div>
       </div>
+      ${isEdit ? `
+      <div class="bg-amber-50 p-3 rounded-xl border border-amber-100">
+        <label class="label text-amber-900">Justificación del Cambio *</label>
+        <input class="input bg-white" name="justification" type="text" placeholder="Razón de la modificación (obligatorio si cambia el total)..." />
+        <p class="text-[10px] text-amber-700 mt-1">Requerido por auditoría si el monto total cambia.</p>
+      </div>
+      ` : ''}
       <div>
-        <label class="label">Notas</label>
+        <label class="label">Notas Adicionales</label>
         <textarea class="textarea text-sm" name="notes" placeholder="Opcional...">${isEdit ? (existingBudget.notes || '') : ''}</textarea>
       </div>
     </form>
@@ -404,7 +486,8 @@ function openBudgetModal(properties, existingBudget = null, onSuccess) {
         total_budget: is_auto ? 0 : (parseFloat(fd.get('total_budget')) || 0),
         categories: cats,
         auto_calculate_total: is_auto,
-        notes: fd.get('notes')
+        notes: fd.get('notes'),
+        justification: fd.get('justification') || ''
       };
 
       if (!isEdit) {

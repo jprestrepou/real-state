@@ -8,7 +8,7 @@ from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
 from app.models.property import Property
 from app.models.contract import Contract, ContractStatus
-from app.models.budget import Budget, BudgetCategory
+from app.models.budget import Budget, BudgetCategory, BudgetRevision
 from app.models.financial import Transaction, TransactionDirection
 from app.schemas.budget import BudgetCreate, BudgetDuplicate
 
@@ -47,12 +47,13 @@ async def _refresh_budget_totals(db: AsyncSession, budget: Budget):
         end_m = 12
     else: end_m = start_m
     
-    query = select(Transaction.category, sa_func.coalesce(sa_func.sum(Transaction.amount), 0.0)).where(
+    query = select(Transaction.budget_category_id, sa_func.coalesce(sa_func.sum(Transaction.amount), 0.0)).where(
         and_(
             Transaction.direction == TransactionDirection.CREDIT.value,
             cast(sa_func.strftime('%Y', Transaction.transaction_date), Integer) == budget.year,
             cast(sa_func.strftime('%m', Transaction.transaction_date), Integer) >= start_m,
-            cast(sa_func.strftime('%m', Transaction.transaction_date), Integer) <= end_m
+            cast(sa_func.strftime('%m', Transaction.transaction_date), Integer) <= end_m,
+            Transaction.budget_category_id != None
         )
     )
 
@@ -64,12 +65,12 @@ async def _refresh_budget_totals(db: AsyncSession, budget: Budget):
     else:
         query = query.where(Transaction.property_id.in_(all_prop_ids_filtered))
 
-    query = query.group_by(Transaction.category)
+    query = query.group_by(Transaction.budget_category_id)
     result = await db.execute(query)
     results = result.all()
     
     # Map category names to their sums
-    cat_actuals = {row[0].lower(): float(row[1]) for row in results}
+    cat_actuals = {str(row[0]): float(row[1]) for row in results if row[0]}
     
     total_exec = 0.0
     total_budget_sum = 0.0
@@ -77,19 +78,8 @@ async def _refresh_budget_totals(db: AsyncSession, budget: Budget):
     for cat in budget.categories:
         total_budget_sum += float(cat.budgeted_amount)
         
-        # Match transaction categories to budget categories (using search logic)
-        cat_search_terms = {cat.category_name.lower()}
-        lower_cat = cat.category_name.lower()
-        if "mantenimiento" in lower_cat:
-            cat_search_terms.update(["gastos mantenimiento", "mantenimiento general", "mantenimiento"])
-        elif "administracion" in lower_cat or "administración" in lower_cat:
-            cat_search_terms.update(["cuotas de administración", "gastos administrativos", "honorarios gestión"])
-        elif "servicio" in lower_cat:
-            cat_search_terms.add("servicios públicos")
-        
-        cat_actual = 0.0
-        for term in cat_search_terms:
-            cat_actual += cat_actuals.get(term, 0.0)
+        # Match transaction categories to budget categories using ID
+        cat_actual = cat_actuals.get(str(cat.id), 0.0)
             
         cat.executed_amount = cat_actual
         total_exec += cat_actual
@@ -197,13 +187,15 @@ async def duplicate_budget(db: AsyncSession, budget_id: str, data: BudgetDuplica
     loaded = result.scalar_one()
     return [loaded]  # Return as list for compatibility
 
-async def update_budget(db: AsyncSession, budget_id: str, data: Any): # Using Any to handle BudgetUpdate
+async def update_budget(db: AsyncSession, budget_id: str, data: Any, user_id: str = None): # Using Any to handle BudgetUpdate
     budget = await get_budget(db, budget_id)
     if not budget:
         return None
         
     if budget.is_closed:
         raise Exception("No se puede editar un presupuesto cerrado. Ábralo primero o duplíquelo.")
+    
+    old_amount = float(budget.total_budget) if not budget.auto_calculate_total else sum(float(c.budgeted_amount) for c in budget.categories)
     
     if data.notes is not None:
         budget.notes = data.notes
@@ -236,6 +228,17 @@ async def update_budget(db: AsyncSession, budget_id: str, data: Any): # Using An
     # Manual total update if provided and not auto-calculating
     if data.total_budget is not None and not budget.auto_calculate_total:
         budget.total_budget = data.total_budget
+
+    new_amount = float(budget.total_budget)
+    if float(old_amount) != new_amount and user_id and hasattr(data, "justification") and data.justification:
+        rev = BudgetRevision(
+            budget_id=budget.id,
+            user_id=user_id,
+            old_amount=old_amount,
+            new_amount=new_amount,
+            justification=data.justification
+        )
+        db.add(rev)
 
     await db.commit()
     return await get_budget(db, budget_id)
@@ -321,24 +324,10 @@ async def get_budget_vs_actual_report(
     rows = []
     from sqlalchemy import func
     for cat in budget.categories:
-        # Flexible matching for common categories (like Maintenance)
-        cat_search_terms = [cat.category_name]
-        lower_cat = cat.category_name.lower()
-        if "mantenimiento" in lower_cat:
-            # If the budget says "Mantenimiento", catch "Gastos Mantenimiento" and "Mantenimiento General"
-            cat_search_terms.extend(["Gastos Mantenimiento", "Mantenimiento General", "Mantenimiento"])
-        elif "administracion" in lower_cat or "administración" in lower_cat:
-            cat_search_terms.extend(["Cuotas de Administración", "Gastos Administrativos", "Honorarios Gestión"])
-        elif "servicio" in lower_cat:
-            cat_search_terms.extend(["Servicios Públicos"])
-        
-        # Remove duplicates
-        cat_search_terms = list(set(cat_search_terms))
-
         from sqlalchemy import func, cast, Integer
         trans_stmt = select(func.sum(Transaction.amount)).where(
             and_(
-                Transaction.category.in_(cat_search_terms),
+                Transaction.budget_category_id == cat.id,
                 Transaction.property_id.in_(all_prop_ids),
                 cast(func.strftime('%Y', Transaction.transaction_date), Integer) == year,
                 cast(func.strftime('%m', Transaction.transaction_date), Integer) == month
@@ -407,15 +396,9 @@ async def get_budget_monthly_breakdown(db: AsyncSession, budget_id: str) -> Dict
         for cat in budget.categories:
             c_budgeted = float(cat.budgeted_amount) / num_months
             
-            cat_search_terms = {cat.category_name.lower()}
-            lower_cat = cat.category_name.lower()
-            if "mantenimiento" in lower_cat: cat_search_terms.update(["gastos mantenimiento", "mantenimiento general", "mantenimiento"])
-            elif "administracion" in lower_cat or "administración" in lower_cat: cat_search_terms.update(["cuotas de administración", "gastos administrativos", "honorarios gestión"])
-            elif "servicio" in lower_cat: cat_search_terms.add("servicios públicos")
-
             trans_stmt = select(func.sum(Transaction.amount)).where(
                 and_(
-                    func.lower(Transaction.category).in_(cat_search_terms),
+                    Transaction.budget_category_id == cat.id,
                     Transaction.direction == TransactionDirection.CREDIT.value,
                     cast(func.strftime('%Y', Transaction.transaction_date), Integer) == budget.year,
                     cast(func.strftime('%m', Transaction.transaction_date), Integer) == target_m

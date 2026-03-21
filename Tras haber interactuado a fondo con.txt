@@ -22,3 +22,32 @@ El problema: Los presupuestos suelen requerir incrementos extraordinarios a mita
 El problema: Tenemos la exportación en crudo a Excel que es ideal para contadores o administradores, pero en rentas y copropiedades a menudo se presentan cifras a inversionistas o propietarios que quieren ver algo más digerido. La solución: Utilizando la librería reportlab (que ya agregamos para backend en algunos módulos), generar un PDF de Resumen de Presupuesto donde se incluya un gráfico de barras comparativo, una pequeña torta de dónde se va el dinero, y el listado de lo ejecutado de forma muy estética usando tu misma paleta de colores.
 
 ¿Te gustaría que ataquemos alguna de estas mejoras de inmediato? La número 1 (vincular transacciones rígidamente) y la número 2 (Fijar alertas por Telegram) te aportarían un valor enorme a la usabilidad actual del sistema.
+
+🛠️ 1. Mejoras Arquitectónicas (Código y Rendimiento)
+En el Backend (FastAPI):
+
+Background Tasks (Celery + Redis): Actualmente tienes Celery configurado para alertas de Telegram. Es vital expandir su uso para todas las tareas pesadas: generación masiva de recibos a fin de mes, cálculos de rentabilidad anual y envío de correos. Esto evitará que la API se quede colgada (timeout).
+Caché Avanzado: Utilizar Redis para cachear respuestas que no cambian en tiempo real, como las estadísticas del Dashboard o el listado general de propiedades. Esto bajará los tiempos de respuesta a milisegundos.
+Testing y Seguridad: Aumentar la cobertura de pruebas unitarias (pytest) para los services y agregar Rate Limiting (ej. slowapi) para proteger endpoints sensibles como el login y la pasarela financiera contra ataques de fuerza bruta.
+En el Frontend (Vanilla JS + Vite):
+
+Modularización de Archivos JS: Archivos como 
+
+financials.js
+ y 
+
+facility.js
+ son muy grandes. Recomiendo partirlos en módulos más pequeños (utilidades, llamadas a la API y manejo de UI) para que el mantenimiento sea más sencillo.
+Progressive Web App (PWA): Configurar Service Workers. Esto permitirá que los técnicos de mantenimiento ("Grupos de Trabajo") puedan usar la app en sus celulares incluso si pierden la señal de internet dentro de un edificio, sincronizando los datos cuando recuperen la conexión.
+🚀 2. Mejoras Funcionales por Módulo Existente
+Finanzas y Presupuestos: Automatizar la conciliación bancaria leyendo extractos en Excel/CSV (o APIs de Open Banking), e implementar un indexador automático de aumentos de canon de arrendamiento basado en la inflación/IPC oficial.
+Propiedades y Activos: Agregar el cálculo de valorización histórica de los inmuebles (para obtener métricas como la TIR) y permitir generar códigos QR imprimibles para los activos físicos (neveras, aires). Al escanear el QR con el celular, el técnico verá todo el historial de reparaciones.
+Contratos: Incorporar firmas digitales con validez legal (como DocuSign o una firma propia trazable) para que los contratos se cierren 100% online.
+Facility Management: Integrar geolocalización GPS en tiempo real en los mapas de Leaflet para saber dónde están los técnicos de mantenimiento y asignarles la urgencia más cercana.
+🌟 3. Nuevos Módulos Sugeridos (Para escalar el negocio)
+Portal Externo (Inquilinos y Propietarios): Una interfaz aislada donde el inquilino entra a pagar su arriendo online, descargar recibos y abrir tickets de mantenimiento. Por su parte, el propietario o inversionista entra a ver el rendimiento financiero de su inmueble.
+Módulo CRM Inmobiliario: Para la etapa previa al alquiler. Un embudo de ventas que gestione los "Leads" (interesados), programe visitas a los inmuebles vacíos y haga seguimiento comercial hasta la firma del contrato.
+Gestor Documental Inteligente (OCR): Un módulo donde subas la foto o PDF de una factura de servicios públicos y una IA (OCR) extraiga automáticamente el monto, la fecha y el proveedor para crear la cuenta por pagar sin digitar nada manual.
+Módulo de Recepción/Conserjería: Ideal para copropiedades o edificios completos. Control de visitantes, registro de paquetes/entregas (Amazon, MercadoLibre) y reserva de zonas comunes (piscinas, BBQ).
+BI y Dashboards Avanzados: Un módulo de reportes dinámicos que permita cruzar datos (ej. "Tasa de morosidad vs. Rango de edad del inquilino"), detectar patrones de desocupación y exportar resúmenes fiscales listos para declaración de renta.
+Dime, ¿cuál de estos módulos o áreas de mejora consideras prioritario para empezar a detallar o implementar primero?

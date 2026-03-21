@@ -71,7 +71,8 @@ async def update_budget(
     current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
 ):
     """Actualizar presupuesto y categorías."""
-    budget = await budget_service.update_budget(db, budget_id, data)
+    user_id = getattr(current_user, "id", None)
+    budget = await budget_service.update_budget(db, budget_id, data, user_id=user_id)
     if not budget:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
@@ -135,3 +136,21 @@ async def close_budget(
 ):
     """Cerrar el presupuesto y congelar llaves de distribución."""
     return await budget_service.close_budget(db, budget_id)
+
+@router.get("/{budget_id}/export/pdf")
+async def export_budget_pdf(
+    budget_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Exportar reporte de presupuesto a PDF."""
+    from fastapi.responses import FileResponse
+    from app.services.pdf_service import generate_budget_pdf
+    from fastapi import HTTPException
+    
+    budget = await budget_service.get_budget(db, budget_id)
+    if not budget:
+        raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
+        
+    filepath = await generate_budget_pdf(budget)
+    return FileResponse(filepath, media_type="application/pdf", filename=f"presupuesto_{budget.year}_{budget.month}.pdf")

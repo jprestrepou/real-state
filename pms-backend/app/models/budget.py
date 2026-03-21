@@ -55,6 +55,7 @@ class Budget(Base):
     # Relationships
     property_rel = relationship("Property", back_populates="budgets")
     categories = relationship("BudgetCategory", back_populates="budget", cascade="all, delete-orphan")
+    revisions = relationship("BudgetRevision", back_populates="budget", cascade="all, delete-orphan")
 
     @property
     def execution_pct(self) -> float:
@@ -114,3 +115,26 @@ class BudgetCategory(Base):
 
     def __repr__(self) -> str:
         return f"<BudgetCategory {self.category_name} {self.semaphore}>"
+
+class BudgetRevision(Base):
+    __tablename__ = "budget_revisions"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4())
+    )
+    budget_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("budgets.id"), nullable=False, index=True
+    )
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=False
+    )
+    old_amount: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
+    new_amount: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
+    justification: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    # Relationships
+    budget = relationship("Budget", back_populates="revisions")
+
+    def __repr__(self) -> str:
+        return f"<BudgetRevision {self.old_amount} -> {self.new_amount}>"

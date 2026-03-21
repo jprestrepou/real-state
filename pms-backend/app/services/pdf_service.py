@@ -13,6 +13,7 @@ from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
 
 from app.models.contract import Contract
 from app.models.property import Property
+from app.models.budget import Budget
 
 UPLOADS_DIR = "uploads/contracts"
 
@@ -254,3 +255,61 @@ async def generate_inventory_report(prop: Property, check_type: str, items: list
     doc.build(story)
     return filepath
 
+
+async def generate_budget_pdf(budget: Budget) -> str:
+    """
+    Generates a formal PDF report for a budget, including a basic summary and list of categories.
+    """
+    if not os.path.exists(UPLOADS_DIR):
+        os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+    filename = f"presupuesto_{budget.id[:8]}.pdf"
+    filepath = os.path.join(UPLOADS_DIR, filename)
+
+    doc = SimpleDocTemplate(filepath, pagesize=LETTER,
+                            rightMargin=inch, leftMargin=inch,
+                            topMargin=inch, bottomMargin=inch)
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], alignment=TA_CENTER, spaceAfter=20)
+    body_style = ParagraphStyle('Body', parent=styles['Normal'], fontSize=11, leading=16, spaceAfter=10)
+
+    story = []
+    
+    prop_name = budget.property_rel.name if getattr(budget, "property_rel", None) else "General (Todas las propiedades)"
+    
+    story.append(Paragraph(f"REPORTE DE PRESUPUESTO", title_style))
+    story.append(Spacer(1, 0.2 * inch))
+    
+    story.append(Paragraph(f"<b>Propiedad:</b> {prop_name}", body_style))
+    story.append(Paragraph(f"<b>Período:</b> {budget.year} - Mes {budget.month} ({budget.period_type})", body_style))
+    story.append(Paragraph(f"<b>Presupuestado:</b> ${float(budget.total_budget):,.2f}", body_style))
+    story.append(Paragraph(f"<b>Ejecutado:</b> ${float(budget.total_executed):,.2f} ({budget.execution_pct}%)", body_style))
+    story.append(Paragraph(f"<b>Estado:</b> {budget.semaphore}", body_style))
+    story.append(Spacer(1, 0.3 * inch))
+
+    # Table for categories
+    table_data = [["Categoría", "Presupuestado", "Ejecutado", "%", "Estado"]]
+    for cat in budget.categories:
+        table_data.append([
+            cat.category_name,
+            f"${float(cat.budgeted_amount):,.2f}",
+            f"${float(cat.executed_amount):,.2f}",
+            f"{cat.execution_pct}%",
+            cat.semaphore
+        ])
+
+    t = Table(table_data, colWidths=[2.5 * inch, 1.2 * inch, 1.2 * inch, 0.8 * inch, 0.8 * inch])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4F46E5')), # primary-600 in tailwind
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('GRID', (0, 0), (-1, -1), 1, colors.black)
+    ]))
+    
+    story.append(t)
+    doc.build(story)
+    return filepath

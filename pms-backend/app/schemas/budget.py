@@ -31,6 +31,7 @@ class BudgetUpdate(BaseModel):
     notes: Optional[str] = None
     period_type: Optional[str] = Field(None, pattern="^(Mensual|Bimestral|Trimestral|Semestral|Anual)$")
     auto_calculate_total: Optional[bool] = None
+    justification: Optional[str] = None
 
 
 class BudgetDuplicate(BaseModel):
@@ -52,6 +53,18 @@ class BudgetCategoryResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class BudgetRevisionResponse(BaseModel):
+    id: str
+    budget_id: str
+    user_id: str
+    old_amount: float
+    new_amount: float
+    justification: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class BudgetResponse(BaseModel):
     id: str
     property_id: Optional[str]
@@ -66,10 +79,12 @@ class BudgetResponse(BaseModel):
     is_closed: bool
     frozen_distribution: Optional[dict[str, float]] = None
     categories: list[BudgetCategoryResponse] = []
+    revisions: list[BudgetRevisionResponse] = []
     notes: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
 class BudgetReportRow(BaseModel):
     category: str
     budgeted: float
