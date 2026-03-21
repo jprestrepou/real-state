@@ -5,7 +5,6 @@ import os
 import logging
 from typing import Dict, Any, Optional
 import httpx
-import aiohttp
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -52,11 +51,11 @@ class TelegramService:
             
         url = f"{base_url}/setWebhook"
         payload = {"url": webhook_url}
-        async with aiohttp.ClientSession() as session:
+        async with httpx.AsyncClient() as client:
             try:
-                async with session.post(url, json=payload, timeout=5) as response:
-                    data = await response.json()
-                    return data.get("ok", False)
+                response = await client.post(url, json=payload, timeout=5.0)
+                response.raise_for_status()
+                return response.json().get("ok", False)
             except Exception as e:
                 logger.error(f"Telegram webhook error: {e}")
                 return False
@@ -72,10 +71,11 @@ class TelegramService:
         base_url = f"https://api.telegram.org/bot{token}"
         url = f"{base_url}/getWebhookInfo"
         
-        async with aiohttp.ClientSession() as session:
+        async with httpx.AsyncClient() as client:
             try:
-                async with session.get(url, timeout=5) as response:
-                    return await response.json()
+                response = await client.get(url, timeout=5.0)
+                response.raise_for_status()
+                return response.json()
             except Exception as e:
                 logger.error(f"Telegram getWebhookInfo error: {e}")
                 return {"ok": False, "description": str(e)}
