@@ -5,6 +5,7 @@ import os
 import logging
 from typing import Dict, Any, Optional
 import httpx
+import aiohttp
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
