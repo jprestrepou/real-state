@@ -314,6 +314,155 @@ async def generate_budget_pdf(budget: Budget) -> str:
     doc.build(story)
     return filepath
 
+async def generate_property_performance_pdf(perf_data: dict) -> str:
+    """
+    Generates a PDF report for a single property's financial performance.
+    Expects perf_data to be a dict matching PropertyPerformanceResponse schema.
+    """
+    if not os.path.exists(UPLOADS_DIR):
+        os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+    # Use a slugified name safely
+    prop_name = perf_data.get("property_name", "Propiedad").replace(" ", "_")
+    filename = f"performance_{prop_name}_{date.today().strftime('%Y%m%d')}.pdf"
+    filepath = os.path.join(UPLOADS_DIR, filename)
+
+    doc = SimpleDocTemplate(filepath, pagesize=LETTER, rightMargin=inch, leftMargin=inch, topMargin=inch, bottomMargin=inch)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], alignment=TA_CENTER, spaceAfter=20, textColor=colors.HexColor('#1E293B'))
+    subtitle_style = ParagraphStyle('Subtitle', parent=styles['Heading2'], spaceAfter=10, textColor=colors.HexColor('#334155'))
+    
+    story = []
+    
+    # Header
+    story.append(Paragraph(f"Reporte de Desempeño Financiero", title_style))
+    story.append(Paragraph(f"<b>Propiedad:</b> {perf_data.get('property_name')}", styles['Normal']))
+    story.append(Paragraph(f"<b>Estado:</b> {perf_data.get('property_status', 'N/A')}", styles['Normal']))
+    story.append(Paragraph(f"<b>Fecha de Generación:</b> {date.today().strftime('%d/%m/%Y')}", styles['Normal']))
+    story.append(Spacer(1, 0.3 * inch))
+
+    # Metrics Table
+    story.append(Paragraph("Métricas Principales", subtitle_style))
+    metrics_data = [
+        ["Métrica", "Valor"],
+        ["Total Ingresos", f"${perf_data.get('total_income', 0):,.2f}"],
+        ["Total Gastos", f"${perf_data.get('total_expenses', 0):,.2f}"],
+        ["Net Operating Income (NOI)", f"${perf_data.get('noi', 0):,.2f}"],
+        ["Cap Rate", f"{perf_data.get('cap_rate', 0)}%"],
+        ["Rentabilidad Bruta (Gross Yield)", f"{perf_data.get('gross_yield', 0)}%"]
+    ]
+    
+    t_metrics = Table(metrics_data, colWidths=[3*inch, 3*inch])
+    t_metrics.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#334155')),
+        ('TEXTCOLOR', (0, 0), (1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('PADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(t_metrics)
+    story.append(Spacer(1, 0.4 * inch))
+
+    # Cashflow Table
+    story.append(Paragraph("Flujo de Caja Anual", subtitle_style))
+    cashflow_data = [["Mes", "Ingresos", "Gastos", "Neto"]]
+    for cf in perf_data.get("monthly_cashflow", []):
+        if hasattr(cf, "model_dump"): cf = cf.model_dump()
+        cashflow_data.append([
+            cf.get("month", ""),
+            f"${cf.get('income', 0):,.2f}",
+            f"${cf.get('expenses', 0):,.2f}",
+            f"${cf.get('net', 0):,.2f}"
+        ])
+    
+    t_cf = Table(cashflow_data, colWidths=[1.5*inch, 1.5*inch, 1.5*inch, 1.5*inch])
+    t_cf.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#475569')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+        ('PADDING', (0, 0), (-1, -1), 5),
+    ]))
+    story.append(t_cf)
+
+    doc.build(story)
+    return filepath
+
+
+async def generate_financial_summary_pdf(summary_data: dict) -> str:
+    """
+    Generates a PDF report for the global financial summary.
+    Expects summary_data to be a dict matching FinancialSummary schema.
+    """
+    if not os.path.exists(UPLOADS_DIR):
+        os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+    filename = f"financial_summary_{date.today().strftime('%Y%m%d')}.pdf"
+    filepath = os.path.join(UPLOADS_DIR, filename)
+
+    doc = SimpleDocTemplate(filepath, pagesize=LETTER, rightMargin=inch, leftMargin=inch, topMargin=inch, bottomMargin=inch)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle('Title', parent=styles['Heading1'], alignment=TA_CENTER, spaceAfter=20)
+    subtitle_style = ParagraphStyle('Subtitle', parent=styles['Heading2'], spaceAfter=10)
+    
+    story = []
+    
+    story.append(Paragraph("Resumen Financiero Global", title_style))
+    story.append(Paragraph(f"<b>Fecha:</b> {date.today().strftime('%d/%m/%Y')}", styles['Normal']))
+    story.append(Spacer(1, 0.3 * inch))
+
+    # Global Metrics
+    story.append(Paragraph("Métricas del Portafolio", subtitle_style))
+    metrics_data = [
+        ["Total Propiedades Gestionadas", str(summary_data.get('total_properties', 0))],
+        ["Tasa de Ocupación", f"{summary_data.get('occupancy_rate', 0)}%"],
+        ["Ingresos Totales", f"${summary_data.get('total_income', 0):,.2f}"],
+        ["Gastos Totales", f"${summary_data.get('total_expenses', 0):,.2f}"],
+        ["Utilidad Neta General", f"${summary_data.get('net_income', 0):,.2f}"]
+    ]
+    t_metrics = Table(metrics_data, colWidths=[3.5*inch, 2.5*inch])
+    t_metrics.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#0F172A')),
+        ('TEXTCOLOR', (0, 0), (1, 0), colors.white),
+        ('FONTNAME', (0, 0), (1, 0), 'Helvetica-Bold'),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('ALIGN', (1, 1), (1, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+        ('PADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(t_metrics)
+    story.append(Spacer(1, 0.4 * inch))
+
+    # Accounts Table
+    story.append(Paragraph("Saldos de Cuentas Bancarias", subtitle_style))
+    accounts_data = [["Cuenta", "Banco / Tipo", "Moneda", "Saldo Actual"]]
+    for acc in summary_data.get("accounts", []):
+        if hasattr(acc, "model_dump"): acc = acc.model_dump()
+        accounts_data.append([
+            acc.get('account_name', ''),
+            f"{acc.get('bank_name', '')} ({acc.get('account_type', '')})",
+            acc.get('currency', 'COP'),
+            f"${acc.get('current_balance', 0):,.2f}",
+        ])
+    
+    t_acc = Table(accounts_data, colWidths=[2*inch, 1.8*inch, 0.7*inch, 1.5*inch])
+    t_acc.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('ALIGN', (3, 1), (3, -1), 'RIGHT'),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.lightgrey),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#F8FAFC')]),
+        ('PADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(t_acc)
+
+    doc.build(story)
+    return filepath
 
 async def generate_inventory_pdf(inventory) -> str:
     """

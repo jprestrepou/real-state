@@ -15,6 +15,7 @@ from app.services.pdf_service import generate_contract_pdf
 from app.tasks.email_tasks import send_contract_revision_email, send_contract_signature_request_email
 import hashlib
 from datetime import datetime
+from app.services import audit_service
 
 from app.models.property import Property
 
@@ -79,6 +80,16 @@ async def create_contract(db: AsyncSession, data: ContractCreate, user_id: str) 
 
     await db.commit()
     await db.refresh(contract)
+    
+    await audit_service.log_action(
+        db,
+        action="CREATE",
+        entity_type="Contract",
+        user_id=user_id,
+        entity_id=contract.id,
+        new_value={"tenant_name": contract.tenant_name, "status": contract.status, "property_id": contract.property_id}
+    )
+    
     return contract
 
 
@@ -107,6 +118,16 @@ async def activate_contract(db: AsyncSession, contract_id: str) -> Contract:
 
     await db.commit()
     await db.refresh(contract)
+    
+    await audit_service.log_action(
+        db,
+        action="ACTIVATE",
+        entity_type="Contract",
+        entity_id=contract.id,
+        old_value={"status": ContractStatus.BORRADOR.value}, # Approximated
+        new_value={"status": contract.status}
+    )
+    
     return contract
 
 async def send_contract_for_signature(db: AsyncSession, contract_id: str) -> Contract:
@@ -156,11 +177,35 @@ async def sign_contract(db: AsyncSession, contract_id: str, data: ContractSignRe
 
 async def update_contract(db: AsyncSession, contract_id: str, data: ContractUpdate) -> Contract:
     contract = await get_contract(db, contract_id)
+    
+    old_data = {
+        "tenant_name": contract.tenant_name,
+        "amount": float(contract.amount) if contract.amount else None,
+        "status": contract.status
+    }
+    
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(contract, key, value)
+        
     await db.commit()
     await db.refresh(contract)
+    
+    new_data = {
+        "tenant_name": contract.tenant_name,
+        "amount": float(contract.amount) if contract.amount else None,
+        "status": contract.status
+    }
+    
+    await audit_service.log_action(
+        db,
+        action="UPDATE",
+        entity_type="Contract",
+        entity_id=contract.id,
+        old_value=old_data,
+        new_value=new_data
+    )
+    
     return contract
 
 

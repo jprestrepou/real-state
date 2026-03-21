@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.schemas.property import PropertyCreate, PropertyUpdate, PropertyResponse, PropertyMapItem, RentSimulationRequest, RentSimulationResponse
-from app.services import property_service
+from app.services import property_service, market_service
 from app.utils.security import get_current_user, require_role
 
 router = APIRouter(prefix="/properties", tags=["Propiedades"])
@@ -101,3 +101,12 @@ async def simulate_rent(
         data.desired_margin_pct, 
         data.include_admin_fee
     )
+
+@router.get("/{property_id}/valuation", response_model=dict)
+async def get_property_valuation(
+    property_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Obtener valoración de mercado (arriendo sugerido) integrando datos de zona."""
+    return await market_service.estimate_rental_value(db, property_id)

@@ -4,7 +4,7 @@ Budget Service — CRUD operations + Allocation logic and budget vs actual repor
 
 from typing import Dict, List, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, extract, func
 from sqlalchemy.orm import selectinload
 from app.models.property import Property
 from app.models.contract import Contract, ContractStatus
@@ -12,6 +12,21 @@ from app.models.budget import Budget, BudgetCategory, BudgetRevision
 from app.models.financial import Transaction, TransactionDirection
 from app.schemas.budget import BudgetCreate, BudgetDuplicate
 
+
+def _year_eq(col, year: int):
+    """Cross-DB year filter: works for both SQLite and PostgreSQL."""
+    return extract('year', col) == year
+
+
+def _month_between(col, start_m: int, end_m: int):
+    """Cross-DB month range filter: works for both SQLite and PostgreSQL."""
+    m = extract('month', col)
+    return and_(m >= start_m, m <= end_m)
+
+
+def _month_eq(col, month: int):
+    """Cross-DB exact month filter: works for both SQLite and PostgreSQL."""
+    return extract('month', col) == month
 
 
 async def _refresh_budget_totals(db: AsyncSession, budget: Budget):
@@ -26,34 +41,29 @@ async def _refresh_budget_totals(db: AsyncSession, budget: Budget):
         
     all_prop_ids = list(dist_keys.keys()) + [budget.property_id]
 
-    from sqlalchemy import func, cast, Integer
     from app.models.financial import TransactionDirection
 
     # Optimized: One query for all relevant transactions in the period
     all_prop_ids_filtered = [pid for pid in all_prop_ids if pid is not None]
-    
-    # Base query for all credit transactions in this period
-    # Use strftime for SQLite compatibility (extract() is not supported)
-    from sqlalchemy import func as sa_func, cast, Integer
-    
+
     # Determine the months included in the period
     period = getattr(budget, "period_type", "Mensual")
     start_m = budget.month
     if period == "Bimestral": end_m = start_m + 1
     elif period == "Trimestral": end_m = start_m + 2
     elif period == "Semestral": end_m = start_m + 5
-    elif period == "Anual": 
+    elif period == "Anual":
         start_m = 1
         end_m = 12
     else: end_m = start_m
-    
-    query = select(Transaction.budget_category_id, sa_func.coalesce(sa_func.sum(Transaction.amount), 0.0)).where(
+
+    # Use EXTRACT() — compatible with both SQLite (via aiosqlite) and PostgreSQL
+    query = select(Transaction.budget_category_id, func.coalesce(func.sum(Transaction.amount), 0.0)).where(
         and_(
             Transaction.direction == TransactionDirection.CREDIT.value,
             Transaction.status == "Completada",
-            cast(sa_func.strftime('%Y', Transaction.transaction_date), Integer) == budget.year,
-            cast(sa_func.strftime('%m', Transaction.transaction_date), Integer) >= start_m,
-            cast(sa_func.strftime('%m', Transaction.transaction_date), Integer) <= end_m,
+            _year_eq(Transaction.transaction_date, budget.year),
+            _month_between(Transaction.transaction_date, start_m, end_m),
             Transaction.budget_category_id != None
         )
     )
@@ -330,16 +340,14 @@ async def get_budget_vs_actual_report(
     all_prop_ids = list(dist_keys.keys()) + [property_id]
     
     rows = []
-    from sqlalchemy import func
     for cat in budget.categories:
-        from sqlalchemy import func, cast, Integer
-        trans_stmt = select(func.sum(Transaction.amount)).where(
+        trans_stmt = select(sa_func.sum(Transaction.amount)).where(
             and_(
                 Transaction.budget_category_id == cat.id,
                 Transaction.status == "Completada",
                 Transaction.property_id.in_(all_prop_ids),
-                cast(func.strftime('%Y', Transaction.transaction_date), Integer) == year,
-                cast(func.strftime('%m', Transaction.transaction_date), Integer) == month
+                _year_eq(Transaction.transaction_date, year),
+                _month_eq(Transaction.transaction_date, month)
             )
         )
         result = await db.execute(trans_stmt)
@@ -404,14 +412,14 @@ async def get_budget_monthly_breakdown(db: AsyncSession, budget_id: str) -> Dict
         m_cats = []
         for cat in budget.categories:
             c_budgeted = float(cat.budgeted_amount) / num_months
-            
-            trans_stmt = select(func.sum(Transaction.amount)).where(
+
+            trans_stmt = select(sa_func.sum(Transaction.amount)).where(
                 and_(
                     Transaction.budget_category_id == cat.id,
                     Transaction.direction == TransactionDirection.CREDIT.value,
                     Transaction.status == "Completada",
-                    cast(func.strftime('%Y', Transaction.transaction_date), Integer) == budget.year,
-                    cast(func.strftime('%m', Transaction.transaction_date), Integer) == target_m
+                    _year_eq(Transaction.transaction_date, budget.year),
+                    _month_eq(Transaction.transaction_date, target_m)
                 )
             )
             

@@ -13,7 +13,9 @@ from app.schemas.financial import (
     CashFlowReport, FinancialSummary, PropertyPerformanceResponse,
     BalanceSheetResponse, IncomeStatementResponse, AccountProfitabilityReport
 )
-from app.services import ledger_service, financial_reports
+from app.services import ledger_service, financial_reports, pdf_service
+from fastapi.responses import FileResponse
+import os
 from app.utils.security import get_current_user, require_role
 
 router = APIRouter(tags=["Financiero"])
@@ -424,3 +426,36 @@ async def get_upcoming_events(
     # Sort all events by date
     events.sort(key=lambda e: e["date"])
     return {"events": events, "total": len(events), "days": days}
+
+@router.get("/financial-summary/export/pdf", response_class=FileResponse)
+async def export_financial_summary_pdf(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Analista")),
+):
+    """Generar y descargar un reporte global del estado financiero en PDF."""
+    summary = await ledger_service.get_global_financial_summary(db)
+    filepath = await pdf_service.generate_financial_summary_pdf(summary)
+    filename = os.path.basename(filepath)
+    return FileResponse(
+        path=filepath,
+        filename=filename,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+@router.get("/properties/{property_id}/performance/export/pdf", response_class=FileResponse)
+async def export_property_performance_pdf(
+    property_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Analista")),
+):
+    """Generar y descargar el reporte de desempeño financiero de la propiedad en PDF."""
+    perf_data = await ledger_service.get_property_performance(db, property_id)
+    filepath = await pdf_service.generate_property_performance_pdf(perf_data)
+    filename = os.path.basename(filepath)
+    return FileResponse(
+        path=filepath,
+        filename=filename,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )

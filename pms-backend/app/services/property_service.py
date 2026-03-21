@@ -4,11 +4,14 @@ Property service — CRUD + map data.
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
 
-from app.models.property import Property
+from app.models.property import Property, PropertyStatus
 from app.models.contract import Contract, ContractStatus
+from app.models.occupant import PropertyOccupant
 from app.schemas.property import PropertyCreate, PropertyUpdate
+from app.services import audit_service
 
 
 async def list_properties(
@@ -57,25 +60,63 @@ async def get_property(db: AsyncSession, property_id: str) -> Property:
 
 async def create_property(db: AsyncSession, data: PropertyCreate, owner_id: str) -> Property:
     """Create a new property."""
-    prop = Property(
+    new_property = Property(
         owner_id=owner_id,
         **data.model_dump(),
     )
-    db.add(prop)
+    db.add(new_property)
     await db.commit()
-    await db.refresh(prop)
-    return prop
+    await db.refresh(new_property)
+
+    # Log action
+    await audit_service.log_action(
+        db,
+        action="CREATE",
+        entity_type="Property",
+        user_id=owner_id,
+        entity_id=new_property.id,
+        new_value={"name": new_property.name, "status": new_property.status, "city": new_property.city}
+    )
+
+    return new_property
 
 
 async def update_property(db: AsyncSession, property_id: str, data: PropertyUpdate) -> Property:
     """Update an existing property."""
-    prop = await get_property(db, property_id)
+    property_obj = await get_property(db, property_id)
+    if not property_obj:
+        raise HTTPException(status_code=404, detail="Propiedad no encontrada")
+
+    old_data = {
+        "name": property_obj.name,
+        "status": property_obj.status,
+        "commercial_value": float(property_obj.commercial_value) if property_obj.commercial_value else None,
+        "administration_fee": float(property_obj.administration_fee) if property_obj.administration_fee else None,
+    }
+
     update_data = data.model_dump(exclude_unset=True)
     for key, value in update_data.items():
-        setattr(prop, key, value)
+        setattr(property_obj, key, value)
+
     await db.commit()
-    await db.refresh(prop)
-    return prop
+    await db.refresh(property_obj)
+
+    new_data = {
+        "name": property_obj.name,
+        "status": property_obj.status,
+        "commercial_value": float(property_obj.commercial_value) if property_obj.commercial_value else None,
+        "administration_fee": float(property_obj.administration_fee) if property_obj.administration_fee else None,
+    }
+    await audit_service.log_action(
+        db,
+        action="UPDATE",
+        entity_type="Property",
+        entity_id=property_obj.id,
+        old_value=old_data,
+        new_value=new_data
+    )
+
+    return property_obj
 
 
 async def delete_property(db: AsyncSession, property_id: str) -> None:

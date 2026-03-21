@@ -125,6 +125,9 @@ class PropertyPerformanceResponse(BaseModel):
     total_income: float
     total_expenses: float
     net_profit: float
+    noi: float = 0.0
+    cap_rate: float = 0.0
+    gross_yield: float = 0.0
     roi: float
     monthly_cashflow: list[CashFlowMonth]
     income_by_category: dict[str, float]

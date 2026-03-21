@@ -8,6 +8,7 @@ from collections import defaultdict
 from app.models.financial import BankAccount, Transaction, TransactionDirection, TransactionCategory, TransactionStatus
 from app.models.property import Property, PropertyStatus
 from app.schemas.financial import TransactionCreate, TransferCreate, TransactionUpdate
+from app.services import audit_service
 
 
 class InsufficientFundsError(HTTPException):
@@ -103,6 +104,15 @@ async def register_transaction(
         await db.refresh(account)
     else:
         await db.flush()
+
+    await audit_service.log_action(
+        db,
+        action="CREATE",
+        entity_type="Transaction",
+        user_id=recorded_by,
+        entity_id=transaction.id,
+        new_value={"amount": float(transaction.amount), "type": transaction.transaction_type, "status": transaction.status}
+    )
 
     return transaction
 
@@ -320,9 +330,35 @@ async def get_property_performance(db: AsyncSession, property_id: str) -> dict:
     if not prop:
         raise HTTPException(status_code=404, detail="Propiedad no encontrada")
 
-    roi = 0.0
+    noi = net_profit
+    cap_rate = 0.0
+    gross_yield = 0.0
+    roi = 0.0  # Kept for backward compatibility
+
+    # Try to find active contract to estimate annual rent
+    from app.models.contract import Contract, ContractStatus
+    contract_stmt = select(Contract).where(Contract.property_id == property_id, Contract.status == ContractStatus.ACTIVO.value)
+    result_contract = await db.execute(contract_stmt)
+    active_contract = result_contract.scalar_one_or_none()
+    
+    annual_rent = 0.0
+    if active_contract and active_contract.amount:
+        annual_rent = float(active_contract.amount) * 12
+
     if prop.commercial_value and float(prop.commercial_value) > 0:
-        roi = float(round((net_profit / float(prop.commercial_value)) * 100, 2))
+        commercial_value = float(prop.commercial_value)
+        # Cap Rate: (NOI / Property Value) * 100
+        cap_rate = float(round((noi / commercial_value) * 100, 2))
+        roi = cap_rate # ROI fallback
+        
+        # Gross Yield: (Annual Rent / Property Value) * 100
+        if annual_rent > 0:
+            gross_yield = float(round((annual_rent / commercial_value) * 100, 2))
+        else:
+            # Fallback calculating based on historical income if no contract
+            if total_income > 0:
+                 # Simplified assumption: total_income in the period is close to annual rent or just use it roughly
+                 gross_yield = float(round((total_income / commercial_value) * 100, 2))
 
     today = date.today()
     monthly_cashflow = []
@@ -398,6 +434,9 @@ async def get_property_performance(db: AsyncSession, property_id: str) -> dict:
         "total_income": total_income,
         "total_expenses": total_expenses,
         "net_profit": net_profit,
+        "noi": noi,
+        "cap_rate": cap_rate,
+        "gross_yield": gross_yield,
         "roi": roi,
         "monthly_cashflow": monthly_cashflow,
         "income_by_category": income_by_category,
@@ -535,6 +574,16 @@ async def update_transaction(db: AsyncSession, tx_id: str, data: TransactionUpda
 
     await db.commit()
     await db.refresh(tx)
+
+    await audit_service.log_action(
+        db,
+        action="UPDATE",
+        entity_type="Transaction",
+        entity_id=tx.id,
+        old_value={"amount": old_amount, "status": old_status},
+        new_value={"amount": new_amount, "status": new_status}
+    )
+
     return tx
 
 
@@ -553,8 +602,18 @@ async def delete_transaction(db: AsyncSession, tx_id: str) -> None:
         else:
             account.current_balance = float(account.current_balance) + float(tx.amount)
 
+    old_data = {"amount": float(tx.amount), "status": tx.status}
+
     await db.delete(tx)
     await db.commit()
+
+    await audit_service.log_action(
+        db,
+        action="DELETE",
+        entity_type="Transaction",
+        entity_id=tx_id,
+        old_value=old_data
+    )
 
 
 async def get_account_history(db: AsyncSession, account_id: str, months: int = 12, date_from: date | None = None, date_to: date | None = None, tx_type: str | None = None) -> dict:
