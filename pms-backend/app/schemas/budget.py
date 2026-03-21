@@ -24,6 +24,7 @@ class BudgetCreate(BaseModel):
     notes: Optional[str] = None
     period_type: str = Field(default="Mensual", pattern="^(Mensual|Bimestral|Trimestral|Semestral|Anual)$")
     auto_calculate_total: bool = False
+    is_annual: Optional[bool] = False
 
 
 class BudgetUpdate(BaseModel):

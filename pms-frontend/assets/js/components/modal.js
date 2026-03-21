@@ -21,12 +21,12 @@ export function showToast(message, type = 'info', duration = 4000) {
 /**
  * Modal component — reusable dialog.
  */
-export function showModal(title, contentHTML, { onConfirm, confirmText = 'Guardar', showCancel = true } = {}) {
+export function showModal(title, contentHTML, { onConfirm, confirmText = 'Guardar', showCancel = true, maxWidth = '' } = {}) {
     const container = document.getElementById('modal-container');
 
     container.innerHTML = `
     <div class="modal-overlay" id="modal-overlay">
-      <div class="modal-content">
+      <div class="modal-content" ${maxWidth ? `style="max-width: ${maxWidth}; width: 100%;"` : ''}>
         <div class="flex items-center justify-between p-6 border-b border-surface-100">
           <h3 class="text-lg font-bold text-surface-900">${title}</h3>
           <button id="modal-close" class="p-2 rounded-lg hover:bg-surface-100 text-surface-400 hover:text-surface-700 transition-colors">

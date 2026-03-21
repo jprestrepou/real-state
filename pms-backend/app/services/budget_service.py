@@ -124,10 +124,14 @@ async def create_budget(db: AsyncSession, data: BudgetCreate):
     else:
         amount = data.total_budget
 
+    if getattr(data, 'is_annual', False):
+        data.period_type = "Anual"
+        data.month = 1
+
     new_budget = Budget(
         property_id=property_id,
         year=data.year,
-        month=data.month, # Typically 1 for Annual, but could be specific starting month
+        month=data.month,
         period_type=data.period_type,
         total_budget=amount,
         auto_calculate_total=data.auto_calculate_total,

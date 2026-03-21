@@ -211,7 +211,7 @@ function renderTable(container, budgets, properties, accounts, generalPropId, on
                   <div class="h-full rounded-full ${b.semaphore === 'Verde' ? 'bg-green-500' : b.semaphore === 'Amarillo' ? 'bg-amber-500' : 'bg-red-500'}" 
                     style="width: ${Math.min(b.execution_pct, 100)}%"></div>
                 </div>
-                <span class="text-xs font-bold w-10">${formatPercent(b.execution_pct)}</span>
+                <span class="text-xs font-bold w-14 text-right">${formatPercent(b.execution_pct)}</span>
               </div>
             </td>
             <td>
@@ -220,6 +220,13 @@ function renderTable(container, budgets, properties, accounts, generalPropId, on
                   class="p-2 rounded-lg hover:bg-primary-50 text-primary-600 transition" title="Ver Reporte Detallado">
                   <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
                 </a>
+                
+                ${b.period_type === 'Anual' ? `
+                <button class="breakdown-btn p-2 rounded-lg hover:bg-emerald-50 text-emerald-600 transition" 
+                  data-id="${b.id}" title="Ver Desglose Mensual">
+                  <i data-lucide="calendar-days" class="w-4 h-4"></i>
+                </button>
+                ` : ''}
                 
                 <button class="export-pdf-btn p-2 rounded-lg hover:bg-rose-50 text-rose-600 transition" 
                   data-id="${b.id}" data-ym="${b.year}_${b.month}" title="Exportar PDF de Asamblea">
@@ -441,7 +448,7 @@ function openBudgetModal(properties, accounts, existingBudget = null, onSuccess)
         <input type="checkbox" id="is_annual" name="is_annual" class="w-4 h-4 rounded text-indigo-600" />
         <div class="flex-1">
           <label for="is_annual" class="text-sm font-bold text-indigo-900 cursor-pointer">Presupuesto Anualizado</label>
-          <p class="text-[10px] text-indigo-600">Se crearán 12 presupuestos (uno por mes) dividiendo los montos.</p>
+          <p class="text-[10px] text-indigo-600">Se creará un único presupuesto anual con desglose mes a mes.</p>
         </div>
       </div>
       ` : ''}
@@ -462,11 +469,10 @@ function openBudgetModal(properties, accounts, existingBudget = null, onSuccess)
       </div>
       ` : ''}
       <div>
-        <label class="label">Notas Adicionales</label>
-        <textarea class="textarea text-sm" name="notes" placeholder="Opcional...">${isEdit ? (existingBudget.notes || '') : ''}</textarea>
       </div>
     </form>
   `, {
+    maxWidth: '800px',
     confirmText: isEdit ? 'Guardar Cambios' : 'Crear Presupuesto',
     onConfirm: async () => {
       const form = document.getElementById('bf');
@@ -625,4 +631,58 @@ function openDuplicateModal(properties, sourceBudget, onSuccess) {
     }
   });
   if (window.lucide) lucide.createIcons();
+}
+async function openBreakdownModal(id) {
+  try {
+    const data = await api.get(`/budgets/${id}/monthly-breakdown`);
+    if (!data || !data.months) throw new Error('No se pudo cargar el desglose.');
+
+    let rowsHtml = data.months.map(m => `
+      <tr class="hover:bg-surface-50 transition-colors">
+        <td class="p-3 text-sm font-medium text-surface-900">${m.month_name}</td>
+        <td class="p-3 text-sm text-surface-600 font-mono">${formatCurrency(m.budgeted)}</td>
+        <td class="p-3 text-sm text-surface-900 font-mono font-bold">${formatCurrency(m.actual)}</td>
+        <td class="p-3 text-center">
+            <span class="badge ${m.semaphore === 'Verde' ? 'badge-green' : m.semaphore === 'Amarillo' ? 'badge-amber' : 'badge-red'} text-xs">
+              ${m.semaphore}
+            </span>
+        </td>
+        <td class="p-3 text-sm text-right font-bold w-16 font-mono">${formatPercent(m.execution_pct)}</td>
+      </tr>
+    `).join('');
+
+    showModal('Desglose Mensual: Presupuesto Anual', `
+      <div class="overflow-x-auto max-h-[60vh]">
+        <table class="w-full text-left border-collapse">
+          <thead class="sticky top-0 bg-white z-10 shadow-sm">
+            <tr class="bg-surface-50 border-b border-surface-200">
+              <th class="p-3 text-xs font-bold text-surface-500 uppercase tracking-wider">Mes</th>
+              <th class="p-3 text-xs font-bold text-surface-500 uppercase tracking-wider">Presupuesto</th>
+              <th class="p-3 text-xs font-bold text-surface-500 uppercase tracking-wider">Ejecutado</th>
+              <th class="p-3 text-xs font-bold text-surface-500 uppercase tracking-wider text-center">Estado</th>
+              <th class="p-3 text-xs font-bold text-surface-500 uppercase tracking-wider text-right">% Ejec.</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-surface-100">
+            ${rowsHtml}
+          </tbody>
+          <tfoot class="sticky bottom-0 bg-surface-50 border-t border-surface-200 font-bold">
+            <tr>
+              <td class="p-3 text-sm text-surface-900">TOTAL</td>
+              <td class="p-3 text-sm text-surface-900 font-mono">${formatCurrency(data.total_budget)}</td>
+              <td class="p-3 text-sm text-primary-600 font-mono">${formatCurrency(data.total_actual)}</td>
+              <td class="p-3 text-center">
+                <span class="badge ${data.semaphore === 'Verde' ? 'badge-green' : data.semaphore === 'Amarillo' ? 'badge-amber' : 'badge-red'} text-xs">
+                  ${data.semaphore}
+                </span>
+              </td>
+              <td class="p-3 text-sm text-right w-16 font-mono">${formatPercent(data.execution_pct)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    `, { showCancel: false, confirmText: 'Cerrar', maxWidth: '800px' });
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
