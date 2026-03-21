@@ -3,7 +3,7 @@
  */
 
 import { api } from '../api.js';
-import { formatCurrency, formatDate, statusBadge } from '../utils/formatters.js';
+import { formatCurrency, formatDate, statusBadge, formatPercent } from '../utils/formatters.js';
 import { showToast, showModal } from '../components/modal.js';
 
 export async function renderProperties(container) {
@@ -70,7 +70,9 @@ export async function renderProperties(container) {
               <td><span class="badge ${statusBadge(p.status)}">${p.status}</span></td>
               <td class="text-surface-500 text-xs">${formatDate(p.created_at)}</td>
               <td>
-                <div class="flex items-center gap-1">
+                  <button class="btn-ghost text-xs py-1 px-2 evaluate-property text-emerald-600 hover:bg-emerald-50" data-id="${p.id}" title="Simular Arriendo (Mercado)">
+                    <i data-lucide="bar-chart" class="w-3.5 h-3.5"></i>
+                  </button>
                   <button class="btn-ghost text-xs py-1 px-2 view-property" data-id="${p.id}" title="Detalles">
                     <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                   </button>
@@ -105,8 +107,15 @@ export async function renderProperties(container) {
     const viewBtn = e.target.closest('.view-property');
     const editBtn = e.target.closest('.edit-property');
     const deleteBtn = e.target.closest('.delete-property');
+    const evalBtn = e.target.closest('.evaluate-property');
 
     if (viewBtn) openPropertyDetailModal(viewBtn.dataset.id);
+    
+    if (evalBtn) {
+      const id = evalBtn.dataset.id;
+      const property = await api.get(`/properties/${id}`);
+      openValuationModal(property);
+    }
 
     if (editBtn) {
       const id = editBtn.dataset.id;
@@ -165,8 +174,10 @@ function renderPropertiesTable(properties) {
       <td class="font-medium">${formatCurrency(p.commercial_value)}</td>
       <td><span class="badge ${statusBadge(p.status)}">${p.status}</span></td>
       <td class="text-surface-500 text-xs">${formatDate(p.created_at)}</td>
-      <td>
         <div class="flex items-center gap-1">
+          <button class="btn-ghost text-xs py-1 px-2 evaluate-property text-emerald-600 hover:bg-emerald-50" data-id="${p.id}" title="Simular Arriendo (Mercado)">
+            <i data-lucide="bar-chart" class="w-3.5 h-3.5"></i>
+          </button>
           <button class="btn-ghost text-xs py-1 px-2 view-property" data-id="${p.id}" title="Detalles">
             <i data-lucide="eye" class="w-3.5 h-3.5"></i>
           </button>
@@ -440,5 +451,96 @@ async function openPropertyDetailModal(propertyId) {
         openPropertyDetailModal(propertyId);
       }
     });
+  });
+}
+
+function openValuationModal(property) {
+  const defaultCity = property.city || 'Bogotá';
+  const defaultStratum = property.stratum || 3;
+
+  showModal(`Simulación de Rentabilidad - ${property.name}`, `
+    <div class="space-y-4">
+      <p class="text-sm text-surface-600">Simule el canon de arrendamiento y la rentabilidad esperada basados en promedios del mercado nacional.</p>
+      
+      <div class="grid grid-cols-2 gap-4 p-4 bg-surface-50 rounded-xl border border-surface-200">
+        <div>
+          <label class="label text-surface-700">Ciudad Objetivo</label>
+          <input type="text" id="val-target-city" class="input bg-white" value="${defaultCity}" placeholder="Ej. Medellín, Cali, Bogotá..." />
+        </div>
+        <div>
+          <label class="label text-surface-700">Estrato (1-6)</label>
+          <input type="number" id="val-target-stratum" class="input bg-white" min="1" max="6" value="${defaultStratum}" />
+        </div>
+      </div>
+
+      <button id="run-valuation-btn" class="btn-primary w-full shadow-md justify-center">
+        <i data-lucide="activity" class="w-4 h-4 mr-2"></i> Procesar Simulación de Mercado
+      </button>
+
+      <div id="valuation-results-container" class="hidden mt-6 space-y-4 animate-fade-in">
+        <!-- Results will be injected here -->
+      </div>
+    </div>
+  `, { showCancel: true, confirmText: null });
+
+  if (window.lucide) lucide.createIcons();
+
+  document.getElementById('run-valuation-btn').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button');
+    const city = document.getElementById('val-target-city').value;
+    const stratum = document.getElementById('val-target-stratum').value;
+    const container = document.getElementById('valuation-results-container');
+    
+    // Loading state
+    btn.disabled = true;
+    btn.innerHTML = '<div class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div> Analizando zona...';
+    
+    try {
+      let url = `/properties/${property.id}/valuation?`;
+      const params = new URLSearchParams();
+      if (city && city !== property.city) params.append('target_city', city);
+      if (stratum && stratum !== (property.stratum || '3')) params.append('target_stratum', stratum);
+      
+      const res = await api.get(url + params.toString());
+      
+      // Render bounds
+      container.innerHTML = `
+        <div class="bg-emerald-50 rounded-xl p-5 border border-emerald-100 flex flex-col items-center justify-center relative overflow-hidden">
+          <div class="absolute -right-4 -top-4 opacity-[0.03]"><i data-lucide="trending-up" class="w-32 h-32"></i></div>
+          <p class="text-xs font-bold text-emerald-600 uppercase tracking-widest mb-1">Canon Sugerido Mensual</p>
+          <h2 class="text-3xl font-black text-emerald-800 drop-shadow-sm">${formatCurrency(res.estimated_monthly_rent)}</h2>
+          <div class="flex items-center gap-2 mt-3 text-sm font-medium text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full shadow-inner">
+            <span>${formatCurrency(res.range_min)}</span>
+            <i data-lucide="arrow-right" class="w-3 h-3 text-emerald-500"></i>
+            <span>${formatCurrency(res.range_max)}</span>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-white p-4 rounded-xl border border-surface-200 text-center shadow-sm">
+            <p class="text-xs font-bold text-surface-400 uppercase mb-1">Cap Rate (Rent. Anual)</p>
+            <p class="text-lg font-bold text-indigo-600">${res.estimated_cap_rate > 0 ? formatPercent(res.estimated_cap_rate) : 'N/A'}</p>
+          </div>
+          <div class="bg-white p-4 rounded-xl border border-surface-200 text-center shadow-sm">
+            <p class="text-xs font-bold text-surface-400 uppercase mb-1">Confianza del Algoritmo</p>
+            <p class="text-lg font-bold text-primary-600">${formatPercent(res.confidence_score * 100)}</p>
+          </div>
+        </div>
+
+        <div class="bg-surface-100 text-xs font-medium text-surface-500 p-3 rounded-lg border border-surface-200 flex items-start gap-2">
+          <i data-lucide="info" class="w-4 h-4 shrink-0 mt-0.5 opacity-50"></i>
+          <span>${res.provider}</span>
+        </div>
+      `;
+      container.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+
+    } catch (err) {
+      showToast(err.message || 'Error simulando arriendo', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="activity" class="w-4 h-4 mr-2"></i> Procesar Simulación de Mercado';
+      if (window.lucide) lucide.createIcons();
+    }
   });
 }
