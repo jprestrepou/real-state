@@ -102,7 +102,10 @@ async def _refresh_budget_totals(db: AsyncSession, budget: Budget):
     # No longer committing here for performance
 
 async def list_budgets(db: AsyncSession, property_id: Optional[str] = None, year: Optional[int] = None, month: Optional[int] = None):
-    stmt = select(Budget).options(selectinload(Budget.categories))
+    stmt = select(Budget).options(
+        selectinload(Budget.categories),
+        selectinload(Budget.revisions)
+    )
     filters = []
     if property_id:
         filters.append(Budget.property_id == property_id)
@@ -163,7 +166,10 @@ async def create_budget(db: AsyncSession, data: BudgetCreate):
     await db.commit()
 
     # Re-query with eager-loaded categories (db.refresh won't load relationships)
-    stmt = select(Budget).options(selectinload(Budget.categories)).where(Budget.id == new_budget.id)
+    stmt = select(Budget).options(
+        selectinload(Budget.categories),
+        selectinload(Budget.revisions)
+    ).where(Budget.id == new_budget.id)
     result = await db.execute(stmt)
     return result.scalar_one()
 
@@ -199,7 +205,10 @@ async def duplicate_budget(db: AsyncSession, budget_id: str, data: BudgetDuplica
     await db.commit()
 
     # Re-query with eager-loaded categories
-    stmt = select(Budget).options(selectinload(Budget.categories)).where(Budget.id == new_budget.id)
+    stmt = select(Budget).options(
+        selectinload(Budget.categories),
+        selectinload(Budget.revisions)
+    ).where(Budget.id == new_budget.id)
     result = await db.execute(stmt)
     loaded = result.scalar_one()
     return [loaded]  # Return as list for compatibility
@@ -262,7 +271,10 @@ async def update_budget(db: AsyncSession, budget_id: str, data: Any, user_id: st
     return await get_budget(db, budget_id)
 
 async def get_budget(db: AsyncSession, budget_id: str):
-    stmt = select(Budget).options(selectinload(Budget.categories)).where(Budget.id == budget_id)
+    stmt = select(Budget).options(
+        selectinload(Budget.categories),
+        selectinload(Budget.revisions)
+    ).where(Budget.id == budget_id)
     result = await db.execute(stmt)
     budget = result.scalar_one_or_none()
     if budget:

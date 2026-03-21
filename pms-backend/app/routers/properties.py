@@ -4,6 +4,7 @@ Properties router — /api/v1/properties endpoints.
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
 
 from app.database import get_db
 from app.schemas.property import PropertyCreate, PropertyUpdate, PropertyResponse, PropertyMapItem, RentSimulationRequest, RentSimulationResponse
@@ -105,8 +106,10 @@ async def simulate_rent(
 @router.get("/{property_id}/valuation", response_model=dict)
 async def get_property_valuation(
     property_id: str,
+    target_city: Optional[str] = Query(None, description="Ciudad a simular (opcional)"),
+    target_stratum: Optional[int] = Query(None, description="Estrato a simular (opcional)"),
     db: AsyncSession = Depends(get_db),
     current_user=Depends(get_current_user),
 ):
     """Obtener valoración de mercado (arriendo sugerido) integrando datos de zona."""
-    return await market_service.estimate_rental_value(db, property_id)
+    return await market_service.estimate_rental_value(db, property_id, target_city, target_stratum)
