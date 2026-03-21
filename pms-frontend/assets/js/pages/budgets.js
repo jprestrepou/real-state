@@ -388,7 +388,7 @@ function openHistoryModal(budget) {
           <i data-lucide="arrow-right" class="w-4 h-4 text-surface-400"></i>
           <span class="text-emerald-600">${formatCurrency(rev.new_amount)}</span>
         </div>
-        ${rev.justification ? \`<div class="text-xs text-surface-600 bg-white p-2 border border-surface-200 rounded-lg mt-2 font-medium"><b>Justificación:</b> \${rev.justification}</div>\` : ''}
+        ${rev.justification ? `<div class="text-xs text-surface-600 bg-white p-2 border border-surface-200 rounded-lg mt-2 font-medium"><b>Justificación:</b> ${rev.justification}</div>` : ''}
       </div>
     `;
   }).join('');
