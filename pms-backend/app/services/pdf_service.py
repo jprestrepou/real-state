@@ -313,3 +313,127 @@ async def generate_budget_pdf(budget: Budget) -> str:
     story.append(t)
     doc.build(story)
     return filepath
+
+
+async def generate_inventory_pdf(inventory) -> str:
+    """
+    Generates a formal Acta de Inventario/Entrega PDF from a PropertyInventory ORM instance.
+    Items must be eagerly loaded before calling this function.
+    """
+    if not os.path.exists(UPLOADS_DIR):
+        os.makedirs(UPLOADS_DIR, exist_ok=True)
+
+    inv_type = getattr(inventory, "inventory_type", "Inventario")
+    safe_type = inv_type.lower().replace(' ', '_').replace('o', 'o').replace('i', 'i')
+    filename = f"acta_{safe_type}_{inventory.id[:8]}.pdf"
+    filepath = os.path.join(UPLOADS_DIR, filename)
+
+    doc = SimpleDocTemplate(filepath, pagesize=LETTER,
+                            rightMargin=inch, leftMargin=inch,
+                            topMargin=inch, bottomMargin=0.8 * inch)
+
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'InvTitle', parent=styles['Heading1'],
+        fontSize=14, alignment=TA_CENTER, spaceAfter=10, fontName='Helvetica-Bold'
+    )
+    body_style = ParagraphStyle(
+        'InvBody', parent=styles['Normal'],
+        fontSize=10, leading=14, spaceAfter=8, fontName='Helvetica'
+    )
+    section_style = ParagraphStyle(
+        'InvSection', parent=styles['Normal'],
+        fontSize=9, fontName='Helvetica-Bold', spaceAfter=4
+    )
+
+    story = []
+
+    type_labels = {
+        "Ingreso": "ACTA DE ENTREGA - INGRESO DE INMUEBLE",
+        "Salida": "ACTA DE ENTREGA - SALIDA DE INMUEBLE",
+        "Verificacion": "ACTA DE VERIFICACION DE INVENTARIO"
+    }
+    story.append(Paragraph(type_labels.get(inv_type, f"ACTA DE INVENTARIO - {inv_type.upper()}"), title_style))
+
+    inv_date = getattr(inventory, "date", date.today())
+    date_str = inv_date.strftime('%d de %B de %Y') if hasattr(inv_date, 'strftime') else str(inv_date)
+    story.append(Paragraph(f"Fecha de elaboracion: {date_str}", body_style))
+    story.append(Spacer(1, 0.15 * inch))
+
+    prop = getattr(inventory, "property", None)
+    if prop:
+        story.append(Paragraph(f"<b>Propiedad:</b> {prop.name} - {prop.address}, {prop.city}", body_style))
+    if inventory.notes:
+        story.append(Paragraph(f"<b>Observaciones generales:</b> {inventory.notes}", body_style))
+    story.append(Spacer(1, 0.2 * inch))
+
+    items = getattr(inventory, "items", [])
+    if items:
+        story.append(Paragraph("DETALLE DE ITEMS POR AREA", section_style))
+        story.append(Spacer(1, 0.08 * inch))
+
+        cond_colors = {
+            "Excelente": colors.HexColor('#D1FAE5'),
+            "Bueno": colors.HexColor('#FEF9C3'),
+            "Regular": colors.HexColor('#FFEDD5'),
+            "Malo": colors.HexColor('#FEE2E2'),
+            "No Aplica": colors.HexColor('#F1F5F9'),
+        }
+
+        table_data = [["Area / Categoria", "Item", "Cant.", "Estado", "Observaciones"]]
+        style_cmds = [
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1E293B')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 8),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#CBD5E1')),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ]
+
+        for idx, item in enumerate(items):
+            row_num = idx + 1
+            cond = getattr(item, "condition", "")
+            table_data.append([
+                getattr(item, "category", ""),
+                getattr(item, "item_name", ""),
+                str(getattr(item, "quantity", 1)),
+                cond,
+                getattr(item, "notes", "") or ""
+            ])
+            bg = cond_colors.get(cond, colors.white)
+            style_cmds.append(('BACKGROUND', (3, row_num), (3, row_num), bg))
+
+        t = Table(table_data, colWidths=[1.4 * inch, 1.6 * inch, 0.5 * inch, 0.9 * inch, 2.1 * inch])
+        t.setStyle(TableStyle(style_cmds))
+        story.append(t)
+    else:
+        story.append(Paragraph("No se registraron items en este inventario.", body_style))
+
+    story.append(Spacer(1, 0.4 * inch))
+    story.append(Paragraph(
+        "Con la firma del presente documento las partes declaran haber recibido/entregado el inmueble "
+        "en el estado descrito anteriormente y se obligan a su cumplimiento.",
+        body_style
+    ))
+    story.append(Spacer(1, 0.5 * inch))
+
+    sig_data = [
+        ["__________________________", "__________________________"],
+        ["FIRMA ARRENDADOR / GESTOR", "FIRMA ARRENDATARIO"],
+        ["Nombre: _________________", "Nombre: _________________"],
+        ["CC: ____________________", "CC: ____________________"],
+    ]
+    sig_table = Table(sig_data, colWidths=[3 * inch, 3 * inch])
+    sig_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 9),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(sig_table)
+
+    doc.build(story)
+    return filepath

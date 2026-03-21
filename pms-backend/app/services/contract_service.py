@@ -25,7 +25,9 @@ async def list_contracts(
     page: int = 1,
     limit: int = 20,
 ) -> tuple[list[Contract], int]:
-    stmt = select(Contract).options(selectinload(Contract.property)).join(Property, Contract.property_id == Property.id)
+    stmt = select(Contract).options(
+        selectinload(Contract.property).selectinload(Property.owner)
+    ).join(Property, Contract.property_id == Property.id)
     if property_id:
         stmt = stmt.where(Contract.property_id == property_id)
     if status_filter:
@@ -49,7 +51,9 @@ async def list_contracts(
 
 
 async def get_contract(db: AsyncSession, contract_id: str) -> Contract:
-    stmt = select(Contract).options(selectinload(Contract.property)).where(Contract.id == contract_id)
+    stmt = select(Contract).options(
+        selectinload(Contract.property).selectinload(Property.owner)
+    ).where(Contract.id == contract_id)
     result = await db.execute(stmt)
     contract = result.scalar_one_or_none()
     if not contract:
