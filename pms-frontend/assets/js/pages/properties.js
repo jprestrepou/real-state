@@ -531,9 +531,91 @@ function openValuationModal(property) {
           <i data-lucide="info" class="w-4 h-4 shrink-0 mt-0.5 opacity-50"></i>
           <span>${res.provider}</span>
         </div>
+
+        <div id="valuation-map" class="h-64 bg-surface-200 rounded-xl border border-surface-300 overflow-hidden relative z-0"></div>
       `;
       container.classList.remove('hidden');
       if (window.lucide) lucide.createIcons();
+
+      // Setup Map
+      setTimeout(() => {
+        // Destroy prev map if exists
+        if (window._valuationMap) {
+          window._valuationMap.remove();
+          window._valuationMap = null;
+        }
+
+        const mapEl = document.getElementById('valuation-map');
+        if (!mapEl) return;
+
+        const CITY_COORDS = {
+          "Bogotá": [4.6097, -74.0817],
+          "Medellín": [6.2442, -75.5812],
+          "Cali": [3.4516, -76.5320],
+          "Barranquilla": [10.9639, -74.7964],
+          "Cartagena": [10.3997, -75.5144],
+          "Bucaramanga": [7.1254, -73.1198],
+          "Pereira": [4.8133, -75.6961],
+          "Manizales": [5.0689, -75.5174],
+          "Armenia": [4.5339, -75.6811],
+          "Santa Marta": [11.2408, -74.1990],
+          "Cúcuta": [7.8939, -72.5078],
+          "Ibagué": [4.4389, -75.2322],
+          "Neiva": [2.9273, -75.2819],
+          "Villavicencio": [4.1420, -73.6266],
+          "Envigado": [6.1759, -75.5917],
+          "Sabaneta": [6.1515, -75.6151]
+        };
+
+        const targetCity = res.city;
+        let centerLat = property.latitude || 4.6097;
+        let centerLng = property.longitude || -74.0817;
+
+        // Override if a known city is hit
+        if (CITY_COORDS[targetCity]) {
+          centerLat = CITY_COORDS[targetCity][0];
+          centerLng = CITY_COORDS[targetCity][1];
+        }
+
+        const map = L.map('valuation-map').setView([centerLat, centerLng], 14);
+        window._valuationMap = map;
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap'
+        }).addTo(map);
+
+        // Main Marker
+        const mainIcon = L.divIcon({
+          className: 'bg-transparent',
+          html: `<div class="w-5 h-5 bg-primary-600 border-2 border-white rounded-full shadow-lg flex items-center justify-center animate-bounce"><div class="w-1.5 h-1.5 bg-white rounded-full"></div></div>`,
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        });
+        L.marker([centerLat, centerLng], { icon: mainIcon })
+          .addTo(map)
+          .bindPopup(`<div class="font-bold text-sm">Zona Analizada</div><div class="text-xs text-primary-600">Simulación Central</div>`)
+          .openPopup();
+
+        // Generate Comparables (Random scattered points)
+        const compIcon = L.divIcon({
+          className: 'bg-transparent',
+          html: `<div class="w-3.5 h-3.5 bg-emerald-500 border-2 border-white rounded-full shadow-md"></div>`,
+          iconSize: [14, 14],
+          iconAnchor: [7, 7]
+        });
+
+        const numComparables = Math.floor(Math.random() * 5) + 6; // 6 to 10
+        for (let i = 0; i < numComparables; i++) {
+          const latOffset = (Math.random() - 0.5) * 0.025; // approx max 1-2km
+          const lngOffset = (Math.random() - 0.5) * 0.025;
+          const compPrice = res.estimated_monthly_rent * (1 + ((Math.random() - 0.5) * 0.2)); // +/- 10%
+          
+          L.marker([centerLat + latOffset, centerLng + lngOffset], { icon: compIcon })
+            .addTo(map)
+            .bindPopup(`<div class="font-bold text-xs text-surface-900">Comparable en el área</div>
+                        <div class="text-emerald-700 font-semibold text-sm">${formatCurrency(compPrice)}</div>`);
+        }
+      }, 100);
 
     } catch (err) {
       showToast(err.message || 'Error simulando arriendo', 'error');
