@@ -70,7 +70,7 @@ async def estimate_rental_value(
     # --- AUTOMATED HEURISTIC LOGIC (MOCK) FOR COLOMBIA ---
     city = (target_city or prop.city or "Bogotá").strip()
     stratum = target_stratum or prop.stratum or 3
-    area = prop.area or 50.0
+    area = prop.area_sqm or 50.0
     
     # Titlecase for matching (e.g. "medellin" -> "Medellín" fallback)
     city_key = city.title()

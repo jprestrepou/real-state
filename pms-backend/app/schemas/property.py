@@ -37,6 +37,7 @@ class PropertyCreate(BaseModel):
     )
     notes: Optional[str] = None
     manager_id: Optional[str] = None
+    stratum: Optional[int] = Field(None, ge=1, le=6)
 
 
 class PropertyUpdate(BaseModel):
@@ -62,9 +63,9 @@ class PropertyUpdate(BaseModel):
     has_elevator: Optional[bool] = None
     has_pool: Optional[bool] = None
     has_gym: Optional[bool] = None
-    status: Optional[str] = Field(None, pattern="^(Disponible|Arrendada|En Mantenimiento|Vendida)$")
     notes: Optional[str] = None
     manager_id: Optional[str] = None
+    stratum: Optional[int] = Field(None, ge=1, le=6)
 
 
 class PropertyResponse(BaseModel):
@@ -96,6 +97,7 @@ class PropertyResponse(BaseModel):
     has_elevator: bool
     has_pool: bool
     has_gym: bool
+    stratum: Optional[int] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -218,10 +218,17 @@ function openPropertyModal(property = null) {
         <label class="label">Dirección *</label>
         <input class="input" name="address" required value="${property?.address || ''}" placeholder="Calle 100 #15-20, Bogotá" />
       </div>
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-3 gap-4">
         <div>
           <label class="label">Ciudad *</label>
           <input class="input" name="city" required value="${property?.city || ''}" placeholder="Bogotá" />
+        </div>
+        <div>
+          <label class="label">Estrato</label>
+          <select class="select" name="stratum">
+            <option value="">No definido</option>
+            ${[1, 2, 3, 4, 5, 6].map(s => `<option value="${s}" ${property?.stratum == s ? 'selected' : ''}>Estrato ${s}</option>`).join('')}
+          </select>
         </div>
         <div>
           <label class="label">País</label>
@@ -332,8 +339,8 @@ function openPropertyModal(property = null) {
         if (val === '' && key !== 'pays_administration') return;
         if (['area_sqm', 'latitude', 'longitude', 'commercial_value', 'administration_fee'].includes(key)) {
           payload[key] = parseFloat(val);
-        } else if (['bedrooms', 'bathrooms', 'administration_day'].includes(key)) {
-          payload[key] = parseInt(val);
+        } else if (['bedrooms', 'bathrooms', 'administration_day', 'stratum'].includes(key)) {
+          payload[key] = val ? parseInt(val) : null;
         } else if (key === 'pays_administration') {
             payload[key] = document.getElementById('pays_administration').checked;
         } else {

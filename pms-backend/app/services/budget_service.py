@@ -353,7 +353,7 @@ async def get_budget_vs_actual_report(
     
     rows = []
     for cat in budget.categories:
-        trans_stmt = select(sa_func.sum(Transaction.amount)).where(
+        trans_stmt = select(func.sum(Transaction.amount)).where(
             and_(
                 Transaction.budget_category_id == cat.id,
                 Transaction.status == "Completada",
@@ -425,7 +425,7 @@ async def get_budget_monthly_breakdown(db: AsyncSession, budget_id: str) -> Dict
         for cat in budget.categories:
             c_budgeted = float(cat.budgeted_amount) / num_months
 
-            trans_stmt = select(sa_func.sum(Transaction.amount)).where(
+            trans_stmt = select(func.sum(Transaction.amount)).where(
                 and_(
                     Transaction.budget_category_id == cat.id,
                     Transaction.direction == TransactionDirection.CREDIT.value,

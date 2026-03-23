@@ -75,6 +75,7 @@ class Property(Base):
     has_elevator: Mapped[bool] = mapped_column(Boolean, default=False)
     has_pool: Mapped[bool] = mapped_column(Boolean, default=False)
     has_gym: Mapped[bool] = mapped_column(Boolean, default=False)
+    stratum: Mapped[int | None] = mapped_column(Integer, nullable=True)
     telegram_unit_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     parent_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("properties.id"), nullable=True, index=True
