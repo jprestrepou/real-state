@@ -98,14 +98,16 @@ async def estimate_rental_value(
     
     base_rent = price_per_m2 * float(area)
     
-    # 2. Adjustments based on property amenities (simulating market premium variables)
+    # 2. Adjustments based on property amenities
     adjustment_factor = 1.0
     if prop.has_parking:
         adjustment_factor += 0.08  # +8% for parking
-    if getattr(prop, 'has_elevator', False):
+    if prop.has_elevator:
         adjustment_factor += 0.05  # +5% for elevator
-    if getattr(prop, 'has_pool', False):
+    if prop.has_pool:
         adjustment_factor += 0.07  # +7% for pool/amenities
+    if prop.has_gym:
+        adjustment_factor += 0.04  # +4% for gym
         
     estimated_rent_min = base_rent * adjustment_factor * 0.9  # -10% margin
     estimated_rent_max = base_rent * adjustment_factor * 1.15 # +15% margin

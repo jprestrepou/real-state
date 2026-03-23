@@ -71,7 +71,10 @@ class Property(Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     has_insurance: Mapped[bool] = mapped_column(Boolean, default=False)
-    risk_score_avg: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    has_parking: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_elevator: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_pool: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_gym: Mapped[bool] = mapped_column(Boolean, default=False)
     telegram_unit_id: Mapped[str | None] = mapped_column(String(50), nullable=True)
     parent_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("properties.id"), nullable=True, index=True

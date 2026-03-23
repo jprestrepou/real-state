@@ -26,6 +26,11 @@ class PropertyCreate(BaseModel):
     administration_day: Optional[int] = Field(None, ge=1, le=31)
     administration_payment_method: Optional[str] = Field(None, max_length=100)
     administration_payment_info: Optional[str] = None
+    has_insurance: bool = Field(default=False)
+    has_parking: bool = Field(default=False)
+    has_elevator: bool = Field(default=False)
+    has_pool: bool = Field(default=False)
+    has_gym: bool = Field(default=False)
     status: str = Field(
         default="Disponible",
         pattern="^(Disponible|Arrendada|En Mantenimiento|Vendida)$",
@@ -52,6 +57,11 @@ class PropertyUpdate(BaseModel):
     administration_day: Optional[int] = Field(None, ge=1, le=31)
     administration_payment_method: Optional[str] = Field(None, max_length=100)
     administration_payment_info: Optional[str] = None
+    has_insurance: Optional[bool] = None
+    has_parking: Optional[bool] = None
+    has_elevator: Optional[bool] = None
+    has_pool: Optional[bool] = None
+    has_gym: Optional[bool] = None
     status: Optional[str] = Field(None, pattern="^(Disponible|Arrendada|En Mantenimiento|Vendida)$")
     notes: Optional[str] = None
     manager_id: Optional[str] = None
@@ -81,6 +91,11 @@ class PropertyResponse(BaseModel):
     status: str
     notes: Optional[str] = None
     is_active: bool
+    has_insurance: bool
+    has_parking: bool
+    has_elevator: bool
+    has_pool: bool
+    has_gym: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}

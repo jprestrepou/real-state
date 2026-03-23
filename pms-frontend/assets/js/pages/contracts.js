@@ -185,29 +185,8 @@ function renderContractsList(container, contracts, properties, rootContainer) {
 
     showModal('Cronograma de Pagos', `
       <div class="space-y-4">
-        <div class="max-h-80 overflow-y-auto border border-surface-100 rounded-xl">
-          <table class="data-table text-xs">
-            <thead class="sticky top-0 bg-white z-10 shadow-sm">
-              <tr><th>Fecha</th><th>Monto</th><th>Estado</th><th class="text-right">Acción</th></tr>
-            </thead>
-            <tbody>
-              ${payments.map(p => `
-                <tr class="hover:bg-surface-50">
-                  <td class="font-medium">${formatDate(p.due_date)}</td>
-                  <td class="font-black text-accent-700">${formatCurrency(p.amount)}</td>
-                  <td><span class="badge ${paymentBadge(p.status)} text-[10px] uppercase font-bold">${p.status}</span></td>
-                  <td class="text-right">
-                    ${p.status === 'Pendiente' ? `
-                      <button class="btn-primary py-1 px-3 text-[10px] pay-payment-btn"
-                        data-pid="${p.id}" data-cid="${b.dataset.id}" data-amount="${p.amount}">
-                        PAGAR
-                      </button>
-                    ` : p.status === 'Pagado' ? '<i data-lucide="check-circle" class="w-4 h-4 text-accent-500 ml-auto inline-block"></i>' : ''}
-                  </td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
+        <div id="payments-table-container" class="max-h-80 overflow-y-auto border border-surface-100 rounded-xl">
+          <!-- Table rows will be rendered here -->
         </div>
 
         <div id="payment-receipt-box" class="hidden p-4 bg-primary-50 border border-primary-100 rounded-xl animate-fade-in">
@@ -233,27 +212,75 @@ function renderContractsList(container, contracts, properties, rootContainer) {
       </div>
     `, { showCancel: false });
 
-    if (window.lucide) lucide.createIcons();
+    const renderSchedule = (currentPayments) => {
+      const container = document.getElementById('payments-table-container');
+      if (!container) return;
+      
+      container.innerHTML = `
+        <table class="data-table text-xs">
+          <thead class="sticky top-0 bg-white z-10 shadow-sm">
+            <tr><th>Fecha</th><th>Monto</th><th>Estado</th><th class="text-right">Acción</th></tr>
+          </thead>
+          <tbody>
+            ${currentPayments.map(p => `
+              <tr class="hover:bg-surface-50" id="payment-row-${p.id}">
+                <td class="font-medium">${formatDate(p.due_date)}</td>
+                <td class="font-black text-accent-700">${formatCurrency(p.amount)}</td>
+                <td><span class="badge ${paymentBadge(p.status)} text-[10px] uppercase font-bold">${p.status}</span></td>
+                <td class="text-right flex items-center justify-end">
+                  ${p.status === 'Pendiente' ? `
+                    <button class="btn-primary py-1 px-3 text-[10px] pay-payment-btn"
+                      data-pid="${p.id}" data-cid="${b.dataset.id}" data-amount="${p.amount}">
+                      PAGAR
+                    </button>
+                  ` : p.status === 'Pagado' ? '<i data-lucide="check-circle" class="w-4 h-4 text-accent-500"></i>' : ''}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
 
-    document.querySelectorAll('.pay-payment-btn').forEach(pb => pb.addEventListener('click', () => {
-      selectedPayment = { pid: pb.dataset.pid, cid: pb.dataset.cid, amount: pb.dataset.amount };
-      document.getElementById('payment-receipt-box').classList.remove('hidden');
-      document.getElementById('pay-amount').value = selectedPayment.amount;
-      document.querySelectorAll('.pay-payment-btn').forEach(btn => btn.closest('tr').classList.remove('bg-primary-50'));
-      pb.closest('tr').classList.add('bg-primary-50');
-    }));
+      if (window.lucide) lucide.createIcons();
+
+      container.querySelectorAll('.pay-payment-btn').forEach(pb => pb.addEventListener('click', () => {
+        selectedPayment = { pid: pb.dataset.pid, cid: pb.dataset.cid, amount: pb.dataset.amount };
+        document.getElementById('payment-receipt-box').classList.remove('hidden');
+        document.getElementById('pay-amount').value = selectedPayment.amount;
+        container.querySelectorAll('tr').forEach(tr => tr.classList.remove('bg-primary-50'));
+        pb.closest('tr').classList.add('bg-primary-50');
+      }));
+    };
+
+    renderSchedule(payments);
 
     document.getElementById('confirm-pay-btn')?.addEventListener('click', async () => {
       if (!selectedPayment) return;
       const accountId = document.getElementById('pay-account-id').value;
       const amount = document.getElementById('pay-amount').value;
+      const btn = document.getElementById('confirm-pay-btn');
+      
       if (!accountId) { showToast('Seleccione una cuenta', 'error'); return; }
+      
       try {
+        btn.disabled = true;
+        btn.innerHTML = 'Procesando...';
+        
         await api.post(`/contracts/${selectedPayment.cid}/payments/${selectedPayment.pid}/pay?account_id=${accountId}&amount=${amount}`, {});
-        showToast('✅ Pago registrado — transacción bancaria creada', 'success');
-        await renderContracts(rootContainer || document.getElementById('page-content'));
+        showToast('✅ Pago registrado correctamente', 'success');
+        
+        // Hide form and refresh table internally
+        document.getElementById('payment-receipt-box').classList.add('hidden');
+        const updatedPayments = await api.get(`/contracts/${selectedPayment.cid}/payments`);
+        renderSchedule(updatedPayments);
+        
+        // Background refresh list
+        renderContracts(rootContainer || document.getElementById('page-content'));
       } catch (err) {
         showToast(err.message || 'Error al registrar pago', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = 'Confirmar Pago';
       }
     });
   }));

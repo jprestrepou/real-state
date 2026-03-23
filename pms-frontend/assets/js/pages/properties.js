@@ -242,6 +242,24 @@ function openPropertyModal(property = null) {
           <input class="input" name="area_sqm" type="number" step="0.01" required value="${property?.area_sqm || ''}" placeholder="85.5" />
         </div>
       </div>
+      <div class="grid grid-cols-4 gap-4 p-3 bg-surface-50 rounded-xl border border-surface-100">
+        <label class="flex items-center gap-2 text-xs font-medium cursor-pointer">
+          <input type="checkbox" name="has_parking" ${property?.has_parking ? 'checked' : ''} class="w-4 h-4 rounded border-surface-300 text-primary-600 focus:ring-primary-500" />
+          Parqueadero
+        </label>
+        <label class="flex items-center gap-2 text-xs font-medium cursor-pointer">
+          <input type="checkbox" name="has_elevator" ${property?.has_elevator ? 'checked' : ''} class="w-4 h-4 rounded border-surface-300 text-primary-600 focus:ring-primary-500" />
+          Ascensor
+        </label>
+        <label class="flex items-center gap-2 text-xs font-medium cursor-pointer">
+          <input type="checkbox" name="has_pool" ${property?.has_pool ? 'checked' : ''} class="w-4 h-4 rounded border-surface-300 text-primary-600 focus:ring-primary-500" />
+          Piscina
+        </label>
+        <label class="flex items-center gap-2 text-xs font-medium cursor-pointer">
+          <input type="checkbox" name="has_gym" ${property?.has_gym ? 'checked' : ''} class="w-4 h-4 rounded border-surface-300 text-primary-600 focus:ring-primary-500" />
+          Gimnasio
+        </label>
+      </div>
       <div class="grid grid-cols-3 gap-4">
         <div>
           <label class="label">Habitaciones</label>
@@ -312,7 +330,7 @@ function openPropertyModal(property = null) {
       const payload = {};
       formData.forEach((val, key) => {
         if (val === '' && key !== 'pays_administration') return;
-        if (['latitude', 'longitude', 'area_sqm', 'commercial_value', 'administration_fee'].includes(key)) {
+        if (['area_sqm', 'latitude', 'longitude', 'commercial_value', 'administration_fee'].includes(key)) {
           payload[key] = parseFloat(val);
         } else if (['bedrooms', 'bathrooms', 'administration_day'].includes(key)) {
           payload[key] = parseInt(val);
@@ -321,6 +339,12 @@ function openPropertyModal(property = null) {
         } else {
           payload[key] = val;
         }
+      });
+
+      // Handle checkboxes explicitly since FormData only includes checked ones
+      ['has_parking', 'has_elevator', 'has_pool', 'has_gym'].forEach(key => {
+        const el = document.querySelector(`[name="${key}"]`);
+        if (el) payload[key] = el.checked;
       });
       if (!payload.hasOwnProperty('pays_administration')) {
           payload['pays_administration'] = document.getElementById('pays_administration').checked;
@@ -464,12 +488,52 @@ function openValuationModal(property) {
       
       <div class="grid grid-cols-2 gap-4 p-4 bg-surface-50 rounded-xl border border-surface-200">
         <div>
-          <label class="label text-surface-700">Ciudad Objetivo</label>
-          <input type="text" id="val-target-city" class="input bg-white" value="${defaultCity}" placeholder="Ej. Medellín, Cali, Bogotá..." />
+          <label class="label text-surface-700">Zona / Ciudad Objetivo</label>
+          <select id="val-target-city" class="select bg-white">
+            <optgroup label="Antioquia - Valle de Aburrá">
+              <option value="Medellín" ${defaultCity === 'Medellín' ? 'selected' : ''}>Medellín</option>
+              <option value="Envigado" ${defaultCity === 'Envigado' ? 'selected' : ''}>Envigado</option>
+              <option value="Sabaneta" ${defaultCity === 'Sabaneta' ? 'selected' : ''}>Sabaneta</option>
+              <option value="Itagüí" ${defaultCity === 'Itagüí' ? 'selected' : ''}>Itagüí</option>
+              <option value="Bello" ${defaultCity === 'Bello' ? 'selected' : ''}>Bello</option>
+            </optgroup>
+            <optgroup label="Antioquia - Valle de San Nicolás">
+              <option value="Rionegro" ${defaultCity === 'Rionegro' ? 'selected' : ''}>Rionegro / Llanogrande</option>
+              <option value="La Ceja" ${defaultCity === 'La Ceja' ? 'selected' : ''}>La Ceja</option>
+              <option value="Marinilla" ${defaultCity === 'Marinilla' ? 'selected' : ''}>Marinilla</option>
+              <option value="El Retiro" ${defaultCity === 'El Retiro' ? 'selected' : ''}>El Retiro</option>
+            </optgroup>
+            <optgroup label="Bogotá y Cundinamarca">
+              <option value="Bogotá" ${defaultCity === 'Bogotá' ? 'selected' : ''}>Bogotá D.C.</option>
+              <option value="Chía" ${defaultCity === 'Chía' ? 'selected' : ''}>Chía</option>
+              <option value="Cajicá" ${defaultCity === 'Cajicá' ? 'selected' : ''}>Cajicá</option>
+            </optgroup>
+            <optgroup label="Valle del Cauca">
+              <option value="Cali" ${defaultCity === 'Cali' ? 'selected' : ''}>Cali</option>
+              <option value="Palmira" ${defaultCity === 'Palmira' ? 'selected' : ''}>Palmira</option>
+            </optgroup>
+            <optgroup label="Costa Caribe">
+              <option value="Barranquilla" ${defaultCity === 'Barranquilla' ? 'selected' : ''}>Barranquilla</option>
+              <option value="Cartagena" ${defaultCity === 'Cartagena' ? 'selected' : ''}>Cartagena</option>
+              <option value="Santa Marta" ${defaultCity === 'Santa Marta' ? 'selected' : ''}>Santa Marta</option>
+            </optgroup>
+            <optgroup label="Eje Cafetero">
+              <option value="Pereira" ${defaultCity === 'Pereira' ? 'selected' : ''}>Pereira</option>
+              <option value="Manizales" ${defaultCity === 'Manizales' ? 'selected' : ''}>Manizales</option>
+              <option value="Armenia" ${defaultCity === 'Armenia' ? 'selected' : ''}>Armenia</option>
+            </optgroup>
+          </select>
         </div>
         <div>
-          <label class="label text-surface-700">Estrato (1-6)</label>
-          <input type="number" id="val-target-stratum" class="input bg-white" min="1" max="6" value="${defaultStratum}" />
+          <label class="label text-surface-700">Estrato Objetivo</label>
+          <select id="val-target-stratum" class="select bg-white">
+            <option value="1" ${defaultStratum == 1 ? 'selected' : ''}>Estrato 1</option>
+            <option value="2" ${defaultStratum == 2 ? 'selected' : ''}>Estrato 2</option>
+            <option value="3" ${defaultStratum == 3 ? 'selected' : ''}>Estrato 3</option>
+            <option value="4" ${defaultStratum == 4 ? 'selected' : ''}>Estrato 4</option>
+            <option value="5" ${defaultStratum == 5 ? 'selected' : ''}>Estrato 5</option>
+            <option value="6" ${defaultStratum == 6 ? 'selected' : ''}>Estrato 6</option>
+          </select>
         </div>
       </div>
 
@@ -488,7 +552,7 @@ function openValuationModal(property) {
   document.getElementById('run-valuation-btn').addEventListener('click', async (e) => {
     const btn = e.target.closest('button');
     const city = document.getElementById('val-target-city').value;
-    const stratum = document.getElementById('val-target-stratum').value;
+    const stratum = parseInt(document.getElementById('val-target-stratum').value);
     const container = document.getElementById('valuation-results-container');
     
     // Loading state
@@ -499,7 +563,7 @@ function openValuationModal(property) {
       let url = `/properties/${property.id}/valuation?`;
       const params = new URLSearchParams();
       if (city && city !== property.city) params.append('target_city', city);
-      if (stratum && stratum !== (property.stratum || '3')) params.append('target_stratum', stratum);
+      if (!isNaN(stratum)) params.append('target_stratum', stratum);
       
       const res = await api.get(url + params.toString());
       
@@ -553,7 +617,7 @@ function openValuationModal(property) {
           "Medellín": [6.2442, -75.5812],
           "Cali": [3.4516, -76.5320],
           "Barranquilla": [10.9639, -74.7964],
-          "Cartagena": [10.3997, -75.5144],
+          "Cartagena": [10.3997, -75.5144], "Cartagena de Indias": [10.3997, -75.5144],
           "Bucaramanga": [7.1254, -73.1198],
           "Pereira": [4.8133, -75.6961],
           "Manizales": [5.0689, -75.5174],
@@ -564,7 +628,13 @@ function openValuationModal(property) {
           "Neiva": [2.9273, -75.2819],
           "Villavicencio": [4.1420, -73.6266],
           "Envigado": [6.1759, -75.5917],
-          "Sabaneta": [6.1515, -75.6151]
+          "Sabaneta": [6.1515, -75.6151],
+          "Itagüí": [6.1729, -75.6083],
+          "Bello": [6.3373, -75.5579],
+          "La Ceja": [6.0303, -75.4312],
+          "Rionegro": [6.1528, -75.3725],
+          "El Retiro": [6.0583, -75.5033],
+          "Santa Fe de Antioquia": [6.5579, -75.8284]
         };
 
         const targetCity = res.city;
@@ -577,12 +647,23 @@ function openValuationModal(property) {
           centerLng = CITY_COORDS[targetCity][1];
         }
 
-        const map = L.map('valuation-map').setView([centerLat, centerLng], 14);
-        window._valuationMap = map;
+        if (typeof L === 'undefined') {
+          mapEl.innerHTML = `<div class="p-8 text-center text-surface-400">Error: Leaflet.js no cargado.</div>`;
+          return;
+        }
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap'
-        }).addTo(map);
+        try {
+          const map = L.map('valuation-map').setView([centerLat, centerLng], 14);
+          window._valuationMap = map;
+
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+          }).addTo(map);
+        } catch (err) {
+          console.error("Map init fail:", err);
+          mapEl.innerHTML = `<div class="p-8 text-center text-error-500">Error al inicializar el mapa.</div>`;
+          return;
+        }
 
         // Main Marker
         const mainIcon = L.divIcon({

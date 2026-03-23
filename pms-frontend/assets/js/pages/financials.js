@@ -268,8 +268,10 @@ export async function renderFinancials(container) {
   // Performance selector
   document.getElementById('performance-property-select')?.addEventListener('change', (e) => loadPerformance(e.target.value));
 
-  // PDF
-  document.getElementById('generate-pdf-btn')?.addEventListener('click', () => generatePDF(accounts, transactions));
+  // PDF Global
+  document.getElementById('generate-pdf-btn')?.addEventListener('click', () => {
+    window.open(`${api.baseUrl}/financial/financial-summary/export/pdf`, '_blank');
+  });
 
   // Tab switching
   document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -648,6 +650,9 @@ async function loadPerformance(propertyId) {
             <span class="badge ${perf.property_status === 'Arrendada' ? 'badge-green' : 'badge-blue'} text-xs">${perf.property_status || 'Sin estado'}</span>
           </div>
         </div>
+        <button id="export-prop-perf-pdf" class="btn-secondary-outline text-xs py-1.5" data-id="${propertyId}">
+          <i data-lucide="file-down" class="w-4 h-4"></i> Exportar PDF Individual
+        </button>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <div class="bg-white p-5 rounded-2xl border border-surface-100 shadow-sm">
@@ -697,6 +702,10 @@ async function loadPerformance(propertyId) {
   `;
 
   if (window.lucide) lucide.createIcons();
+
+  document.getElementById('export-prop-perf-pdf')?.addEventListener('click', () => {
+    window.open(`${api.baseUrl}/financial/properties/${propertyId}/performance/export/pdf`, '_blank');
+  });
 
   const dCtx = document.getElementById('property-mini-chart');
   if (dCtx && hasData) {
