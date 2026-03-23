@@ -270,7 +270,7 @@ async def update_budget(db: AsyncSession, budget_id: str, data: Any, user_id: st
     await db.commit()
     return await get_budget(db, budget_id)
 
-async def get_budget(db: AsyncSession, budget_id: str):
+async def get_budget(db: AsyncSession, budget_id: str) -> Optional[Budget]:
     stmt = select(Budget).options(
         selectinload(Budget.categories),
         selectinload(Budget.revisions)
