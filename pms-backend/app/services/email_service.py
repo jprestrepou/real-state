@@ -23,7 +23,7 @@ class EmailService:
 
         if not host or host == "smtp.example.com":
             logger.info(f"Email mock send to {to_email}. Subject: {subject}")
-            return True
+            return True, "Mock send"
 
         msg = EmailMessage()
         msg['Subject'] = subject
@@ -70,10 +70,11 @@ class EmailService:
             await loop.run_in_executor(None, _sync_send)
             
             logger.info(f"Email sent successfully to {to_email}")
-            return True
+            return True, "Success"
         except Exception as e:
-            logger.error(f"Error sending email to {to_email}: {str(e)}")
-            return False
+            err_msg = f"{type(e).__name__}: {str(e)}"
+            logger.error(f"Error sending email to {to_email}: {err_msg}")
+            return False, err_msg
 
     @staticmethod
     async def test_connection(db: AsyncSession) -> dict:
@@ -129,7 +130,7 @@ class EmailService:
         Sends a test email to verify the full pipeline works.
         Returns {"success": bool, "message": str}
         """
-        result = await EmailService.send_email(
+        success, error_msg = await EmailService.send_email(
             db=db,
             to_email=recipient,
             subject="✅ Prueba de correo - PMS",
@@ -147,7 +148,7 @@ class EmailService:
             </div>
             """,
         )
-        if result:
+        if success:
             return {"success": True, "message": f"Correo de prueba enviado exitosamente a {recipient}"}
         else:
-            return {"success": False, "message": "No se pudo enviar el correo de prueba. Revise los logs para más detalles."}
+            return {"success": False, "message": f"Error detalldo: {error_msg}"}
