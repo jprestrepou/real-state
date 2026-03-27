@@ -4,6 +4,7 @@ Email Service using standard smtplib and email.message.
 import smtplib
 from email.message import EmailMessage
 import logging
+from typing import Optional, Dict, Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.services import config_service
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class EmailService:
     @staticmethod
-    async def send_email(db: AsyncSession, to_email: str, subject: str, body: str, html_body: str = None, attachment_path: str = None):
+    async def send_email(db: AsyncSession, to_email: str, subject: str, body: str, html_body: Optional[str] = None, attachment_path: Optional[str] = None):
         """Send an email using dynamic SMTP settings from DB or ENV."""
         smtp_conf = await config_service.get_smtp_config(db)
         
@@ -38,10 +39,16 @@ class EmailService:
             try:
                 import mimetypes
                 import os
-                ctype, encoding = mimetypes.guess_type(attachment_path)
+                ctype_info = mimetypes.guess_type(attachment_path)
+                ctype = ctype_info[0]
+                encoding = ctype_info[1]
+                
                 if ctype is None or encoding is not None:
                     ctype = 'application/octet-stream'
-                maintype, subtype = ctype.split('/', 1)
+                
+                parts = ctype.split('/')
+                maintype = parts[0]
+                subtype = parts[1] if len(parts) > 1 else 'octet-stream'
                 
                 with open(attachment_path, 'rb') as f:
                     msg.add_attachment(f.read(), maintype=maintype, subtype=subtype, filename=os.path.basename(attachment_path))
@@ -50,21 +57,45 @@ class EmailService:
 
         try:
             import asyncio
+            import socket
 
             def _sync_send():
-                if port == 465:
-                    # SSL connection
-                    with smtplib.SMTP_SSL(host, port, timeout=15) as server:
-                        server.login(user, password)
-                        server.send_message(msg)
-                else:
-                    # STARTTLS connection (port 587 or others)
-                    with smtplib.SMTP(host, port, timeout=15) as server:
-                        server.ehlo()
-                        server.starttls()
-                        server.ehlo()
-                        server.login(user, password)
-                        server.send_message(msg)
+                # Attempt to connect using the host as-is
+                try:
+                    if port == 465:
+                        with smtplib.SMTP_SSL(host, port, timeout=15) as server:
+                            server.login(user, password)
+                            server.send_message(msg)
+                    else:
+                        with smtplib.SMTP(host, port, timeout=15) as server:
+                            server.ehlo()
+                            server.starttls()
+                            server.ehlo()
+                            server.login(user, password)
+                            server.send_message(msg)
+                except (OSError, smtplib.SMTPConnectError) as e:
+                    # Fallback: Try forcing IPv4 if the default attempt fails with a network/connection error
+                    logger.warning(f"Default connection to {host}:{port} failed ({e}). Attempting IPv4 fallback.")
+                    try:
+                        addr_info = socket.getaddrinfo(host, port, family=socket.AF_INET)
+                        if not addr_info:
+                            raise e
+                        ipv4_host = addr_info[0][4][0]
+                        
+                        if port == 465:
+                            with smtplib.SMTP_SSL(ipv4_host, port, timeout=15) as server:
+                                server.login(user, password)
+                                server.send_message(msg)
+                        else:
+                            with smtplib.SMTP(ipv4_host, port, timeout=15) as server:
+                                server.ehlo()
+                                server.starttls()
+                                server.ehlo()
+                                server.login(user, password)
+                                server.send_message(msg)
+                    except Exception as e2:
+                        logger.error(f"IPv4 fallback also failed: {e2}")
+                        raise e  # Raise the original error for better context
             
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, _sync_send)
@@ -73,8 +104,11 @@ class EmailService:
             return True, "Success"
         except Exception as e:
             err_msg = f"{type(e).__name__}: {str(e)}"
+            if "101" in err_msg or "unreachable" in err_msg.lower():
+                err_msg += " (Probable bloqueo de red en el servidor. Verifique puertos 587/465 en Render/Hosting)"
             logger.error(f"Error sending email to {to_email}: {err_msg}")
             return False, err_msg
+
 
     @staticmethod
     async def test_connection(db: AsyncSession) -> dict:
@@ -97,22 +131,45 @@ class EmailService:
 
         try:
             import asyncio
+            import socket
 
             def _sync_test():
-                if port == 465:
-                    with smtplib.SMTP_SSL(host, port, timeout=10) as server:
-                        server.login(user, password)
-                        server.noop()
-                else:
-                    with smtplib.SMTP(host, port, timeout=10) as server:
-                        server.ehlo()
-                        server.starttls()
-                        server.ehlo()
-                        server.login(user, password)
-                        server.noop()
+                try:
+                    if port == 465:
+                        with smtplib.SMTP_SSL(host, port, timeout=10) as server:
+                            server.login(user, password)
+                            server.noop()
+                    else:
+                        with smtplib.SMTP(host, port, timeout=10) as server:
+                            server.ehlo()
+                            server.starttls()
+                            server.ehlo()
+                            server.login(user, password)
+                            server.noop()
+                except (OSError, smtplib.SMTPConnectError) as e:
+                    # IPv4 Fallback for test connection
+                    try:
+                        addr_info = socket.getaddrinfo(host, port, family=socket.AF_INET)
+                        if not addr_info:
+                            raise e
+                        ipv4_host = addr_info[0][4][0]
+                        if port == 465:
+                            with smtplib.SMTP_SSL(ipv4_host, port, timeout=10) as server:
+                                server.login(user, password)
+                                server.noop()
+                        else:
+                            with smtplib.SMTP(ipv4_host, port, timeout=10) as server:
+                                server.ehlo()
+                                server.starttls()
+                                server.ehlo()
+                                server.login(user, password)
+                                server.noop()
+                    except Exception:
+                        raise e
             
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(None, _sync_test)
+
             
             return {"success": True, "message": f"Conexión exitosa a {host}:{port} como {user}"}
         except smtplib.SMTPAuthenticationError:
@@ -151,4 +208,4 @@ class EmailService:
         if success:
             return {"success": True, "message": f"Correo de prueba enviado exitosamente a {recipient}"}
         else:
-            return {"success": False, "message": f"Error detalldo: {error_msg}"}
+            return {"success": False, "message": f"Error detallado: {error_msg}"}
