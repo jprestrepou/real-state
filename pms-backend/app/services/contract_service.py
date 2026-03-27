@@ -12,7 +12,7 @@ from fastapi import HTTPException
 from app.models.contract import Contract, PaymentSchedule, ContractStatus, PaymentStatus
 from app.schemas.contract import ContractCreate, ContractUpdate, ContractSignRequest
 from app.services.pdf_service import generate_contract_pdf
-from app.tasks.email_tasks import send_contract_revision_email, send_contract_signature_request_email
+from app.services.email_service import EmailService
 import hashlib
 from datetime import datetime
 from app.services import audit_service
@@ -44,8 +44,6 @@ async def list_contracts(
     
     # Enrich with property info
     for c in contracts:
-        # Load property if not already loaded (though join helped)
-        # In async, we should be careful with lazy loading
         c.property_name = c.property.name if c.property else "Sin asignar"
         c.property_address = c.property.address if c.property else ""
     return contracts, total
@@ -124,9 +122,35 @@ async def activate_contract(db: AsyncSession, contract_id: str) -> Contract:
         action="ACTIVATE",
         entity_type="Contract",
         entity_id=contract.id,
-        old_value={"status": ContractStatus.BORRADOR.value}, # Approximated
+        old_value={"status": ContractStatus.BORRADOR.value},
         new_value={"status": contract.status}
     )
+    
+    # Auto-generate PDF and send it to tenant upon activation
+    try:
+        if not contract.pdf_file:
+            pdf_path = await generate_contract_pdf(db, contract.id)
+            contract.pdf_file = pdf_path
+            await db.commit()
+            await db.refresh(contract)
+        
+        if contract.tenant_email and contract.pdf_file:
+            await EmailService.send_email(
+                db=db,
+                to_email=contract.tenant_email,
+                subject=f"Contrato de Arrendamiento - {contract.tenant_name}",
+                body=f"Adjunto encontrará su contrato de arrendamiento activado.\n\nContrato ID: {contract.id[:8]}",
+                html_body=f"""
+                <h2>Contrato de Arrendamiento</h2>
+                <p>Estimado(a) <strong>{contract.tenant_name}</strong>,</p>
+                <p>Se adjunta el contrato de arrendamiento correspondiente a la propiedad.</p>
+                <p>Referencia: <code>{contract.id[:8]}</code></p>
+                <br><p>Atentamente,<br>Administración</p>
+                """,
+                attachment_path=contract.pdf_file,
+            )
+    except Exception as e:
+        print(f"Error in automatic PDF generation/sending: {e}")
     
     return contract
 
@@ -139,19 +163,64 @@ async def send_contract_for_signature(db: AsyncSession, contract_id: str) -> Con
     
     try:
         if not contract.pdf_file:
-            pdf_path = await generate_contract_pdf(contract)
+            pdf_path = await generate_contract_pdf(db, contract.id)
             contract.pdf_file = pdf_path
             
         recipients = [contract.tenant_email] if contract.tenant_email else []
         if recipients:
-            signing_url = f"https://app.example.com/sign/{contract.id}" # Simulated URL
-            send_contract_signature_request_email.delay(contract.id, signing_url, recipients)
+            signing_url = f"https://app.example.com/sign/{contract.id}"
+            for r in recipients:
+                await EmailService.send_email(
+                    db=db,
+                    to_email=r,
+                    subject=f"Firma Requerida - Contrato {contract.id[:8]}",
+                    body=f"Por favor proceda a firmar digitalmente su contrato.\nEnlace: {signing_url}",
+                    html_body=f"""
+                    <h2>Firma de Contrato Requerida</h2>
+                    <p>Estimado(a) <strong>{contract.tenant_name}</strong>,</p>
+                    <p>Se requiere su firma digital para el contrato de arrendamiento.</p>
+                    <p><a href="{signing_url}">Haga clic aquí para firmar</a></p>
+                    <br><p>Atentamente,<br>Administración</p>
+                    """,
+                )
             
     except Exception as e:
         print(f"Error sending signature request: {e}")
 
     await db.commit()
     await db.refresh(contract)
+    return contract
+
+async def send_contract_copy(db: AsyncSession, contract_id: str) -> Contract:
+    """Generate (if needed) and send a copy of the contract PDF to the tenant."""
+    contract = await get_contract(db, contract_id)
+    if not contract.tenant_email:
+        raise HTTPException(status_code=400, detail="El contrato no tiene un correo de inquilino asociado")
+        
+    try:
+        if not contract.pdf_file:
+            pdf_path = await generate_contract_pdf(db, contract.id)
+            contract.pdf_file = pdf_path
+            await db.commit()
+            await db.refresh(contract)
+            
+        await EmailService.send_email(
+            db=db,
+            to_email=contract.tenant_email,
+            subject=f"Copia de Contrato - {contract.tenant_name}",
+            body=f"Adjunto encontrará una copia de su contrato de arrendamiento.\n\nContrato ID: {contract.id[:8]}",
+            html_body=f"""
+            <h2>Copia de Contrato de Arrendamiento</h2>
+            <p>Estimado(a) <strong>{contract.tenant_name}</strong>,</p>
+            <p>Se adjunta una copia de su contrato de arrendamiento.</p>
+            <p>Referencia: <code>{contract.id[:8]}</code></p>
+            <br><p>Atentamente,<br>Administración</p>
+            """,
+            attachment_path=contract.pdf_file,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al enviar copia del contrato: {e}")
+
     return contract
 
 async def sign_contract(db: AsyncSession, contract_id: str, data: ContractSignRequest, ip_address: str) -> Contract:

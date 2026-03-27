@@ -65,15 +65,15 @@ async def download_contract_pdf(
 ):
     """Descargar el PDF original del contrato."""
     contract = await contract_service.get_contract(db, contract_id)
-    if not contract.pdf_file:
-        from app.services.pdf_service import generate_contract_pdf
-        contract.pdf_file = await generate_contract_pdf(contract)
-        # Update db if needed, but for now just serve
-        
+    
     import os
-    if not os.path.exists(contract.pdf_file):
-         from app.services.pdf_service import generate_contract_pdf
-         contract.pdf_file = await generate_contract_pdf(contract)
+    from app.services.pdf_service import generate_contract_pdf
+    
+    # Always regenerate if file doesn't exist on disk
+    if not contract.pdf_file or not os.path.exists(contract.pdf_file):
+        contract.pdf_file = await generate_contract_pdf(db, contract.id)
+        await db.commit()
+        await db.refresh(contract)
 
     with open(contract.pdf_file, "rb") as f:
         pdf_bytes = f.read()
@@ -118,6 +118,17 @@ async def send_for_signature(
     return await contract_service.send_contract_for_signature(db, contract_id)
 
 
+@router.post("/{contract_id}/send-copy", response_model=dict)
+async def send_contract_copy(
+    contract_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
+):
+    """Envia una copia del PDF del contrato actual al correo del inquilino."""
+    await contract_service.send_contract_copy(db, contract_id)
+    return {"message": "Copia del contrato enviada al correo del inquilino"}
+
+
 @router.post("/{contract_id}/sign", response_model=ContractResponse)
 async def sign_contract(
     contract_id: str,
@@ -147,7 +158,7 @@ async def generate_termination(
         raise HTTPException(status_code=404, detail="Contrato no encontrado")
         
     from app.services.pdf_service import generate_termination_letter
-    pdf_path = await generate_termination_letter(contract, data.reason, data.termination_date)
+    pdf_path = await generate_termination_letter(db, contract.id, data.reason, data.termination_date)
     return {"message": "Carta generada", "pdf_url": f"/{pdf_path}"}
 
 @router.get("/{contract_id}/payments", response_model=list[PaymentScheduleResponse])

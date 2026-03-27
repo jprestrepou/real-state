@@ -55,13 +55,18 @@ export async function renderSettings(container, state) {
 
         <!-- Email Config -->
         <div class="glass-card-static p-6 border-t-4 border-t-accent-500">
-            <div class="flex items-center gap-3 mb-6">
-                <div class="w-10 h-10 rounded-lg bg-accent-100 flex items-center justify-center text-accent-600">
-                    <i data-lucide="mail" class="w-6 h-6"></i>
+            <div class="flex items-center justify-between gap-3 mb-6">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-lg bg-accent-100 flex items-center justify-center text-accent-600">
+                        <i data-lucide="mail" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-surface-900">Servidor de Correo (SMTP)</h3>
+                        <p class="text-sm text-surface-500">Configuración para envíos de correo del sistema</p>
+                    </div>
                 </div>
-                <div>
-                    <h3 class="text-xl font-bold text-surface-900">Servidor de Correo (SMTP)</h3>
-                    <p class="text-sm text-surface-500">Configuración para envíos de correo del sistema</p>
+                <div id="smtp-status-badge" class="badge badge-gray flex items-center gap-1 text-xs">
+                    <i data-lucide="circle" class="w-3 h-3"></i> Sin verificar
                 </div>
             </div>
 
@@ -69,23 +74,37 @@ export async function renderSettings(container, state) {
                 <div class="grid grid-cols-3 gap-4">
                     <div class="col-span-2">
                         <label class="label text-sm" for="smtp_host">SMTP Host</label>
-                        <input type="text" id="smtp_host" name="SMTP_HOST" class="input text-sm" placeholder="smtp.ejemplo.com">
+                        <input type="text" id="smtp_host" name="SMTP_HOST" class="input text-sm" placeholder="smtp.gmail.com">
                     </div>
                     <div>
                         <label class="label text-sm" for="smtp_port">Puerto</label>
                         <input type="number" id="smtp_port" name="SMTP_PORT" class="input text-sm" placeholder="587">
+                        <p class="text-[10px] text-surface-400 mt-0.5">587=TLS, 465=SSL</p>
                     </div>
                 </div>
                 <div>
-                    <label class="label text-sm" for="smtp_user">Usuario SMTP</label>
-                    <input type="text" id="smtp_user" name="SMTP_USER" class="input text-sm">
+                    <label class="label text-sm" for="smtp_user">Usuario SMTP (correo emisor)</label>
+                    <input type="text" id="smtp_user" name="SMTP_USER" class="input text-sm" placeholder="tucorreo@gmail.com">
                 </div>
                 <div>
                     <label class="label text-sm" for="smtp_pass">Contraseña SMTP</label>
-                    <input type="password" id="smtp_pass" name="SMTP_PASS" class="input text-sm">
+                    <input type="password" id="smtp_pass" name="SMTP_PASS" class="input text-sm" placeholder="Contraseña de aplicación">
+                    <p class="text-[10px] text-surface-400 mt-0.5">Para Gmail usa una <a href="https://myaccount.google.com/apppasswords" target="_blank" class="text-primary-500 underline">contraseña de aplicación</a></p>
                 </div>
-                <div class="flex justify-end pt-4 border-t border-surface-100">
-                    <button type="submit" class="btn-primary" id="btn-save-email">
+                <div>
+                    <label class="label text-sm" for="smtp_test_email">Correo para prueba (opcional)</label>
+                    <input type="email" id="smtp_test_email" class="input text-sm" placeholder="destino@ejemplo.com">
+                    <p class="text-[10px] text-surface-400 mt-0.5">Si ingresa un correo, al probar se enviará un email de prueba a esta dirección.</p>
+                </div>
+
+                <!-- SMTP Test Result -->
+                <div id="smtp-test-result" class="hidden rounded-xl p-3 text-sm font-medium flex items-center gap-2"></div>
+
+                <div class="flex flex-col sm:flex-row justify-end gap-3 pt-4 border-t border-surface-100">
+                    <button type="button" class="btn-outline flex-1 mt-0" id="btn-test-smtp">
+                        <i data-lucide="plug" class="w-4 h-4 mr-2"></i> Probar Conexión
+                    </button>
+                    <button type="submit" class="btn-primary flex-1 mt-0" id="btn-save-email">
                         <i data-lucide="save" class="w-4 h-4 mr-2"></i> Guardar Correo
                     </button>
                 </div>
@@ -174,9 +193,72 @@ export async function renderSettings(container, state) {
         try {
             await api.post('/config/batch', updates);
             showToast('Configuración SMTP guardada', 'success');
+            // Reset test result
+            const resultBox = document.getElementById('smtp-test-result');
+            resultBox.classList.add('hidden');
+            const badge = document.getElementById('smtp-status-badge');
+            badge.className = 'badge badge-gray flex items-center gap-1 text-xs';
+            badge.innerHTML = '<i data-lucide="circle" class="w-3 h-3"></i> Sin verificar';
+            if (window.lucide) lucide.createIcons();
         } catch (error) {
             showToast('Error al guardar: ' + error.message, 'error');
         } finally { btn.disabled = false; }
+    });
+
+    // Test SMTP connection
+    document.getElementById('btn-test-smtp').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-test-smtp');
+        const resultBox = document.getElementById('smtp-test-result');
+        const badge = document.getElementById('smtp-status-badge');
+        const testEmail = document.getElementById('smtp_test_email').value.trim();
+
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 mr-2 animate-spin"></i> Probando...';
+        if (window.lucide) lucide.createIcons();
+        resultBox.classList.add('hidden');
+
+        // First save current values before testing
+        const emForm = document.getElementById('email-config-form');
+        const updates = {
+            "SMTP_HOST": emForm.elements['SMTP_HOST'].value.trim(),
+            "SMTP_PORT": emForm.elements['SMTP_PORT'].value.trim(),
+            "SMTP_USER": emForm.elements['SMTP_USER'].value.trim(),
+            "SMTP_PASS": emForm.elements['SMTP_PASS'].value.trim(),
+        };
+
+        try {
+            // Save first
+            await api.post('/config/batch', updates);
+
+            // Then test
+            const payload = testEmail ? { recipient: testEmail } : {};
+            const result = await api.post('/config/test-email', payload);
+
+            resultBox.classList.remove('hidden');
+            if (result.success) {
+                resultBox.className = 'rounded-xl p-3 text-sm font-medium flex items-center gap-2 bg-green-50 text-green-700 border border-green-200';
+                resultBox.innerHTML = `<i data-lucide="check-circle" class="w-5 h-5 shrink-0"></i> ${result.message}`;
+                badge.className = 'badge badge-green flex items-center gap-1 text-xs';
+                badge.innerHTML = '<i data-lucide="check-circle" class="w-3 h-3"></i> Conectado';
+                showToast('✅ Conexión SMTP verificada', 'success');
+            } else {
+                resultBox.className = 'rounded-xl p-3 text-sm font-medium flex items-center gap-2 bg-red-50 text-red-700 border border-red-200';
+                resultBox.innerHTML = `<i data-lucide="x-circle" class="w-5 h-5 shrink-0"></i> ${result.message}`;
+                badge.className = 'badge badge-red flex items-center gap-1 text-xs';
+                badge.innerHTML = '<i data-lucide="x-circle" class="w-3 h-3"></i> Error';
+                showToast('❌ ' + result.message, 'error');
+            }
+        } catch (error) {
+            resultBox.classList.remove('hidden');
+            resultBox.className = 'rounded-xl p-3 text-sm font-medium flex items-center gap-2 bg-red-50 text-red-700 border border-red-200';
+            resultBox.innerHTML = `<i data-lucide="alert-triangle" class="w-5 h-5 shrink-0"></i> Error: ${error.message}`;
+            badge.className = 'badge badge-red flex items-center gap-1 text-xs';
+            badge.innerHTML = '<i data-lucide="x-circle" class="w-3 h-3"></i> Error';
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="plug" class="w-4 h-4 mr-2"></i> Probar Conexión';
+            if (window.lucide) lucide.createIcons();
+        }
     });
 
     document.getElementById('btn-activate-webhook').addEventListener('click', async (e) => {

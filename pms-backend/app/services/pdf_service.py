@@ -11,6 +11,10 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib.units import inch
 from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
 
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+
 from app.models.contract import Contract
 from app.models.property import Property
 from app.models.budget import Budget
@@ -21,10 +25,26 @@ def _format_currency(value: float) -> str:
     """Basic currency formatter: $ X.XXX.XXX,XX"""
     return "${:,.2f}".format(value).replace(",", "X").replace(".", ",").replace("X", ".")
 
-async def generate_contract_pdf(contract: Contract) -> str:
+async def generate_contract_pdf(db: AsyncSession, contract_id: str) -> str:
     """
     Generates a professional formal PDF for the contract using Platypus.
+    Loads property + owner eagerly to avoid lazy-loading issues in async.
     """
+    # ── Load contract with relationships ──────────────────────────────
+    stmt = (
+        select(Contract)
+        .options(selectinload(Contract.property).selectinload(Property.owner))
+        .where(Contract.id == contract_id)
+    )
+    result = await db.execute(stmt)
+    contract = result.scalar_one_or_none()
+    if not contract:
+        raise ValueError(f"Contrato {contract_id} no encontrado")
+
+    prop = contract.property
+    if not prop:
+        raise ValueError("El contrato no tiene una propiedad asociada")
+
     if not os.path.exists(UPLOADS_DIR):
         os.makedirs(UPLOADS_DIR, exist_ok=True)
 
@@ -66,15 +86,19 @@ async def generate_contract_pdf(contract: Contract) -> str:
     story.append(Paragraph("CONTRATO DE ARRENDAMIENTO DE VIVIENDA URBANA", title_style))
     story.append(Spacer(1, 0.2 * inch))
 
-    prop = contract.property
-    landlord_name = prop.owner.full_name if prop.owner else "ADMINISTRADOR"
+    landlord_name = "ADMINISTRADOR"
+    if prop.owner and hasattr(prop.owner, "full_name"):
+        landlord_name = prop.owner.full_name or "ADMINISTRADOR"
     
+    prop_city = prop.city or "Ciudad"
+    prop_address = prop.address or "Dirección no registrada"
+
     contract_data = [
-        ["LUGAR Y FECHA DEL CONTRATO:", f"{prop.city}, {date.today().strftime('%d de %B de %Y')}"],
+        ["LUGAR Y FECHA DEL CONTRATO:", f"{prop_city}, {date.today().strftime('%d de %B de %Y')}"],
         ["ARRENDADOR:", landlord_name.upper()],
         ["ARRENDATARIO:", contract.tenant_name.upper()],
         ["IDENTIFICACIÓN:", f"C.C. {contract.tenant_document or 'N/A'}"],
-        ["DIRECCIÓN PROPIEDAD:", prop.address.upper()],
+        ["DIRECCIÓN PROPIEDAD:", prop_address.upper()],
         ["CANON MENSUAL:", _format_currency(float(contract.monthly_rent))],
         ["TÉRMINO DE VIGENCIA:", f"Desde {contract.start_date} hasta {contract.end_date}"],
     ]
@@ -91,7 +115,7 @@ async def generate_contract_pdf(contract: Contract) -> str:
     story.append(Spacer(1, 0.3 * inch))
 
     clauses = [
-        ("PRIMERA - OBJETO:", f"El Arrendador entrega al Arrendatario el uso y goce de la propiedad ubicada en {prop.address}, {prop.city}, destinada exclusivamente a vivienda urbana."),
+        ("PRIMERA - OBJETO:", f"El Arrendador entrega al Arrendatario el uso y goce de la propiedad ubicada en {prop_address}, {prop_city}, destinada exclusivamente a vivienda urbana."),
         ("SEGUNDA - CANON DE ARRENDAMIENTO:", f"El precio mensual del arrendamiento es la suma de {_format_currency(float(contract.monthly_rent))} moneda corriente, pagaderos anticipadamente dentro de los primeros (5) días de cada periodo mensual."),
         ("TERCERA - INCREMENTO:", f"En caso de prórroga o renovación del contrato, el canon se incrementará anualmente en un {contract.annual_increment_pct or 0}%, conforme a lo pactado entre las partes."),
         ("CUARTA - SERVICIOS PÚBLICOS:", "El pago de los servicios públicos (agua, luz, gas, alcantarillado, etc.) estará a cargo del Arrendatario desde la entrega material de la propiedad hasta su restitución."),
@@ -126,10 +150,25 @@ async def generate_contract_pdf(contract: Contract) -> str:
 
     return filepath
 
-async def generate_termination_letter(contract: Contract, reason: str, termination_date: date) -> str:
+async def generate_termination_letter(db: AsyncSession, contract_id: str, reason: str, termination_date: date) -> str:
     """
     Generates a formal contract termination letter.
+    Loads contract with property eagerly.
     """
+    stmt = (
+        select(Contract)
+        .options(selectinload(Contract.property).selectinload(Property.owner))
+        .where(Contract.id == contract_id)
+    )
+    result = await db.execute(stmt)
+    contract = result.scalar_one_or_none()
+    if not contract:
+        raise ValueError(f"Contrato {contract_id} no encontrado")
+
+    prop = contract.property
+    prop_city = prop.city if prop else "Ciudad"
+    prop_address = prop.address if prop else "Dirección no registrada"
+
     if not os.path.exists(UPLOADS_DIR):
         os.makedirs(UPLOADS_DIR, exist_ok=True)
 
@@ -147,7 +186,7 @@ async def generate_termination_letter(contract: Contract, reason: str, terminati
     story = []
     
     today_str = date.today().strftime('%d de %B de %Y')
-    story.append(Paragraph(f"Ciudad y Fecha: {contract.property.city}, {today_str}", body_style))
+    story.append(Paragraph(f"Ciudad y Fecha: {prop_city}, {today_str}", body_style))
     story.append(Spacer(1, 0.3 * inch))
     
     story.append(Paragraph(f"Señor(a):<br/>{contract.tenant_name.upper()}", body_style))
@@ -157,7 +196,7 @@ async def generate_termination_letter(contract: Contract, reason: str, terminati
     text = (
         f"Respetado(a) Señor(a):<br/><br/>"
         f"Por medio de la presente, actuando en calidad de arrendador del inmueble ubicado en la "
-        f"dirección <b>{contract.property.address}</b>, me permito notificarle "
+        f"dirección <b>{prop_address}</b>, me permito notificarle "
         f"la decisión de dar por terminado el contrato de arrendamiento suscrito entre las partes."
     )
     story.append(Paragraph(text, body_style))
@@ -301,7 +340,7 @@ async def generate_budget_pdf(budget: Budget) -> str:
 
     t = Table(table_data, colWidths=[2.5 * inch, 1.2 * inch, 1.2 * inch, 0.8 * inch, 0.8 * inch])
     t.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4F46E5')), # primary-600 in tailwind
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4F46E5')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
