@@ -1,0 +1,23 @@
+=========================================================
+Propuesta de Mejoras y Nuevas Funcionalidades
+Sistema: PMS (Gestión Inmobiliaria)
+=========================================================
+
+Basado en la arquitectura actual del sistema, sugiero las siguientes mejoras y nuevas funciones que aportarían un gran valor añadido al producto, ordenadas por impacto y viabilidad:
+
+2. PORTAL / EXPERIENCIA DEL INQUILINO (TENANT PORTAL)
+---------------------------------------------------------
+- Mini-App Telegram o Web-App: Un espacio donde el inquilino, validándose con su número, pueda descargar sus estados de cuenta, recibos de pago históricos, y reportar daños subiendo fotos sin necesidad de comandos de texto de Telegram.
+- Pasarela de Pagos Automática: Integrar botones de pago (Stripe, Wompi, MercadoPago) directamente en los mensajes de Telegram de cobro para que el inquilino pague y la transacción se registre sola en el libro mayor.
+4. COMUNICACIÓN Y AUTOMATIZACIÓN (TELEGRAM / CELERY)
+---------------------------------------------------------
+- Flujos de Suscripción (Drip Campaigns): Enviar mensajes automáticos programados 30 días, 15 días y 5 días antes de que venza un contrato de arrendamiento para negociar su renovación a tiempo.
+- Reportes Gerenciales Programados: Que el sistema envíe un PDF por Telegram de forma automática el día 1 de cada mes al Administrador General, resumiendo la ocupación, ganancias netas y morosidad.
+
+5. ARQUITECTURA TÉCNICA Y RENDIMIENTO
+---------------------------------------------------------
+- Reportes Pesados Asíncronos (Celery): Actualmente ReportLab genera el PDF bloqueando la solicitud HTTP. Al crecer la cantidad de datos, generar el reporte tardará. Esto debería moverse a Celery y enviar el PDF por Telegram al usuario una vez termine.
+- Soft Delete Ampliado: Implementar borrado lógico (`is_deleted=True`) en todas las tablas transaccionales (mantenimientos, contratos, auditorías) para cumplir con normativas de retención de datos fiscales en producción.
+- Multi-Tenancy (SaaS): Si el PMS se venderá a varias inmobiliarias, escalar la base de datos para que cada "Agencia" tenga sus propios usuarios, roles, propiedades y no se mezclen los datos.
+
+Estas mejoras apuntan a hacer del software no solo una herramienta de registro, sino un asistente inteligente que ahorre dinero recuperando cartera vencida y tiempo en tareas mecánicas.

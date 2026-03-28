@@ -3,6 +3,7 @@
  */
 import { api } from '../api.js';
 import { formatCurrency, formatPercent, semaphoreClass } from '../utils/formatters.js';
+import { parseCurrencyValue } from '../utils/currency-input.js';
 import { showToast, showModal } from '../components/modal.js';
 
 export async function renderBudgets(container) {
@@ -432,7 +433,7 @@ function openBudgetModal(properties, accounts, existingBudget = null, onSuccess)
         <div><label class="label">Mes *</label><input class="input" name="month" type="number" min="1" max="12" value="${month}" required /></div>
         <div id="total-budget-container">
            <label class="label">Presupuesto *</label>
-           <input class="input" name="total_budget" id="total_budget_input" type="number" step="0.01" value="${isEdit ? existingBudget.total_budget : ''}" ${isEdit && existingBudget.auto_calculate_total ? 'disabled' : ''} />
+           <input class="input currency-input" name="total_budget" id="total_budget_input" type="text" value="${isEdit ? existingBudget.total_budget : ''}" ${isEdit && existingBudget.auto_calculate_total ? 'disabled' : ''} />
         </div>
       </div>
       <div class="flex items-center gap-2 bg-primary-50 p-3 rounded-xl border border-primary-100">
@@ -482,17 +483,17 @@ function openBudgetModal(properties, accounts, existingBudget = null, onSuccess)
       const cats = [];
       form.querySelectorAll('.cat-row').forEach(r => {
         const n = r.querySelector('[name="cat_name"]').value;
-        const a = r.querySelector('[name="cat_amount"]').value;
+        const a = parseCurrencyValue(r.querySelector('[name="cat_amount"]').value);
         const d = r.querySelector('[name="cat_dist"]').checked;
         const acc = r.querySelector('[name="cat_account"]')?.value;
-        if (n && a) cats.push({ category_name: n, budgeted_amount: parseFloat(a), is_distributable: d, account_id: acc || null });
+        if (n && a) cats.push({ category_name: n, budgeted_amount: a, is_distributable: d, account_id: acc || null });
       });
 
       const payload = {
         property_id: fd.get('property_id') === 'GENERAL' ? null : fd.get('property_id'),
         year: parseInt(fd.get('year')),
         month: parseInt(fd.get('month')),
-        total_budget: is_auto ? 0 : (parseFloat(fd.get('total_budget')) || 0),
+        total_budget: is_auto ? 0 : (parseCurrencyValue(fd.get('total_budget')) || 0),
         categories: cats,
         auto_calculate_total: is_auto,
         notes: fd.get('notes'),
@@ -526,9 +527,10 @@ function openBudgetModal(properties, accounts, existingBudget = null, onSuccess)
     if (!checkAuto.checked) return;
     let sum = 0;
     document.querySelectorAll('.cat-row').forEach(r => {
-      sum += parseFloat(r.querySelector('[name="cat_amount"]').value || 0);
+      sum += parseCurrencyValue(r.querySelector('[name="cat_amount"]').value || '0');
     });
     inputTotal.value = sum;
+    inputTotal.dispatchEvent(new Event('input', { bubbles: true }));
   };
 
   document.getElementById('add-cat-btn').addEventListener('click', () => {
@@ -555,7 +557,7 @@ function renderCatRow(name = '', amount = '', dist = false, accountId = null, ac
   return `
     <div class="cat-row flex gap-2 items-center animate-fade-in group w-full">
       <input class="input text-sm py-1.5 flex-[4]" name="cat_name" value="${name}" placeholder="Categoría" />
-      <input class="input text-sm py-1.5 flex-[2]" name="cat_amount" type="number" step="0.01" value="${amount}" placeholder="$" />
+      <input class="input currency-input text-sm py-1.5 flex-[2]" name="cat_amount" type="text" value="${amount}" placeholder="$" />
       <select class="select text-xs py-1.5 flex-[3]" name="cat_account">
         <option value="">(Sin Cuenta)</option>
         ${accounts.map(a => `<option value="${a.id}" ${accountId === a.id ? 'selected' : ''}>${a.account_name}</option>`).join('')}
@@ -577,10 +579,13 @@ document.addEventListener('catChange', () => {
   if (checkAuto && checkAuto.checked) {
     let sum = 0;
     document.querySelectorAll('.cat-row').forEach(r => {
-      sum += parseFloat(r.querySelector('[name="cat_amount"]').value || 0);
+      sum += parseCurrencyValue(r.querySelector('[name="cat_amount"]').value || '0');
     });
     const inputTotal = document.getElementById('total_budget_input');
-    if (inputTotal) inputTotal.value = sum;
+    if (inputTotal) {
+      inputTotal.value = sum;
+      inputTotal.dispatchEvent(new Event('input', { bubbles: true }));
+    }
   }
 });
 

@@ -1,8 +1,9 @@
 /**
- * Contracts Page — lease management with full payment workflow.
+ * Contracts Page — lease management with full payment workflow, Telegram integration.
  */
 import { api } from '../api.js';
 import { formatCurrency, formatDate, statusBadge } from '../utils/formatters.js';
+import { parseCurrencyValue } from '../utils/currency-input.js';
 import { showToast, showModal } from '../components/modal.js';
 
 export async function renderContracts(container) {
@@ -71,6 +72,7 @@ function renderContractsList(container, contracts, properties, rootContainer) {
       ${contracts.length ? contracts.map(c => `<tr>
         <td>
           <div class="font-bold text-surface-900">${c.tenant_name}</div>
+          ${c.tenant_telegram_chat_id ? `<div class="text-[10px] text-sky-500 font-medium flex items-center gap-0.5"><i data-lucide="bot" class="w-3 h-3"></i> TG:${c.tenant_telegram_chat_id}</div>` : ''}
           ${c.tenant_email ? `<div class="text-[10px] text-surface-400 font-medium">${c.tenant_email}</div>` : ''}
         </td>
         <td>
@@ -89,6 +91,17 @@ function renderContractsList(container, contracts, properties, rootContainer) {
           ${(c.status === 'Borrador' || c.status === 'Firmado') ? `
             <button class="btn-ghost text-xs p-1.5 activate-btn hover:bg-accent-50 rounded-lg group" data-id="${c.id}" title="Activar Contrato">
               <i data-lucide="check-circle" class="w-4 h-4 text-accent-500 group-hover:scale-110 transition-transform"></i>
+            </button>` : ''}
+          ${c.status === 'Borrador' && c.tenant_telegram_chat_id ? `
+            <button class="btn-ghost text-xs p-1.5 sign-btn hover:bg-sky-50 rounded-lg group" data-id="${c.id}" title="Enviar a Firma por Telegram">
+              <i data-lucide="pen-tool" class="w-4 h-4 text-sky-500 group-hover:scale-110 transition-transform"></i>
+            </button>` : ''}
+          ${c.tenant_telegram_chat_id ? `
+            <button class="btn-ghost text-xs p-1.5 tg-send-btn hover:bg-sky-50 rounded-lg group" data-id="${c.id}" title="Enviar PDF por Telegram">
+              <i data-lucide="send" class="w-4 h-4 text-sky-500 group-hover:scale-110 transition-transform"></i>
+            </button>
+            <button class="btn-ghost text-xs p-1.5 tg-msg-btn hover:bg-violet-50 rounded-lg group" data-id="${c.id}" data-name="${c.tenant_name}" title="Enviar Mensaje al Arrendatario">
+              <i data-lucide="message-circle" class="w-4 h-4 text-violet-500 group-hover:scale-110 transition-transform"></i>
             </button>` : ''}
           <button class="btn-ghost text-xs p-1.5 download-btn hover:bg-blue-50 rounded-lg group" data-id="${c.id}" title="Descargar PDF">
             <i data-lucide="download" class="w-4 h-4 text-blue-500 group-hover:scale-110 transition-transform"></i>
@@ -116,6 +129,54 @@ function renderContractsList(container, contracts, properties, rootContainer) {
     } catch(err) {
       showToast(err.message || 'Error al activar contrato', 'error');
     }
+  }));
+
+  // Send for signature via Telegram
+  document.querySelectorAll('.sign-btn').forEach(b => b.addEventListener('click', async () => {
+    try {
+      b.querySelector('i').classList.add('animate-spin');
+      await api.post(`/contracts/${b.dataset.id}/send-signature`, {});
+      showToast('📋 Contrato enviado a firma por Telegram', 'success');
+      await renderContracts(rootContainer || document.getElementById('page-content'));
+    } catch(err) {
+      showToast(err.message || 'Error al enviar a firma', 'error');
+    }
+  }));
+
+  // Send contract PDF via Telegram
+  document.querySelectorAll('.tg-send-btn').forEach(b => b.addEventListener('click', async () => {
+    try {
+      b.querySelector('i').classList.add('animate-spin');
+      await api.post(`/contracts/${b.dataset.id}/send-telegram`, {});
+      showToast('📨 Contrato enviado por Telegram', 'success');
+    } catch(err) {
+      showToast(err.message || 'Error al enviar por Telegram', 'error');
+    } finally {
+      b.querySelector('i')?.classList.remove('animate-spin');
+    }
+  }));
+
+  // Send message to tenant via Telegram
+  document.querySelectorAll('.tg-msg-btn').forEach(b => b.addEventListener('click', () => {
+    const tenantName = b.dataset.name;
+    showModal(`Enviar Mensaje a ${tenantName}`, `
+      <form id="tg-msg-form" class="space-y-4">
+        <div>
+          <label class="label text-sm">Mensaje</label>
+          <textarea class="input min-h-[120px] resize-y" name="message" placeholder="Escriba el mensaje informativo para el arrendatario..." required></textarea>
+          <p class="text-xs text-surface-400 mt-1">Se enviará vía Telegram al arrendatario.</p>
+        </div>
+      </form>
+    `, {
+      confirmText: '📨 Enviar por Telegram',
+      onConfirm: async () => {
+        const formData = new FormData(document.getElementById('tg-msg-form'));
+        const message = formData.get('message');
+        if (!message?.trim()) { showToast('Escriba un mensaje', 'error'); return; }
+        await api.post(`/contracts/${b.dataset.id}/send-message`, { message: message.trim() });
+        showToast('✅ Mensaje enviado por Telegram', 'success');
+      }
+    });
   }));
 
   // Download contract PDF
@@ -203,7 +264,7 @@ function renderContractsList(container, contracts, properties, rootContainer) {
               </div>
               <div>
                 <label class="block text-[10px] font-bold text-primary-700 mb-1 uppercase">Monto a Pagar</label>
-                <input id="pay-amount" type="number" step="0.01" class="input text-xs py-1.5 w-full" value="" />
+                <input id="pay-amount" type="text" class="input currency-input text-xs py-1.5 w-full" value="" />
               </div>
             </div>
             <button id="confirm-pay-btn" class="btn-primary w-full py-2">Confirmar Pago</button>
@@ -257,7 +318,7 @@ function renderContractsList(container, contracts, properties, rootContainer) {
     document.getElementById('confirm-pay-btn')?.addEventListener('click', async () => {
       if (!selectedPayment) return;
       const accountId = document.getElementById('pay-account-id').value;
-      const amount = document.getElementById('pay-amount').value;
+      const amount = parseCurrencyValue(document.getElementById('pay-amount').value);
       const btn = document.getElementById('confirm-pay-btn');
       
       if (!accountId) { showToast('Seleccione una cuenta', 'error'); return; }
@@ -304,22 +365,34 @@ function openContractModal(properties = [], rootContainer) {
       <div><label class="label">Teléfono</label><input class="input" name="tenant_phone" /></div>
       <div><label class="label">Documento</label><input class="input" name="tenant_document" /></div>
     </div>
+    <div class="p-3 bg-sky-50 border border-sky-200 rounded-xl">
+      <label class="label text-sky-700 flex items-center gap-1.5 text-sm">
+        <i data-lucide="bot" class="w-4 h-4"></i> Telegram Chat ID
+      </label>
+      <input class="input font-mono text-sm mt-1" name="tenant_telegram_chat_id" placeholder="Ej: 123456789 (el arrendatario debe enviar /start al bot)" />
+      <p class="text-[10px] text-sky-500 mt-1">El arrendatario debe iniciar conversación con el bot y enviar <code>/start</code> para obtener su Chat ID.</p>
+    </div>
     <div class="grid grid-cols-2 gap-4">
       <div><label class="label">Tipo *</label><select class="select" name="contract_type"><option value="Vivienda">Vivienda</option><option value="Comercial">Comercial</option><option value="Garaje">Garaje</option></select></div>
-      <div><label class="label">Canon Mensual *</label><input class="input" name="monthly_rent" type="number" step="0.01" required /></div>
+      <div><label class="label">Canon Mensual *</label><input class="input currency-input" name="monthly_rent" type="text" required /></div>
     </div>
     <div class="grid grid-cols-2 gap-4">
       <div><label class="label">Inicio *</label><input class="input" name="start_date" type="date" required value="${today}" /></div>
       <div><label class="label">Fin *</label><input class="input" name="end_date" type="date" required /></div>
     </div>
     <div class="grid grid-cols-2 gap-4">
-      <div><label class="label">Depósito</label><input class="input" name="deposit_amount" type="number" step="0.01" /></div>
+      <div><label class="label">Depósito</label><input class="input currency-input" name="deposit_amount" type="text" /></div>
       <div><label class="label">Incremento Anual %</label><input class="input" name="annual_increment_pct" type="number" step="0.01" value="5" /></div>
     </div>
   </form>`, {
     confirmText: 'Crear', onConfirm: async () => {
       const fd = new FormData(document.getElementById('cf')); const p = {};
-      fd.forEach((v, k) => { if (!v) return; p[k] = ['monthly_rent', 'deposit_amount', 'annual_increment_pct'].includes(k) ? parseFloat(v) : v; });
+      fd.forEach((v, k) => { 
+        if (!v) return; 
+        if (['monthly_rent', 'deposit_amount'].includes(k)) p[k] = parseCurrencyValue(v);
+        else if (k === 'annual_increment_pct') p[k] = parseFloat(v);
+        else p[k] = v; 
+      });
       p.auto_renewal = false;
       await api.post('/contracts', p);
       showToast('Contrato creado en Borrador — use ✓ para activarlo', 'success');
@@ -332,9 +405,14 @@ function renderTenantsList(container, contracts) {
   const tenantsMap = {};
   contracts.forEach(c => {
     if (!tenantsMap[c.tenant_name]) {
-      tenantsMap[c.tenant_name] = { name: c.tenant_name, email: c.tenant_email, phone: c.tenant_phone, document: c.tenant_document, active_contracts: 0 };
+      tenantsMap[c.tenant_name] = {
+        name: c.tenant_name, email: c.tenant_email, phone: c.tenant_phone,
+        document: c.tenant_document, telegram_chat_id: c.tenant_telegram_chat_id,
+        active_contracts: 0, contract_ids: []
+      };
     }
     if (c.status === 'Activo') tenantsMap[c.tenant_name].active_contracts++;
+    tenantsMap[c.tenant_name].contract_ids.push(c.id);
   });
 
   const tenants = Object.values(tenantsMap);
@@ -350,10 +428,17 @@ function renderTenantsList(container, contracts) {
                     <p class="text-xs text-surface-500 mt-1"><i data-lucide="mail" class="w-3 h-3 inline mr-1"></i>${t.email || '-'}</p>
                     <p class="text-xs text-surface-500 mt-1"><i data-lucide="phone" class="w-3 h-3 inline mr-1"></i>${t.phone || '-'}</p>
                     <p class="text-xs text-surface-500 mt-1"><i data-lucide="credit-card" class="w-3 h-3 inline mr-1"></i>${t.document || '-'}</p>
-                    <div class="mt-3">
+                    ${t.telegram_chat_id ? `<p class="text-xs text-sky-500 mt-1 font-medium"><i data-lucide="bot" class="w-3 h-3 inline mr-1"></i>TG: ${t.telegram_chat_id}</p>` : ''}
+                    <div class="mt-3 flex items-center gap-2 flex-wrap">
                         <span class="badge ${t.active_contracts > 0 ? 'badge-green' : 'badge-gray'} text-xs">
                             ${t.active_contracts} Contratos Activos
                         </span>
+                        ${t.telegram_chat_id ? `
+                            <button class="btn-ghost text-xs p-1.5 tenant-msg-btn hover:bg-violet-50 rounded-lg group"
+                                data-contract-id="${t.contract_ids[0]}" data-name="${t.name}" title="Enviar Mensaje por Telegram">
+                                <i data-lucide="message-circle" class="w-4 h-4 text-violet-500 group-hover:scale-110 transition-transform"></i>
+                            </button>
+                        ` : ''}
                     </div>
                 </div>
             </div>
@@ -361,4 +446,28 @@ function renderTenantsList(container, contracts) {
         </div>
     `;
   if (window.lucide) lucide.createIcons();
+
+  // Send message to tenant from the tenants tab
+  container.querySelectorAll('.tenant-msg-btn').forEach(b => b.addEventListener('click', () => {
+    const tenantName = b.dataset.name;
+    const contractId = b.dataset.contractId;
+    showModal(`Enviar Mensaje a ${tenantName}`, `
+      <form id="tenant-msg-form" class="space-y-4">
+        <div>
+          <label class="label text-sm">Mensaje</label>
+          <textarea class="input min-h-[120px] resize-y" name="message" placeholder="Escriba el mensaje informativo..." required></textarea>
+          <p class="text-xs text-surface-400 mt-1">Se enviará vía Telegram al arrendatario.</p>
+        </div>
+      </form>
+    `, {
+      confirmText: '📨 Enviar por Telegram',
+      onConfirm: async () => {
+        const formData = new FormData(document.getElementById('tenant-msg-form'));
+        const message = formData.get('message');
+        if (!message?.trim()) { showToast('Escriba un mensaje', 'error'); return; }
+        await api.post(`/contracts/${contractId}/send-message`, { message: message.trim() });
+        showToast('✅ Mensaje enviado por Telegram', 'success');
+      }
+    });
+  }));
 }

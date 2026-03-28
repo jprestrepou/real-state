@@ -4,11 +4,13 @@
 
 import { api } from './api.js';
 import { showToast } from './components/modal.js';
+import './utils/currency-input.js'; // Auto-formats inputs with class "currency-input"
 
 // ── Page Modules (lazy-ish imports) ─────────────────────
 import { renderDashboard } from './pages/dashboard.js';
 import { renderProperties } from './pages/properties.js';
 import { renderFinancials } from './pages/financials.js';
+import { renderInvoices } from './pages/invoices.js';
 import { renderMaintenance } from './pages/maintenance.js';
 import { renderContracts } from './pages/contracts.js';
 import { renderBudgets } from './pages/budgets.js';
@@ -19,6 +21,7 @@ import { renderWorkGroups } from './pages/work_groups.js';
 import { renderAudits } from './pages/audits.js';
 import { renderCalendar } from './pages/calendar.js';
 import { renderSettings } from './pages/settings.js';
+import { renderSuppliers } from './pages/suppliers.js';
 
 // ── Global State ────────────────────────────────────────
 const state = {
@@ -31,6 +34,7 @@ const pages = {
     dashboard: { title: 'Dashboard', subtitle: 'Vista general de su cartera inmobiliaria', render: renderDashboard },
     properties: { title: 'Propiedades', subtitle: 'Gestión de su portfolio inmobiliario', render: renderProperties },
     financials: { title: 'Finanzas', subtitle: 'Ledger contable y conciliación bancaria', render: renderFinancials },
+    invoices: { title: 'Cuentas por Cobrar', subtitle: 'Facturación de arriendos y cobros pendientes', render: renderInvoices },
     maintenance: { title: 'Mantenimientos', subtitle: 'Órdenes de trabajo y calendario', render: renderMaintenance },
     contracts: { title: 'Contratos', subtitle: 'Gestión de arrendamientos', render: renderContracts },
     budgets: { title: 'Presupuestos', subtitle: 'Control presupuestario y semáforo', render: renderBudgets },
@@ -40,6 +44,7 @@ const pages = {
     'work-groups': { title: 'Grupos de Trabajo', subtitle: 'Gestión de equipos de mantenimiento', render: renderWorkGroups },
     audits: { title: 'Auditoría', subtitle: 'Registro de actividades y log del sistema', render: renderAudits },
     calendar: { title: 'Calendario', subtitle: 'Eventos y fechas importantes próximas', render: renderCalendar },
+    suppliers: { title: 'Proveedores', subtitle: 'Métricas de desempeño y gestión de cuentas por pagar', render: renderSuppliers },
     settings: { title: 'Configuración', subtitle: 'Ajustes globales y de integraciones', render: renderSettings },
 };
 

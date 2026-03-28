@@ -3,6 +3,7 @@
  */
 import { api } from '../api.js';
 import { formatCurrency, formatDate, statusBadge } from '../utils/formatters.js';
+import { parseCurrencyValue } from '../utils/currency-input.js';
 import { showToast, showModal } from '../components/modal.js';
 
 export async function renderMaintenance(container, state) {
@@ -15,7 +16,10 @@ export async function renderMaintenance(container, state) {
         <select id="fm-status" class="select text-sm py-2 w-44">
           <option value="">Todos</option>
           <option value="Pendiente">Pendiente</option>
+          <option value="Esperando Cotizacion">Esperando Cotización</option>
+          <option value="Esperando Aprobacion">Esperando Aprobación</option>
           <option value="En Progreso">En Progreso</option>
+          <option value="Esperando Factura">Esperando Factura</option>
           <option value="Completado">Completado</option>
           <option value="Cancelado">Cancelado</option>
         </select>
@@ -24,8 +28,8 @@ export async function renderMaintenance(container, state) {
     </div>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 animate-fade-in">
       <div class="glass-card-static p-4 text-center">
-        <p class="text-2xl font-bold text-amber-500">${orders.filter(o => o.status === 'Pendiente').length}</p>
-        <p class="text-xs text-surface-500 mt-1">Pendientes</p>
+        <p class="text-2xl font-bold text-amber-500">${orders.filter(o => ['Pendiente', 'Esperando Cotizacion', 'Esperando Aprobacion'].includes(o.status)).length}</p>
+        <p class="text-xs text-surface-500 mt-1">Pendientes / Cot</p>
       </div>
       <div class="glass-card-static p-4 text-center">
         <p class="text-2xl font-bold text-primary-500">${orders.filter(o => o.status === 'En Progreso').length}</p>
@@ -62,6 +66,9 @@ export async function renderMaintenance(container, state) {
         <td class="text-xs text-surface-500">${formatDate(o.scheduled_date)}</td>
         <td>
             <div class="flex gap-1 justify-end">
+                ${o.quote_file ? `<a href="${api.baseUrl.replace('/api/v1', '')}/${o.quote_file}" target="_blank" class="btn-ghost text-xs py-1 px-2" title="Ver cotización"><i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-500"></i></a>` : ''}
+                ${(o.status === 'Pendiente' || o.status === 'Esperando Cotizacion') ? `<button class="btn-ghost text-xs py-1 px-2 quote-btn" data-id="${o.id}" title="Subir Cotización"><i data-lucide="upload-cloud" class="w-3.5 h-3.5 text-amber-500"></i></button>` : ''}
+                ${o.status === 'Esperando Aprobacion' ? `<button class="btn-ghost text-xs py-1 px-2 approve-btn" data-id="${o.id}" title="Aprobar Cotización"><i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-500"></i></button>` : ''}
                 <button class="btn-ghost text-xs py-1 px-2 edit-btn" data-id="${o.id}" title="Editar orden"><i data-lucide="edit-3" class="w-3.5 h-3.5"></i></button>
                 ${o.status !== 'Completado' && o.status !== 'Cancelado' ? `<button class="btn-ghost text-xs py-1 px-2 status-btn" data-id="${o.id}" title="Cambiar estado"><i data-lucide="arrow-right" class="w-3.5 h-3.5"></i></button>` : ''}
             </div>
@@ -75,6 +82,15 @@ export async function renderMaintenance(container, state) {
     document.getElementById('add-maint-btn').addEventListener('click', async () => await openMaintModal());
     document.querySelectorAll('.status-btn').forEach(b => b.addEventListener('click', () => openStatusModal(b.dataset.id)));
     document.querySelectorAll('.edit-btn').forEach(b => b.addEventListener('click', () => openEditModal(b.dataset.id)));
+    document.querySelectorAll('.quote-btn').forEach(b => b.addEventListener('click', () => openQuoteModal(b.dataset.id)));
+    document.querySelectorAll('.approve-btn').forEach(b => b.addEventListener('click', () => approveQuoteModal(b.dataset.id)));
+    
+    document.getElementById('fm-status').addEventListener('change', async (e) => {
+        const val = e.target.value;
+        const data = await api.get(`/maintenance?limit=50${val ? '&status=' + encodeURIComponent(val) : ''}`);
+        // very simple re-render
+        renderMaintenance(container, state); // re-rendering will lose selected filter unless we bind it or the filter is basic
+    });
 }
 
 window.viewPhotos = async (id) => {
@@ -115,7 +131,7 @@ async function openMaintModal() {
       <div><label class="label">Prioridad</label><select class="select" name="priority"><option value="Media">Media</option><option value="Baja">Baja</option><option value="Alta">Alta</option><option value="Urgente">Urgente</option></select></div>
     </div>
     <div class="grid grid-cols-2 gap-4">
-      <div><label class="label">Costo Est.</label><input class="input" name="estimated_cost" type="number" step="0.01" /></div>
+      <div><label class="label">Costo Est.</label><input class="input currency-input" name="estimated_cost" type="text" /></div>
       <div><label class="label">Fecha</label><input class="input" name="scheduled_date" type="date" /></div>
     </div>
     <div><label class="label">Proveedor</label><input class="input" name="supplier_name" /></div>
@@ -123,7 +139,7 @@ async function openMaintModal() {
   </form>`, {
         confirmText: 'Crear', onConfirm: async () => {
             const fd = new FormData(document.getElementById('mf')); const p = {};
-            fd.forEach((v, k) => { if (!v) return; p[k] = k === 'estimated_cost' ? parseFloat(v) : v; });
+            fd.forEach((v, k) => { if (!v) return; p[k] = k === 'estimated_cost' ? parseCurrencyValue(v) : v; });
             await api.post('/maintenance', p); showToast('Orden creada', 'success');
             await renderMaintenance(document.getElementById('page-content'), state);
         }
@@ -159,6 +175,8 @@ async function openEditModal(id) {
         <label class="label">Estado *</label>
         <select class="select" name="status">
             <option value="Pendiente" ${o.status === 'Pendiente' ? 'selected' : ''}>Pendiente</option>
+            <option value="Esperando Cotizacion" ${o.status === 'Esperando Cotizacion' ? 'selected' : ''}>Esperando Cotización</option>
+            <option value="Esperando Aprobacion" ${o.status === 'Esperando Aprobacion' ? 'selected' : ''}>Esperando Aprobación</option>
             <option value="En Progreso" ${o.status === 'En Progreso' ? 'selected' : ''}>En Progreso</option>
             <option value="Esperando Factura" ${o.status === 'Esperando Factura' ? 'selected' : ''}>Esperando Factura</option>
             <option value="Completado" ${o.status === 'Completado' ? 'selected' : ''}>Completado</option>
@@ -168,8 +186,8 @@ async function openEditModal(id) {
       <div><label class="label">Fecha</label><input class="input" name="scheduled_date" type="date" value="${o.scheduled_date || ''}" /></div>
     </div>
     <div class="grid grid-cols-2 gap-4">
-        <div><label class="label">Costo Est.</label><input class="input" name="estimated_cost" type="number" step="0.01" value="${o.estimated_cost || ''}" /></div>
-        <div><label class="label">Costo Real</label><input class="input" name="actual_cost" type="number" step="0.01" value="${o.actual_cost || ''}" /></div>
+        <div><label class="label">Costo Est.</label><input class="input currency-input" name="estimated_cost" type="text" value="${o.estimated_cost || ''}" /></div>
+        <div><label class="label">Costo Real</label><input class="input currency-input" name="actual_cost" type="text" value="${o.actual_cost || ''}" /></div>
     </div>
     <div><label class="label">Proveedor</label><input class="input" name="supplier_name" value="${o.supplier_name || ''}" /></div>
     <div><label class="label">Notas</label><textarea class="input" name="notes" rows="3">${o.notes || ''}</textarea></div>
@@ -180,7 +198,7 @@ async function openEditModal(id) {
             const payload = {};
             formData.forEach((v, k) => {
                 if (k === 'estimated_cost' || k === 'actual_cost') {
-                    payload[k] = v ? parseFloat(v) : null;
+                    payload[k] = v ? parseCurrencyValue(v) : null;
                 } else if (v) {
                     payload[k] = v;
                 }
@@ -196,8 +214,12 @@ async function openEditModal(id) {
 function openStatusModal(id) {
     showModal('Cambiar Estado', `<form id="sf" class="space-y-4">
     <div><label class="label">Estado *</label><select class="select" name="status">
-      <option value="Pendiente">Pendiente</option><option value="En Progreso">En Progreso</option>
-      <option value="Esperando Factura">Esperando Factura</option><option value="Completado">Completado</option>
+      <option value="Pendiente">Pendiente</option>
+      <option value="Esperando Cotizacion">Esperando Cotización</option>
+      <option value="Esperando Aprobacion">Esperando Aprobación</option>
+      <option value="En Progreso">En Progreso</option>
+      <option value="Esperando Factura">Esperando Factura</option>
+      <option value="Completado">Completado</option>
       <option value="Cancelado">Cancelado</option></select></div>
     <div><label class="label">Notas</label><textarea class="input" name="notes" rows="2"></textarea></div>
   </form>`, {
@@ -205,7 +227,33 @@ function openStatusModal(id) {
             const fd = new FormData(document.getElementById('sf'));
             const p = { status: fd.get('status') }; if (fd.get('notes')) p.notes = fd.get('notes');
             await api.put(`/maintenance/${id}/status`, p); showToast('Estado actualizado', 'success');
-            await renderMaintenance(document.getElementById('page-content'), state);
+            await renderMaintenance(document.getElementById('page-content'), window.appState);
         }
     });
+}
+
+function openQuoteModal(id) {
+    showModal('Subir Cotización (PDF)', `<form id="qf" class="space-y-4">
+    <div><label class="label">Archivo PDF *</label><input class="input" type="file" name="file" accept="application/pdf" required /></div>
+    <p class="text-xs text-surface-500">Al subir la cotización la orden pasará a "Esperando Aprobación".</p>
+  </form>`, {
+        confirmText: 'Subir', onConfirm: async () => {
+            const formData = new FormData(document.getElementById('qf'));
+            if (!formData.get('file').name) return showToast('Selecciona un archivo', 'warning');
+            await api.upload(`/maintenance/${id}/quote`, formData);
+            showToast('Cotización subida', 'success');
+            await renderMaintenance(document.getElementById('page-content'), window.appState);
+        }
+    });
+}
+
+function approveQuoteModal(id) {
+    if(confirm('¿Aprobar cotización? La orden pasará a "En Progreso" y se notificará al responsable.')) {
+        api.post(`/maintenance/${id}/approve`)
+        .then(() => {
+            showToast('Cotización aprobada', 'success');
+            renderMaintenance(document.getElementById('page-content'), window.appState);
+        })
+        .catch(e => showToast(e.message, 'error'));
+    }
 }

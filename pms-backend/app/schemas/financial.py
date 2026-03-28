@@ -3,9 +3,32 @@ Financial schemas — Pydantic v2 models for accounts, transactions, reports.
 """
 
 from datetime import datetime, date
-from typing import Optional
+from typing import Optional, List
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+
+# ── Invoices (Accounts Receivable) ─────────────────────────
+class InvoiceBase(BaseModel):
+    issue_date: date
+    due_date: date
+    amount: float = Field(gt=0)
+    status: str = Field(pattern="^(Pendiente|Pagada|Vencida|Anulada)$")
+
+
+class InvoiceCreate(InvoiceBase):
+    contract_id: str
+    property_id: str
+
+
+class InvoiceResponse(InvoiceBase):
+    id: str
+    contract_id: str
+    property_id: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ── Bank Accounts ────────────────────────────────────────
@@ -22,6 +45,7 @@ class AccountUpdate(BaseModel):
     account_name: Optional[str] = Field(None, min_length=2, max_length=200)
     bank_name: Optional[str] = None
     account_number: Optional[str] = None
+    current_balance: Optional[float] = Field(None, description="Saldo inicial/ajustado de la cuenta")
     is_active: Optional[bool] = None
 
 
@@ -49,9 +73,10 @@ class TransactionCreate(BaseModel):
     category: str = Field(min_length=2, max_length=100)
     amount: float = Field(gt=0)
     direction: Optional[str] = Field(None, pattern="^(Debit|Credit)$")
-    description: str = Field(min_length=2)
     reference_id: Optional[str] = None
     reference_type: Optional[str] = None
+    invoice_id: Optional[str] = None
+    is_reconciled: bool = False
     transaction_date: date
 
 
@@ -86,15 +111,19 @@ class TransactionResponse(BaseModel):
     description: str
     reference_id: Optional[str] = None
     reference_type: Optional[str] = None
+    invoice_id: Optional[str] = None
+    is_reconciled: bool
     invoice_file: Optional[str] = None
     transaction_date: date
     recorded_by: str
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
-# ── Reports ──────────────────────────────────────────────
+# ── Report / Reconciliation ──────────────────────────────
+class ReconciliationRequest(BaseModel):
+    transaction_ids: List[str]
 class CashFlowMonth(BaseModel):
     month: str
     income: float

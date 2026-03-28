@@ -72,15 +72,6 @@ async def batch_update_configs(db: AsyncSession, updates: Dict[str, str]) -> Lis
         results.append(res)
     return results
 
-async def get_smtp_config(db: AsyncSession) -> Dict[str, Any]:
-    """Helper to get all SMTP settings for the EmailService."""
-    return {
-        "host": await get_config_value(db, "SMTP_HOST"),
-        "port": int(await get_config_value(db, "SMTP_PORT", 587)),
-        "user": await get_config_value(db, "SMTP_USER"),
-        "pass": await get_config_value(db, "SMTP_PASS"),
-    }
-
 async def get_telegram_config(db: AsyncSession) -> Dict[str, Any]:
     """Helper to get Telegram settings."""
     return {

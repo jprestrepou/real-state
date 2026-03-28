@@ -11,7 +11,7 @@ from app.database import get_db
 from pydantic import BaseModel
 from datetime import date
 from app.schemas.contract import (
-    ContractCreate, ContractUpdate, ContractResponse, PaymentScheduleResponse, ContractSignRequest
+    ContractCreate, ContractUpdate, ContractResponse, PaymentScheduleResponse, ContractSignRequest, TenantMessageRequest
 )
 from app.services import contract_service
 from app.utils.security import get_current_user, require_role
@@ -126,7 +126,29 @@ async def send_contract_copy(
 ):
     """Envia una copia del PDF del contrato actual al correo del inquilino."""
     await contract_service.send_contract_copy(db, contract_id)
-    return {"message": "Copia del contrato enviada al correo del inquilino"}
+    return {"message": "Copia del contrato enviada por Telegram al inquilino"}
+
+
+@router.post("/{contract_id}/send-telegram", response_model=dict)
+async def send_contract_via_telegram(
+    contract_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
+):
+    """Enviar el PDF del contrato al arrendatario vía Telegram."""
+    await contract_service.send_contract_copy(db, contract_id)
+    return {"message": "Contrato enviado por Telegram exitosamente"}
+
+
+@router.post("/{contract_id}/send-message", response_model=dict)
+async def send_message_to_tenant(
+    contract_id: str,
+    data: TenantMessageRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
+):
+    """Enviar un mensaje informativo al arrendatario vía Telegram."""
+    return await contract_service.send_telegram_message_to_tenant(db, contract_id, data.message)
 
 
 @router.post("/{contract_id}/sign", response_model=ContractResponse)

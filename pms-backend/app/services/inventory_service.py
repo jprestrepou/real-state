@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException
+from typing import Optional
 
 from app.models.inventory import PropertyInventory, InventoryItem, InventoryPhoto
 from app.schemas.inventory import InventoryCreate, ItemCreate
@@ -14,13 +15,13 @@ from app.schemas.inventory import InventoryCreate, ItemCreate
 
 def _load_options():
     """Reusable eager-load chain for inventories with items and photos."""
-    return selectinload(PropertyInventory.items).selectinload(InventoryItem.photos)
+    return selectinload(PropertyInventory.items).selectinload(InventoryItem.photos), selectinload(PropertyInventory.property)
 
 
 async def list_inventories(db: AsyncSession, property_id: str):
     stmt = (
         select(PropertyInventory)
-        .options(_load_options())
+        .options(*_load_options())
         .where(PropertyInventory.property_id == property_id)
         .order_by(PropertyInventory.date.desc())
     )
@@ -31,7 +32,7 @@ async def list_inventories(db: AsyncSession, property_id: str):
 async def get_inventory(db: AsyncSession, inventory_id: str):
     stmt = (
         select(PropertyInventory)
-        .options(_load_options())
+        .options(*_load_options())
         .where(PropertyInventory.id == inventory_id)
     )
     result = await db.execute(stmt)
@@ -63,7 +64,7 @@ async def create_inventory(db: AsyncSession, data: InventoryCreate, user_id: str
     # Re-query with eager-loaded relationships to avoid lazy-load issues
     stmt = (
         select(PropertyInventory)
-        .options(_load_options())
+        .options(*_load_options())
         .where(PropertyInventory.id == inventory.id)
     )
     result = await db.execute(stmt)
@@ -88,7 +89,7 @@ async def add_item_to_inventory(db: AsyncSession, inventory_id: str, data: ItemC
     return item
 
 
-async def add_photo_to_item(db: AsyncSession, item_id: str, photo_path: str, caption: str = None):
+async def add_photo_to_item(db: AsyncSession, item_id: str, photo_path: str, caption: Optional[str] = None):
     photo = InventoryPhoto(
         inventory_item_id=item_id,
         photo_path=photo_path,

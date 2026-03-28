@@ -1,0 +1,29 @@
+=========================================================
+Reporte de Revisión General, Corrección de Errores y Mejoras
+Sistema: PMS (Gestión Inmobiliaria)
+=========================================================
+
+Durante la revisión general del código y la arquitectura del sistema, se identificaron y resolvieron los siguientes problemas críticos y áreas de mejora:
+
+1. CORRECCIÓN: Transacciones Atómicas (Ledger & Auditoría)
+---------------------------------------------------------
+- Problema: La regla de negocio exige que las operaciones que tocan múltiples tablas usen transacciones atómicas. En las transferencias de fondos (`ledger_service.py`), se creaban dos transacciones (débito y crédito) con `commit=False`. Sin embargo, el servicio de auditoría (`audit_service.py`) ejecutaba un `await db.commit()` incondicional de inmediato para guardar el registro histórico. Esto rompía la atomicidad, provocando que la primera mitad de la transferencia se guardara prematuramente y pudiera causar inconsistencias si la segunda mitad fallaba.
+- Solución Implementada: Se modificó la firma de `audit_service.log_action` para aceptar un parámetro opcional `commit`. Ahora, `ledger_service.py` instruye correctamente a la auditoría de que mantenga la sesión en memoria (`commit=False`), preservando la transacción completa y aplicando el commit una sola vez al final de toda la transferencia de fondos (Rollback seguro).
+
+2. CORRECCIÓN: Fallas Silenciosas de Telegram en Contratos
+---------------------------------------------------------
+- Problema: En `contract_service.py`, las funciones destinadas a enviar los documentos para firma electrónica y entrega (`send_contract_for_signature` y `send_contract_copy`) utilizaban la API de Telegram, pero capturaban pasivamente las excepciones y retornaban `None`. El servicio no validaba este retorno y continuaba con el flujo, ejecutando `await db.commit()`. Como consecuencia, si el inquilino bloqueaba el bot o había fallos de red, el contrato aparecía mágicamente como "Enviado a Firma" en la base de datos a pesar de que jamás se entregó.
+- Solución Implementada: Se añadió validación a los retornos de `TelegramService`. Si la entrega falla (`res is None`), la operación se aborta levantando una excepción (`HTTPException` y/o `Exception`), bloqueando el guardado erróneo del nuevo estado en la base de datos y notificando el fallo real a la interfaz de administración.
+
+3. REVISIÓN: Apego a Reglas del Proyecto (Backend y Frontend)
+---------------------------------------------------------
+- Validaciones (Backend): Todos los esquemas bajo `schemas/` están utilizando las reglas robustas de Pydantic v2 (por ejemplo, validación de patrones Regex `^(Ingreso|Gasto...)$`, límites matemáticos `gt=0` en dinero y longitudes máximas). No se detectaron validaciones impuras de negocio en los enrutadores.
+- Consultas a BD: El sistema se rige correctamente por SQLAlchemy 2.x usando la sintaxis `select(...)` resolviendo diligentemente el problema de las consultas n+1 con `selectinload()`. No se encontraron literales SQL hardcodeados ni consultas obsoletas `1.x`.
+
+4. MEJORAS RECOMENDADAS PARA EL FUTURO (Próximos Pasos)
+---------------------------------------------------------
+- [Escalabilidad Webhooks]: Aunque el `TelegramService` tiene la lógica para webhooks, sugerimos implementar un mecanismo de sondeo paralelo (Long Polling) como fallback en caso de que Render desactive repetitivamente tus servidores entre inactividades (Cold Starts) rompiendo la entrada de documentos de inquilinos.
+- [Colas Celery para PDFs]: La generación del PDF durante `activate_contract` puede ser computacionalmente intensiva. A medida que incremente el uso, resultará útil delegar la generación del contrato a la cola de `Celery` + `Redis` en lugar de hacerlo de manera síncrona en el request HTTP, evitando tiempos de espera largos para el administrador.
+- [Soft Deletes Generalizados]: Ampliar el concepto de "Soft Delete" (como el uso de `is_active=False` para cuentas bancarias) en las Órdenes de Mantenimiento (`maintenance_service.py`) y Contratos para evitar eliminación accidental, cumpliendo más estrictamente las trazas de auditoría.
+
+-- Fin del reporte. Todas las correcciones antes mencionadas ya se encuentran desplegadas en el código fuente actual.

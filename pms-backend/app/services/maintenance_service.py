@@ -250,3 +250,72 @@ async def get_calendar(db: AsyncSession, property_id: str | None = None) -> list
         }
         for o in orders
     ]
+
+
+async def upload_quote(db: AsyncSession, order_id: str, file_path: str) -> MaintenanceOrder:
+    order = await get_maintenance(db, order_id)
+    order.quote_file = file_path
+    order.status = MaintenanceStatus.ESPERANDO_APROBACION.value
+    await db.commit()
+    
+    # Reload for response
+    stmt = (
+        select(MaintenanceOrder)
+        .options(
+            selectinload(MaintenanceOrder.photos),
+            selectinload(MaintenanceOrder.supplier),
+        )
+        .where(MaintenanceOrder.id == order_id)
+    )
+    result = await db.execute(stmt)
+    refreshed = result.scalar_one()
+
+    # Notify Telegram reporter
+    if refreshed.telegram_chat_id:
+        msg = (
+            f"📄 *Cotización Recibida*\n\n"
+            f"📋 *Reporte:* {refreshed.title}\n"
+            f"👨‍🔧 Se ha recibido una cotización del proveedor y está pendiente de aprobación.\n"
+            f"_Ticket: `{refreshed.id[:8]}...`_"
+        )
+        await _notify_reporter(db, refreshed, msg)
+        
+    return refreshed
+
+
+async def approve_quote(db: AsyncSession, order_id: str, user_id: str) -> MaintenanceOrder:
+    from datetime import datetime
+    order = await get_maintenance(db, order_id)
+    
+    if not order.quote_file:
+        raise HTTPException(status_code=400, detail="Esta orden no tiene cotización para aprobar")
+        
+    order.is_approved = True
+    order.approved_by = user_id
+    order.approved_at = datetime.utcnow()
+    order.status = MaintenanceStatus.EN_PROGRESO.value
+    await db.commit()
+    
+    # Reload for response
+    stmt = (
+        select(MaintenanceOrder)
+        .options(
+            selectinload(MaintenanceOrder.photos),
+            selectinload(MaintenanceOrder.supplier),
+        )
+        .where(MaintenanceOrder.id == order_id)
+    )
+    result = await db.execute(stmt)
+    refreshed = result.scalar_one()
+
+    # Notify Telegram reporter
+    if refreshed.telegram_chat_id:
+        msg = (
+            f"✅ *Cotización Aprobada*\n\n"
+            f"📋 *Reporte:* {refreshed.title}\n"
+            f"🛠️ La cotización ha sido aprobada y el trabajo entrará 'En Progreso'.\n"
+            f"_Ticket: `{refreshed.id[:8]}...`_"
+        )
+        await _notify_reporter(db, refreshed, msg)
+        
+    return refreshed

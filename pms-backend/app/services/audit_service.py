@@ -19,6 +19,7 @@ async def log_action(
     old_value: Optional[Dict[str, Any]] = None,
     new_value: Optional[Dict[str, Any]] = None,
     ip_address: Optional[str] = None,
+    commit: bool = True,
 ) -> AuditLog:
     """Create a new immutable audit log entry."""
     audit_log = AuditLog(
@@ -32,8 +33,11 @@ async def log_action(
         ip_address=ip_address,
     )
     db.add(audit_log)
-    await db.commit()
-    await db.refresh(audit_log)
+    if commit:
+        await db.commit()
+        await db.refresh(audit_log)
+    else:
+        await db.flush()
     return audit_log
 
 

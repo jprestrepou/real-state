@@ -95,8 +95,14 @@ async def register_transaction(
         reference_type=data.reference_type,
         transaction_date=data.transaction_date,
         recorded_by=recorded_by,
+        invoice_id=data.invoice_id,
+        is_reconciled=data.is_reconciled,
     )
     db.add(transaction)
+
+    if data.invoice_id and data.status == TransactionStatus.COMPLETADA.value and data.direction == TransactionDirection.DEBIT.value:
+        from app.services.invoice_service import InvoiceService
+        await InvoiceService.mark_invoice_as_paid(db, data.invoice_id, commit=False)
 
     if commit:
         await db.commit()
@@ -111,7 +117,8 @@ async def register_transaction(
         entity_type="Transaction",
         user_id=recorded_by,
         entity_id=transaction.id,
-        new_value={"amount": float(transaction.amount), "type": transaction.transaction_type, "status": transaction.status}
+        new_value={"amount": float(transaction.amount), "type": transaction.transaction_type, "status": transaction.status},
+        commit=commit
     )
 
     return transaction
@@ -167,6 +174,23 @@ async def transfer_funds(
     except Exception as e:
         await db.rollback()
         raise e
+
+
+        raise e
+
+
+async def reconcile_transactions(db: AsyncSession, transaction_ids: list[str]) -> int:
+    """Marks a list of transactions as reconciled."""
+    from sqlalchemy import update
+    stmt = (
+        update(Transaction)
+        .where(Transaction.id.in_(transaction_ids))
+        .where(Transaction.is_reconciled == False)
+        .values(is_reconciled=True)
+    )
+    result = await db.execute(stmt)
+    await db.commit()
+    return result.rowcount
 
 
 async def list_transactions(

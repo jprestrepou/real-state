@@ -28,6 +28,8 @@ class MaintenanceSource(str, enum.Enum):
 
 class MaintenanceStatus(str, enum.Enum):
     PENDIENTE = "Pendiente"
+    ESPERANDO_COTIZACION = "Esperando Cotizacion"
+    ESPERANDO_APROBACION = "Esperando Aprobacion"
     EN_PROGRESO = "En Progreso"
     ESPERANDO_FACTURA = "Esperando Factura"
     COMPLETADO = "Completado"
@@ -77,6 +79,12 @@ class MaintenanceOrder(Base):
         SAEnum(MaintenanceSource, values_callable=lambda e: [x.value for x in e]),
         default=MaintenanceSource.MANUAL.value,
     )
+    quote_file: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    is_approved: Mapped[bool] = mapped_column(Boolean, default=False)
+    approved_by: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id"), nullable=True
+    )
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     telegram_chat_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     telegram_message_id: Mapped[str | None] = mapped_column(String(100), nullable=True)
     supplier_id: Mapped[str | None] = mapped_column(

@@ -4,6 +4,7 @@
 
 import { api } from '../api.js';
 import { formatCurrency, formatDate, statusBadge, formatPercent } from '../utils/formatters.js';
+import { parseCurrencyValue } from '../utils/currency-input.js';
 import { showToast, showModal } from '../components/modal.js';
 
 export async function renderProperties(container) {
@@ -278,7 +279,7 @@ function openPropertyModal(property = null) {
         </div>
         <div>
           <label class="label">Valor Comercial</label>
-          <input class="input" name="commercial_value" type="number" value="${property?.commercial_value ?? ''}" placeholder="350000000" />
+          <input class="input currency-input" name="commercial_value" type="text" value="${property?.commercial_value ?? ''}" placeholder="350.000.000" />
         </div>
       </div>
       <div class="grid grid-cols-2 gap-4">
@@ -310,7 +311,7 @@ function openPropertyModal(property = null) {
           </div>
           <div>
             <label class="label">Valor Administración</label>
-            <input class="input" name="administration_fee" type="number" value="${property?.administration_fee || ''}" placeholder="250000" />
+            <input class="input currency-input" name="administration_fee" type="text" value="${property?.administration_fee || ''}" placeholder="250.000" />
           </div>
         </div>
         <div>
@@ -337,8 +338,10 @@ function openPropertyModal(property = null) {
       const payload = {};
       formData.forEach((val, key) => {
         if (val === '' && key !== 'pays_administration') return;
-        if (['area_sqm', 'latitude', 'longitude', 'commercial_value', 'administration_fee'].includes(key)) {
+        if (['area_sqm', 'latitude', 'longitude'].includes(key)) {
           payload[key] = parseFloat(val);
+        } else if (['commercial_value', 'administration_fee'].includes(key)) {
+          payload[key] = parseCurrencyValue(val);
         } else if (['bedrooms', 'bathrooms', 'administration_day', 'stratum'].includes(key)) {
           payload[key] = val ? parseInt(val) : null;
         } else if (key === 'pays_administration') {

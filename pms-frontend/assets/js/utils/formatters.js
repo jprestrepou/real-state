@@ -58,6 +58,8 @@ export function statusBadge(status) {
         'En Progreso': 'badge-blue',
         'Completado': 'badge-green',
         'Cancelado': 'badge-red',
+        'Esperando Cotizacion': 'badge-amber',
+        'Esperando Aprobacion': 'badge-indigo',
         'Esperando Factura': 'badge-amber',
         'Activo': 'badge-green',
         'Borrador': 'badge-gray',

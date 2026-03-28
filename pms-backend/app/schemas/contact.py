@@ -15,6 +15,7 @@ class ContactBase(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     notes: Optional[str] = None
+    specialty: Optional[str] = Field(None, description="Especialidad (solo relevante para proveedores)")
 
 
 class ContactCreate(ContactBase):
@@ -28,6 +29,7 @@ class ContactUpdate(BaseModel):
     phone: Optional[str] = None
     address: Optional[str] = None
     notes: Optional[str] = None
+    specialty: Optional[str] = None
     is_active: Optional[bool] = None
 
 

@@ -14,12 +14,6 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = True
 
-    # ── Email & External APIs ────────────────────────────
-    SMTP_HOST: str = "smtp.example.com"
-    SMTP_PORT: int = 587
-    SMTP_USER: str = "user@example.com"
-    SMTP_PASS: str = "password"
-    
     # Telegram
     TELEGRAM_BOT_TOKEN: str = ""
 

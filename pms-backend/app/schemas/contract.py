@@ -14,6 +14,7 @@ class ContractCreate(BaseModel):
     tenant_email: Optional[str] = None
     tenant_phone: Optional[str] = None
     tenant_document: Optional[str] = None
+    tenant_telegram_chat_id: Optional[str] = None
     contract_type: str = Field(pattern="^(Vivienda|Comercial|Garaje)$")
     monthly_rent: float = Field(gt=0)
     deposit_amount: Optional[float] = Field(None, ge=0)
@@ -28,6 +29,7 @@ class ContractUpdate(BaseModel):
     tenant_name: Optional[str] = Field(None, min_length=2, max_length=200)
     tenant_email: Optional[str] = None
     tenant_phone: Optional[str] = None
+    tenant_telegram_chat_id: Optional[str] = None
     monthly_rent: Optional[float] = Field(None, gt=0)
     end_date: Optional[date] = None
     auto_renewal: Optional[bool] = None
@@ -43,6 +45,7 @@ class ContractResponse(BaseModel):
     tenant_email: Optional[str] = None
     tenant_phone: Optional[str] = None
     tenant_document: Optional[str] = None
+    tenant_telegram_chat_id: Optional[str] = None
     contract_type: str
     monthly_rent: float
     deposit_amount: Optional[float] = None
@@ -55,6 +58,7 @@ class ContractResponse(BaseModel):
     signed_at: Optional[datetime] = None
     signed_ip: Optional[str] = None
     signature_hash: Optional[str] = None
+    signed_document_path: Optional[str] = None
     notes: Optional[str] = None
     created_by: str
     created_at: datetime
@@ -78,4 +82,8 @@ class PaymentScheduleResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 class ContractSignRequest(BaseModel):
-    tenant_email: str = Field(..., description="Email del inquilino para validación")
+    tenant_email: Optional[str] = Field(None, description="Email del inquilino para validación")
+    telegram_chat_id: Optional[str] = Field(None, description="Chat ID de Telegram del inquilino")
+
+class TenantMessageRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=2000, description="Mensaje informativo para el arrendatario")

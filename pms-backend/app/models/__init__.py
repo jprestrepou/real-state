@@ -16,6 +16,7 @@ from app.models.inventory import PropertyInventory, InventoryItem, InventoryPhot
 from app.models.scoring import TenantScoring
 from app.models.contract_components import ContractSignature, TerminationLetter
 from app.models.config import GlobalConfig
+from app.models.invoice import Invoice
 
 
 __all__ = [
@@ -47,5 +48,6 @@ __all__ = [
     "ContractSignature",
     "TerminationLetter",
     "GlobalConfig",
+    "Invoice",
 ]
 

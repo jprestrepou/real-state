@@ -1,6 +1,7 @@
 import { api } from '../api.js';
 import { showToast, showModal } from '../components/modal.js';
 import { formatCurrency, formatDate } from '../utils/formatters.js';
+import { parseCurrencyValue } from '../utils/currency-input.js';
 
 export async function renderFacility(container, state) {
     let assets = [], inspections = [], propertiesData = { items: [] };
@@ -321,7 +322,7 @@ async function openMaintModal(properties, tabContainer) {
                 </select>
             </div>
             <div class="grid grid-cols-2 gap-4">
-                <div><label class="label">Costo Estimado</label><input class="input" type="number" name="estimated_cost" step="0.01" /></div>
+                <div><label class="label">Costo Estimado</label><input class="input currency-input" type="text" name="estimated_cost" /></div>
                 <div><label class="label">Fecha</label><input class="input" type="date" name="scheduled_date" /></div>
             </div>
             <div><label class="label">Notas</label><textarea class="input" name="notes" rows="2"></textarea></div>
@@ -332,7 +333,7 @@ async function openMaintModal(properties, tabContainer) {
             const formData = new FormData(document.getElementById('mf'));
             const payload = {};
             formData.forEach((v, k) => {
-                if (k === 'estimated_cost') { payload[k] = v ? parseFloat(v) : undefined; }
+                if (k === 'estimated_cost') { payload[k] = v ? parseCurrencyValue(v) : undefined; }
                 else if (v) { payload[k] = v; }
             });
             const supVal = document.getElementById('maint-supplier-select').value;
@@ -386,8 +387,8 @@ async function openEditMaintModal(id, properties, tabContainer) {
                 </select>
             </div>
             <div class="grid grid-cols-2 gap-4">
-                <div><label class="label">Costo Estimado</label><input class="input" type="number" name="estimated_cost" step="0.01" value="${order.estimated_cost || ''}" /></div>
-                <div><label class="label">Costo Real</label><input class="input" type="number" name="actual_cost" step="0.01" value="${order.actual_cost || ''}" /></div>
+                <div><label class="label">Costo Estimado</label><input class="input currency-input" type="text" name="estimated_cost" value="${order.estimated_cost || ''}" /></div>
+                <div><label class="label">Costo Real</label><input class="input currency-input" type="text" name="actual_cost" value="${order.actual_cost || ''}" /></div>
             </div>
             <div><label class="label">Fecha Programada</label><input class="input" type="date" name="scheduled_date" value="${order.scheduled_date || ''}" /></div>
             <div><label class="label">Notas</label><textarea class="input" name="notes" rows="3">${order.notes || ''}</textarea></div>
@@ -399,7 +400,7 @@ async function openEditMaintModal(id, properties, tabContainer) {
             const payload = {};
             formData.forEach((v, k) => {
                 if (k === 'estimated_cost' || k === 'actual_cost') {
-                    payload[k] = v ? parseFloat(v) : null;
+                    payload[k] = v ? parseCurrencyValue(v) : null;
                 } else if (v) {
                     payload[k] = v;
                 }

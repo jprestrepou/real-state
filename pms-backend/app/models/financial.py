@@ -134,11 +134,16 @@ class Transaction(Base):
     audit_log_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("audit_logs.id"), nullable=True
     )
+    invoice_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("invoices.id"), nullable=True, index=True
+    )
+    is_reconciled: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships
     account = relationship("BankAccount", back_populates="transactions")
     property = relationship("Property", back_populates="transactions", lazy="joined")
+    invoice = relationship("Invoice", back_populates="transactions")
 
     def __repr__(self) -> str:
         return f"<Transaction {self.direction} {self.amount} ({self.category})>"

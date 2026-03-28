@@ -3,7 +3,7 @@ Financial router — /api/v1/accounts + /api/v1/transactions + /api/v1/reports e
 """
 
 from datetime import date
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Query, Response, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -11,7 +11,8 @@ from app.schemas.financial import (
     AccountCreate, AccountResponse, AccountUpdate,
     TransactionCreate, TransactionResponse, TransferCreate, TransactionUpdate,
     CashFlowReport, FinancialSummary, PropertyPerformanceResponse,
-    BalanceSheetResponse, IncomeStatementResponse, AccountProfitabilityReport
+    BalanceSheetResponse, IncomeStatementResponse, AccountProfitabilityReport,
+    InvoiceResponse, ReconciliationRequest
 )
 from app.services import ledger_service, financial_reports, pdf_service
 from fastapi.responses import FileResponse
@@ -459,3 +460,55 @@ async def export_property_performance_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+# ── Invoices & Reconciliation ────────────────────────────
+@router.get("/invoices", response_model=list[InvoiceResponse])
+async def list_invoices(
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Listar todas las facturas de cuentas por cobrar."""
+    from app.services.invoice_service import InvoiceService
+    return await InvoiceService.get_invoices(db)
+
+
+@router.post("/invoices/{invoice_id}/pay", response_model=InvoiceResponse)
+async def pay_invoice(
+    invoice_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario")),
+):
+    """Marcar factura como pagada manualmente."""
+    from app.services.invoice_service import InvoiceService
+    return await InvoiceService.mark_invoice_as_paid(db, invoice_id)
+
+
+@router.post("/upload-bank-statement")
+async def upload_bank_statement(
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Analista")),
+):
+    """Sube un CSV bancario y devuelve filas."""
+    import csv
+    import io
+    content = await file.read()
+    try:
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        text = content.decode("latin-1")
+    reader = csv.DictReader(io.StringIO(text))
+    rows = list(reader)
+    
+    return {"matches": [], "unmatched": rows}
+
+@router.post("/reconcile")
+async def reconcile_transactions_route(
+    data: ReconciliationRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Analista")),
+):
+    """Confirmar conciliación de transacciones seleccionadas."""
+    count = await ledger_service.reconcile_transactions(db, data.transaction_ids)
+    return {"message": f"{count} transacciones conciliadas exitosamente"}

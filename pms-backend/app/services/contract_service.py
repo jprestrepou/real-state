@@ -12,7 +12,7 @@ from fastapi import HTTPException
 from app.models.contract import Contract, PaymentSchedule, ContractStatus, PaymentStatus
 from app.schemas.contract import ContractCreate, ContractUpdate, ContractSignRequest
 from app.services.pdf_service import generate_contract_pdf
-from app.services.email_service import EmailService
+from app.services.telegram_service import TelegramService
 import hashlib
 from datetime import datetime
 from app.services import audit_service
@@ -126,7 +126,7 @@ async def activate_contract(db: AsyncSession, contract_id: str) -> Contract:
         new_value={"status": contract.status}
     )
     
-    # Auto-generate PDF and send it to tenant upon activation
+    # Auto-generate PDF and send it to tenant via Telegram upon activation
     try:
         if not contract.pdf_file:
             pdf_path = await generate_contract_pdf(db, contract.id)
@@ -134,20 +134,17 @@ async def activate_contract(db: AsyncSession, contract_id: str) -> Contract:
             await db.commit()
             await db.refresh(contract)
         
-        if contract.tenant_email and contract.pdf_file:
-            await EmailService.send_email(
+        if contract.tenant_telegram_chat_id and contract.pdf_file:
+            await TelegramService.send_document(
                 db=db,
-                to_email=contract.tenant_email,
-                subject=f"Contrato de Arrendamiento - {contract.tenant_name}",
-                body=f"Adjunto encontrará su contrato de arrendamiento activado.\n\nContrato ID: {contract.id[:8]}",
-                html_body=f"""
-                <h2>Contrato de Arrendamiento</h2>
-                <p>Estimado(a) <strong>{contract.tenant_name}</strong>,</p>
-                <p>Se adjunta el contrato de arrendamiento correspondiente a la propiedad.</p>
-                <p>Referencia: <code>{contract.id[:8]}</code></p>
-                <br><p>Atentamente,<br>Administración</p>
-                """,
-                attachment_path=contract.pdf_file,
+                chat_id=contract.tenant_telegram_chat_id,
+                file_path=contract.pdf_file,
+                caption=(
+                    f"📄 *Contrato de Arrendamiento Activado*\n\n"
+                    f"Estimado(a) *{contract.tenant_name}*,\n"
+                    f"Se adjunta su contrato de arrendamiento.\n\n"
+                    f"Referencia: `{contract.id[:8]}`"
+                ),
             )
     except Exception as e:
         print(f"Error in automatic PDF generation/sending: {e}")
@@ -159,6 +156,9 @@ async def send_contract_for_signature(db: AsyncSession, contract_id: str) -> Con
     if contract.status != ContractStatus.BORRADOR.value:
         raise HTTPException(status_code=400, detail="Solo se pueden enviar a firma contratos en borrador")
     
+    if not contract.tenant_telegram_chat_id:
+        raise HTTPException(status_code=400, detail="El contrato no tiene un Chat ID de Telegram asociado. Asigne uno primero.")
+    
     contract.status = ContractStatus.ENVIADO_A_FIRMA.value
     
     try:
@@ -166,36 +166,50 @@ async def send_contract_for_signature(db: AsyncSession, contract_id: str) -> Con
             pdf_path = await generate_contract_pdf(db, contract.id)
             contract.pdf_file = pdf_path
             
-        recipients = [contract.tenant_email] if contract.tenant_email else []
-        if recipients:
-            signing_url = f"https://app.example.com/sign/{contract.id}"
-            for r in recipients:
-                await EmailService.send_email(
-                    db=db,
-                    to_email=r,
-                    subject=f"Firma Requerida - Contrato {contract.id[:8]}",
-                    body=f"Por favor proceda a firmar digitalmente su contrato.\nEnlace: {signing_url}",
-                    html_body=f"""
-                    <h2>Firma de Contrato Requerida</h2>
-                    <p>Estimado(a) <strong>{contract.tenant_name}</strong>,</p>
-                    <p>Se requiere su firma digital para el contrato de arrendamiento.</p>
-                    <p><a href="{signing_url}">Haga clic aquí para firmar</a></p>
-                    <br><p>Atentamente,<br>Administración</p>
-                    """,
-                )
+        # Send PDF via Telegram with signing instructions
+        res1 = await TelegramService.send_document(
+            db=db,
+            chat_id=contract.tenant_telegram_chat_id,
+            file_path=contract.pdf_file,
+            caption=(
+                f"📋 *Firma de Contrato Requerida*\n\n"
+                f"Estimado(a) *{contract.tenant_name}*,\n"
+                f"Se requiere su firma digital para el contrato de arrendamiento.\n\n"
+                f"🆔 ID del Contrato: `{contract.id[:8]}`"
+            ),
+        )
+        if res1 is None:
+            raise Exception("Fallo en la API de Telegram al enviar el documento PDF.")
+        
+        # Send signing instructions
+        res2 = await TelegramService.send_message(
+            db=db,
+            chat_id=contract.tenant_telegram_chat_id,
+            text=(
+                f"✍️ *Instrucciones para firmar:*\n\n"
+                f"1️⃣ Revise el contrato adjunto\n"
+                f"2️⃣ Para firmar digitalmente, envíe:\n"
+                f"   `/firmar {contract.id[:8]}`\n\n"
+                f"3️⃣ _(Opcional)_ Si desea enviar una copia firmada físicamente, "
+                f"adjúntela como documento en esta conversación."
+            ),
+        )
+        if res2 is None:
+            raise Exception("Fallo en la API de Telegram al enviar instrucciones.")
             
     except Exception as e:
-        print(f"Error sending signature request: {e}")
+        logger.error(f"Error sending signature request via Telegram: {e}")
+        raise HTTPException(status_code=500, detail=f"Error al enviar la solicitud de firma por Telegram: {e}")
 
     await db.commit()
     await db.refresh(contract)
     return contract
 
 async def send_contract_copy(db: AsyncSession, contract_id: str) -> Contract:
-    """Generate (if needed) and send a copy of the contract PDF to the tenant."""
+    """Generate (if needed) and send a copy of the contract PDF to the tenant via Telegram."""
     contract = await get_contract(db, contract_id)
-    if not contract.tenant_email:
-        raise HTTPException(status_code=400, detail="El contrato no tiene un correo de inquilino asociado")
+    if not contract.tenant_telegram_chat_id:
+        raise HTTPException(status_code=400, detail="El contrato no tiene un Chat ID de Telegram asociado")
         
     try:
         if not contract.pdf_file:
@@ -204,31 +218,55 @@ async def send_contract_copy(db: AsyncSession, contract_id: str) -> Contract:
             await db.commit()
             await db.refresh(contract)
             
-        await EmailService.send_email(
+        res = await TelegramService.send_document(
             db=db,
-            to_email=contract.tenant_email,
-            subject=f"Copia de Contrato - {contract.tenant_name}",
-            body=f"Adjunto encontrará una copia de su contrato de arrendamiento.\n\nContrato ID: {contract.id[:8]}",
-            html_body=f"""
-            <h2>Copia de Contrato de Arrendamiento</h2>
-            <p>Estimado(a) <strong>{contract.tenant_name}</strong>,</p>
-            <p>Se adjunta una copia de su contrato de arrendamiento.</p>
-            <p>Referencia: <code>{contract.id[:8]}</code></p>
-            <br><p>Atentamente,<br>Administración</p>
-            """,
-            attachment_path=contract.pdf_file,
+            chat_id=contract.tenant_telegram_chat_id,
+            file_path=contract.pdf_file,
+            caption=(
+                f"📄 *Copia de Contrato de Arrendamiento*\n\n"
+                f"Estimado(a) *{contract.tenant_name}*,\n"
+                f"Se adjunta una copia de su contrato.\n\n"
+                f"Referencia: `{contract.id[:8]}`"
+            ),
         )
+        if res is None:
+            raise Exception("Fallo en la API de Telegram al enviar copia.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al enviar copia del contrato: {e}")
 
     return contract
+
+
+async def send_telegram_message_to_tenant(db: AsyncSession, contract_id: str, message: str) -> dict:
+    """Send an informational text message to a tenant via Telegram."""
+    contract = await get_contract(db, contract_id)
+    if not contract.tenant_telegram_chat_id:
+        raise HTTPException(status_code=400, detail="El contrato no tiene un Chat ID de Telegram asociado")
+    
+    result = await TelegramService.send_message(
+        db=db,
+        chat_id=contract.tenant_telegram_chat_id,
+        text=(
+            f"📢 *Mensaje de Administración*\n\n"
+            f"{message}\n\n"
+            f"_— Administración de Propiedades_"
+        ),
+    )
+    
+    if result is None:
+        raise HTTPException(status_code=500, detail="Error al enviar mensaje por Telegram. Verifique la configuración del bot.")
+    
+    return {"success": True, "message": "Mensaje enviado exitosamente"}
 
 async def sign_contract(db: AsyncSession, contract_id: str, data: ContractSignRequest, ip_address: str) -> Contract:
     contract = await get_contract(db, contract_id)
     if contract.status != ContractStatus.ENVIADO_A_FIRMA.value:
         raise HTTPException(status_code=400, detail="El contrato no está pendiente de firma")
         
-    if contract.tenant_email != data.tenant_email:
+    # Validate via email or telegram
+    if data.tenant_email and contract.tenant_email != data.tenant_email:
+        raise HTTPException(status_code=400, detail="Credenciales de firma inválidas")
+    if data.telegram_chat_id and contract.tenant_telegram_chat_id != data.telegram_chat_id:
         raise HTTPException(status_code=400, detail="Credenciales de firma inválidas")
         
     contract.status = ContractStatus.FIRMADO.value
@@ -392,3 +430,62 @@ async def mark_payment_as_paid(db: AsyncSession, payment_id: str, account_id: st
     await db.commit()
     await db.refresh(payment)
     return payment
+
+
+async def process_annual_indexation(db: AsyncSession):
+    """
+    Apply annual rent indexation to contracts that reach their yearly anniversary.
+    """
+    from app.models.config import GlobalConfig
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    today = date.today()
+    
+    # Get the global inflation rate setting
+    config_stmt = select(GlobalConfig).where(GlobalConfig.key == "global_inflation_rate")
+    config_result = await db.execute(config_stmt)
+    config_obj = config_result.scalar_one_or_none()
+    
+    try:
+        inflation_rate = float(config_obj.value) / 100.0 if config_obj else 0.05
+    except ValueError:
+        inflation_rate = 0.05
+
+    # Find active contracts
+    stmt = select(Contract).where(Contract.status == ContractStatus.ACTIVO.value)
+    result = await db.execute(stmt)
+    contracts = result.scalars().all()
+    
+    for contract in contracts:
+        if not contract.start_date:
+            continue
+            
+        # Check if it's the exact anniversary (1 year, 2 years, etc)
+        # i.e., month and day match, and year > start_year
+        if today.month == contract.start_date.month and today.day == contract.start_date.day and today.year > contract.start_date.year:
+            old_rent = contract.current_rent
+            new_rent = float(old_rent) * (1 + inflation_rate)
+            
+            contract.current_rent = new_rent
+            
+            # Notify tenant
+            if contract.tenant_telegram_chat_id:
+                try:
+                    await TelegramService.send_message(
+                        db=db,
+                        chat_id=contract.tenant_telegram_chat_id,
+                        text=(
+                            f"📈 *Ajuste Anual de Canon Mensual*\n\n"
+                            f"Estimado(a) *{contract.tenant_name}*,\n"
+                            f"De acuerdo con su contrato de arrendamiento y el incremento estipulado, su canon ha sido ajustado.\n\n"
+                            f"🔸 *Canon Anterior:* ${old_rent:,.2f}\n"
+                            f"🔹 *Nuevo Canon:* ${new_rent:,.2f}\n"
+                            f"📊 *Incremento Aplicado:* {inflation_rate * 100}%\n\n"
+                            f"Este nuevo valor aplicará para sus próximas facturaciones."
+                        )
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to send indexation notice to tenant {contract.id}: {e}")
+                    
+    await db.commit()

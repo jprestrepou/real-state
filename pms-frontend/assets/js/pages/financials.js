@@ -4,6 +4,7 @@
 
 import { api } from '../api.js';
 import { formatCurrency, formatDate, statusBadge } from '../utils/formatters.js';
+import { parseCurrencyValue } from '../utils/currency-input.js';
 import { showToast, showModal, closeModal } from '../components/modal.js';
 
 const CATEGORIES_GENERAL = [
@@ -79,7 +80,7 @@ export async function renderFinancials(container) {
               <div class="flex items-center justify-between mb-3">
                 <span class="badge ${acc.is_active ? 'badge-green' : 'badge-gray'}">${acc.account_type}</span>
                 <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button class="edit-account-btn p-1.5 rounded-lg hover:bg-primary-50 text-surface-400 hover:text-primary-600 transition" data-id="${acc.id}" data-name="${acc.account_name}" data-bank="${acc.bank_name || ''}" data-number="${acc.account_number || ''}" title="Editar">
+                  <button class="edit-account-btn p-1.5 rounded-lg hover:bg-primary-50 text-surface-400 hover:text-primary-600 transition" data-id="${acc.id}" data-name="${acc.account_name}" data-bank="${acc.bank_name || ''}" data-number="${acc.account_number || ''}" data-balance="${acc.current_balance}" title="Editar">
                     <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
                   </button>
                   <button class="delete-account-btn p-1.5 rounded-lg hover:bg-rose-50 text-surface-400 hover:text-rose-600 transition" data-id="${acc.id}" data-name="${acc.account_name}" data-balance="${acc.current_balance}" title="Eliminar">
@@ -136,6 +137,7 @@ export async function renderFinancials(container) {
                     <span class="badge ${tx.direction === 'Debit' ? 'badge-green' : 'badge-red'} text-xs">
                       ${tx.direction === 'Debit' ? 'Ingreso' : 'Egreso'}
                     </span>
+                    ${tx.is_reconciled ? '<span class="badge badge-blue text-xs ml-1" title="Conciliada"><i data-lucide="check-check" class="w-3 h-3"></i></span>' : ''}
                   </td>
                   <td>
                     <div class="flex items-center gap-1">
@@ -241,7 +243,7 @@ export async function renderFinancials(container) {
   document.querySelectorAll('.edit-account-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      openEditAccountModal(btn.dataset.id, btn.dataset.name, btn.dataset.bank, btn.dataset.number);
+      openEditAccountModal(btn.dataset.id, btn.dataset.name, btn.dataset.bank, btn.dataset.number, btn.dataset.balance);
     });
   });
 
@@ -381,7 +383,7 @@ function openAccountModal() {
             <option value="Inversión">Inversión</option><option value="Caja Menor">Caja Menor</option>
           </select>
         </div>
-        <div><label class="label">Saldo Inicial</label><input class="input" name="initial_balance" type="number" step="0.01" value="0" /></div>
+        <div><label class="label">Saldo Inicial</label><input class="input currency-input" name="initial_balance" type="text" value="0" /></div>
       </div>
       <div class="grid grid-cols-2 gap-4">
         <div><label class="label">Banco</label><input class="input" name="bank_name" placeholder="Bancolombia" /></div>
@@ -393,7 +395,7 @@ function openAccountModal() {
     onConfirm: async () => {
       const fd = new FormData(document.getElementById('account-form'));
       const payload = {};
-      fd.forEach((v, k) => { if (k === 'initial_balance') payload[k] = parseFloat(v) || 0; else if (v) payload[k] = v; });
+      fd.forEach((v, k) => { if (k === 'initial_balance') payload[k] = parseCurrencyValue(v) || 0; else if (v) payload[k] = v; });
       await api.post('/accounts', payload);
       showToast('Cuenta creada', 'success');
       await renderFinancials(document.getElementById('page-content'));
@@ -401,7 +403,7 @@ function openAccountModal() {
   });
 }
 
-function openEditAccountModal(id, name, bank, number) {
+function openEditAccountModal(id, name, bank, number, balance) {
   showModal('Editar Cuenta', `
     <form id="edit-account-form" class="space-y-4">
       <div><label class="label">Nombre *</label><input class="input" name="account_name" value="${name}" required /></div>
@@ -409,13 +411,21 @@ function openEditAccountModal(id, name, bank, number) {
         <div><label class="label">Banco</label><input class="input" name="bank_name" value="${bank}" /></div>
         <div><label class="label">Número de Cuenta</label><input class="input" name="account_number" value="${number}" /></div>
       </div>
+      <div>
+        <label class="label">Balance Actual (Ajuste Manual)</label>
+        <input class="input currency-input" name="current_balance" type="text" value="${balance}" />
+        <p class="text-[10px] text-amber-600 mt-1">Atención: Modificar el balance manualmente ignorará el saldo calculado por transacciones.</p>
+      </div>
     </form>
   `, {
     confirmText: 'Guardar Cambios',
     onConfirm: async () => {
       const fd = new FormData(document.getElementById('edit-account-form'));
       const payload = {};
-      fd.forEach((v, k) => { if (v) payload[k] = v; });
+      fd.forEach((v, k) => {
+        if (k === 'current_balance') payload[k] = parseCurrencyValue(v);
+        else if (v) payload[k] = v;
+      });
       await api.put(`/accounts/${id}`, payload);
       showToast('Cuenta actualizada', 'success');
       await renderFinancials(document.getElementById('page-content'));
@@ -465,7 +475,7 @@ function openTransactionModal(accounts, properties = [], isGeneralExpense = fals
         <div><label class="label">Categoría *</label><select class="select" name="category" required>${categories.map(c => `<option value="${c}">${c}</option>`).join('')}</select></div>
       </div>
       <div class="grid grid-cols-3 gap-4">
-        <div><label class="label">Monto *</label><input class="input" name="amount" type="number" step="0.01" min="0.01" required placeholder="1500000" /></div>
+        <div><label class="label">Monto *</label><input class="input currency-input" name="amount" type="text" required placeholder="1.500.000" /></div>
         <div><label class="label">Fecha *</label><input class="input" name="transaction_date" type="date" required value="${new Date().toISOString().split('T')[0]}" /></div>
         <div><label class="label">Estado *</label><select class="select" name="status" required>
           <option value="Completada">Completada</option>
@@ -485,7 +495,7 @@ function openTransactionModal(accounts, properties = [], isGeneralExpense = fals
       const [bId, cName] = rawCat.includes('|') ? rawCat.split('|') : [null, rawCat];
       
       fd.forEach((v, k) => {
-        if (k === 'amount') payload[k] = parseFloat(v);
+        if (k === 'amount') payload[k] = parseCurrencyValue(v);
         else if (k === 'category') payload[k] = cName;
         else if (v) payload[k] = v;
       });
@@ -560,7 +570,7 @@ function openEditTransactionModal(id, desc, cat, amount, type, txDate, status) {
         </select></div>
       </div>
       <div class="grid grid-cols-3 gap-4">
-        <div><label class="label">Monto</label><input class="input" name="amount" type="number" step="0.01" value="${amount}" /></div>
+        <div><label class="label">Monto</label><input class="input currency-input" name="amount" type="text" value="${amount}" /></div>
         <div><label class="label">Fecha</label><input class="input" name="transaction_date" type="date" value="${txDate}" /></div>
         <div><label class="label">Estado</label><select class="select" name="status">
           <option value="Completada" ${(!status || status === 'Completada') ? 'selected' : ''}>Completada</option>
@@ -574,7 +584,7 @@ function openEditTransactionModal(id, desc, cat, amount, type, txDate, status) {
     onConfirm: async () => {
       const fd = new FormData(document.getElementById('edit-tx-form'));
       const payload = {};
-      fd.forEach((v, k) => { if (k === 'amount') payload[k] = parseFloat(v); else if (v) payload[k] = v; });
+      fd.forEach((v, k) => { if (k === 'amount') payload[k] = parseCurrencyValue(v); else if (v) payload[k] = v; });
       await api.put(`/transactions/${id}`, payload);
       showToast('Transacción actualizada', 'success');
       await renderFinancials(document.getElementById('page-content'));
@@ -608,7 +618,7 @@ function openTransferModal(accounts) {
     <form id="transfer-form" class="space-y-4">
       <div><label class="label">Cuenta Origen *</label><select class="select" name="source_account_id" required>${accounts.map(a => `<option value="${a.id}">${a.account_name} (${formatCurrency(a.current_balance)})</option>`).join('')}</select></div>
       <div><label class="label">Cuenta Destino *</label><select class="select" name="destination_account_id" required>${accounts.map(a => `<option value="${a.id}">${a.account_name}</option>`).join('')}</select></div>
-      <div><label class="label">Monto *</label><input class="input" name="amount" type="number" step="0.01" required placeholder="500000" /></div>
+      <div><label class="label">Monto *</label><input class="input currency-input" name="amount" type="text" required placeholder="500.000" /></div>
       <div><label class="label">Descripción *</label><input class="input" name="description" required placeholder="Traslado de fondos" /></div>
       <div><label class="label">Fecha *</label><input class="input" name="transaction_date" type="date" required value="${new Date().toISOString().split('T')[0]}" /></div>
     </form>
@@ -617,7 +627,7 @@ function openTransferModal(accounts) {
     onConfirm: async () => {
       const fd = new FormData(document.getElementById('transfer-form'));
       const payload = {};
-      fd.forEach((v, k) => { if (k === 'amount') payload[k] = parseFloat(v); else payload[k] = v; });
+      fd.forEach((v, k) => { if (k === 'amount') payload[k] = parseCurrencyValue(v); else payload[k] = v; });
       if (payload.source_account_id === payload.destination_account_id) { showToast('Las cuentas deben ser diferentes', 'error'); return; }
       await api.post('/accounts/transfer', payload);
       showToast('Transferencia completada', 'success');
@@ -899,4 +909,67 @@ async function openImportModal(file) {
     }
   });
   if (window.lucide) lucide.createIcons();
+}
+
+async function openImportModal(file) {
+  try {
+    const fd = new FormData();
+    fd.append('file', file);
+    
+    // show loading state
+    showModal('Conciliación Bancaria', '<div class="text-center p-8"><div class="animate-spin rounded-full h-8 w-8 border-2 border-primary-500 border-t-transparent mx-auto mb-4"></div><p>Analizando archivo...</p></div>', { confirmText: '' });
+    
+    const response = await api.upload('/financial/upload-bank-statement', fd);
+    
+    // We will render a table with the rows
+    let rowsHtml = response.unmatched.map((r, i) => {
+      // Intenta extraer valores comunes de un CSV bancario
+      const date = r.date || r.fecha || Object.values(r)[0] || '';
+      const desc = r.description || r.concepto || r.descripcion || Object.values(r)[1] || '';
+      const amount = r.amount || r.monto || r.valor || Object.values(r)[2] || '0';
+      return `
+        <tr class="text-xs">
+          <td class="p-2 border-b border-surface-100">${date}</td>
+          <td class="p-2 border-b border-surface-100 truncate max-w-[150px]">${desc}</td>
+          <td class="p-2 border-b border-surface-100 font-mono text-right font-medium">${amount}</td>
+          <td class="p-2 border-b border-surface-100 text-center">
+            <input type="checkbox" class="reconcile-check" data-index="${i}" checked />
+          </td>
+        </tr>
+      `;
+    }).join('');
+    
+    const modalContent = `
+      <div class="mb-4">
+        <p class="text-sm text-surface-600 mb-2">Archivo analizado. Seleccione los registros a importar y conciliar como "Gastos/Ingresos" de forma automática, o cancélelo para registrar manualmente.</p>
+        <div class="max-h-64 overflow-y-auto border border-surface-200 rounded-lg">
+          <table class="w-full text-left bg-white">
+            <thead class="bg-surface-50 sticky top-0">
+              <tr class="text-xs text-surface-500 uppercase">
+                <th class="p-2">Fecha</th>
+                <th class="p-2">Concepto</th>
+                <th class="p-2 text-right">Monto</th>
+                <th class="p-2 text-center">Importar</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rowsHtml}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    
+    showModal('Conciliación Bancaria', modalContent, {
+      confirmText: 'Importar Seleccionados',
+      onConfirm: async () => {
+        showToast('Simulación de conciliación completada.', 'success');
+        await renderFinancials(document.getElementById('page-content'));
+      }
+    });
+
+  } catch (err) {
+    showToast('Error al procesar el archivo: ' + err.message, 'error');
+    closeModal();
+  }
 }

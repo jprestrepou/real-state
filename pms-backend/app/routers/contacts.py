@@ -69,3 +69,13 @@ async def delete_contact(
     current_user: User = Depends(get_current_user),
 ):
     await contact_service.delete_contact(db, contact_id)
+
+
+@router.get("/{contact_id}/supplier-stats")
+async def get_supplier_stats(
+    contact_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Obtener métricas de desempeño y facturación de un proveedor."""
+    return await contact_service.get_supplier_stats(db, contact_id)

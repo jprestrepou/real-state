@@ -142,3 +142,30 @@ async def upload_invoice(
     )
     result = await db.execute(stmt)
     return result.scalar_one()
+
+@router.post("/{order_id}/quote", response_model=MaintenanceResponse)
+async def upload_quote(
+    order_id: str,
+    file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Cargar cotización del proveedor."""
+    upload_dir = os.path.join(settings.UPLOAD_DIR, "quotes")
+    os.makedirs(upload_dir, exist_ok=True)
+
+    file_path = os.path.join(upload_dir, f"{order_id}_{file.filename}")
+    with open(file_path, "wb") as f:
+        content = await file.read()
+        f.write(content)
+
+    return await maintenance_service.upload_quote(db, order_id, file_path)
+
+@router.post("/{order_id}/approve", response_model=MaintenanceResponse)
+async def approve_quote(
+    order_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Aprobar cotización del proveedor."""
+    return await maintenance_service.approve_quote(db, order_id, current_user.id)
