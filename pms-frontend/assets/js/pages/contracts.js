@@ -134,25 +134,27 @@ function renderContractsList(container, contracts, properties, rootContainer) {
   // Send for signature via Telegram
   document.querySelectorAll('.sign-btn').forEach(b => b.addEventListener('click', async () => {
     try {
-      b.querySelector('i').classList.add('animate-spin');
+      b.querySelector('svg, i')?.classList.add('animate-spin');
       await api.post(`/contracts/${b.dataset.id}/send-signature`, {});
       showToast('📋 Contrato enviado a firma por Telegram', 'success');
       await renderContracts(rootContainer || document.getElementById('page-content'));
     } catch(err) {
       showToast(err.message || 'Error al enviar a firma', 'error');
+    } finally {
+      b.querySelector('svg, i')?.classList.remove('animate-spin');
     }
   }));
 
   // Send contract PDF via Telegram
   document.querySelectorAll('.tg-send-btn').forEach(b => b.addEventListener('click', async () => {
     try {
-      b.querySelector('i').classList.add('animate-spin');
+      b.querySelector('svg, i')?.classList.add('animate-spin');
       await api.post(`/contracts/${b.dataset.id}/send-telegram`, {});
       showToast('📨 Contrato enviado por Telegram', 'success');
     } catch(err) {
       showToast(err.message || 'Error al enviar por Telegram', 'error');
     } finally {
-      b.querySelector('i')?.classList.remove('animate-spin');
+      b.querySelector('svg, i')?.classList.remove('animate-spin');
     }
   }));
 

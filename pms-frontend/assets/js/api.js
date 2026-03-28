@@ -58,7 +58,13 @@ class ApiClient {
             delete headers['Content-Type'];
         }
 
-        let response = await fetch(`${API_BASE}${url}`, { ...options, headers });
+        let response;
+        try {
+            response = await fetch(`${API_BASE}${url}`, { ...options, headers });
+        } catch (fetchError) {
+            console.error(`[ApiClient] Network Error (Failed to fetch) at ${url}:`, fetchError);
+            throw new Error(`Error de conexión al servidor (Verifica tu internet o si el servidor está activo). ${fetchError.message}`);
+        }
 
         // If 401, try refresh
         if (response.status === 401 && this._refreshToken) {

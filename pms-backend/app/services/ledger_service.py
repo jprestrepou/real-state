@@ -438,7 +438,9 @@ async def get_property_performance(db: AsyncSession, property_id: str) -> dict:
     for row in cat_results:
         cat = str(row.category)
         amount = float(row.total or 0)
-        if str(row.direction) == TransactionDirection.DEBIT.value:
+        dir_val = row.direction.value if hasattr(row.direction, "value") else str(row.direction)
+        
+        if dir_val == TransactionDirection.DEBIT.value:
             income_by_category[cat] = amount
         else:
             expense_by_category[cat] = amount
@@ -851,3 +853,80 @@ async def get_account_profitability(db: AsyncSession, account_id: str, year: int
         "average_profitability_pct": avg_profitability,
         "months": months_data
     }
+
+async def get_advanced_financial_report(db: AsyncSession, property_id: str | None, year: int) -> dict:
+    """
+    Generates a detailed monthly report with YTD and Projections.
+    """
+    from sqlalchemy import extract
+    from app.models.financial import Transaction, TransactionDirection, TransactionStatus
+    
+    # 1. Base query filters
+    filters = [
+        extract('year', Transaction.transaction_date) == year,
+        Transaction.status == TransactionStatus.COMPLETADA.value
+    ]
+    if property_id:
+        filters.append(Transaction.property_id == property_id)
+        
+    # 2. Monthly aggregation
+    monthly_data = {m: {"month": m, "income": 0.0, "expenses": 0.0, "profit": 0.0} for m in range(1, 13)}
+    
+    stmt = select(
+        extract('month', Transaction.transaction_date).label("month"),
+        Transaction.direction,
+        func.sum(Transaction.amount).label("total")
+    ).where(*filters).group_by("month", Transaction.direction)
+    
+    result = await db.execute(stmt)
+    for row in result:
+        m = int(row.month)
+        # Handle Enum value vs string securely
+        dir_val = row.direction.value if hasattr(row.direction, "value") else str(row.direction)
+        if dir_val == TransactionDirection.DEBIT.value:
+            monthly_data[m]["income"] = float(row.total or 0)
+        else:
+            monthly_data[m]["expenses"] = float(row.total or 0)
+            
+    # 3. Calculate profit and YTD
+    ytd_income = 0.0
+    ytd_expenses = 0.0
+    current_month = date.today().month if date.today().year == year else 12
+    completed_months_count = 0
+    
+    for m in range(1, 13):
+        monthly_data[m]["profit"] = monthly_data[m]["income"] - monthly_data[m]["expenses"]
+        if m <= current_month:
+            ytd_income += monthly_data[m]["income"]
+            ytd_expenses += monthly_data[m]["expenses"]
+            if m < current_month or (monthly_data[m]["income"] > 0 or monthly_data[m]["expenses"] > 0):
+                completed_months_count += 1
+                
+    ytd_profit = ytd_income - ytd_expenses
+    
+    # 4. Projections
+    # Calculate monthly average from completed months
+    avg_income = ytd_income / completed_months_count if completed_months_count > 0 else 0
+    avg_expense = ytd_expenses / completed_months_count if completed_months_count > 0 else 0
+    
+    remaining_months = 12 - completed_months_count
+    projected_income = ytd_income + (avg_income * remaining_months)
+    projected_expense = ytd_expenses + (avg_expense * remaining_months)
+    
+    return {
+        "year": year,
+        "property_id": property_id,
+        "monthly": list(monthly_data.values()),
+        "ytd": {
+            "income": ytd_income,
+            "expenses": ytd_expenses,
+            "profit": ytd_profit,
+            "months_completed": completed_months_count
+        },
+        "projections": {
+            "estimated_annual_income": round(projected_income, 2),
+            "estimated_annual_expense": round(projected_expense, 2),
+            "estimated_annual_profit": round(projected_income - projected_expense, 2)
+        }
+    }
+

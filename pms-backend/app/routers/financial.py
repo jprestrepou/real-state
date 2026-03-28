@@ -151,6 +151,18 @@ async def get_income_statement(
     return await ledger_service.get_income_statement(db, start_date, end_date)
 
 
+@router.get("/reports/advanced", response_model=dict)
+async def get_advanced_report(
+    property_id: str | None = Query(None),
+    year: int = Query(default_factory=lambda: date.today().year),
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(require_role("Admin", "Propietario", "Gestor")),
+):
+    """Generar reporte financiero avanzado (Mes a mes + YTD + Proyecciones)."""
+    return await ledger_service.get_advanced_financial_report(db, property_id, year)
+
+
+
 @router.get("/reports/export")
 async def export_transactions(
     property_id: str | None = Query(None),

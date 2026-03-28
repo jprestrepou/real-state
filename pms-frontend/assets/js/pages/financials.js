@@ -188,7 +188,7 @@ export async function renderFinancials(container) {
         </div>
 
         <!-- Corporate Reports -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <div class="glass-card p-6" id="balance-sheet-container">
             <h3 class="font-bold mb-4">Balance General</h3>
             <p class="text-surface-400 text-sm">Cargando estado...</p>
@@ -199,10 +199,24 @@ export async function renderFinancials(container) {
           </div>
         </div>
 
+        <!-- ══ REPORTE DE GESTIÓN AVANZADO (GENERAL) ══ -->
+        <div id="advanced-report-section" class="mb-8">
+           <div class="flex items-center gap-2 mb-4">
+              <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center"><i data-lucide="trending-up" class="w-4 h-4 text-indigo-600"></i></div>
+              <h3 class="font-bold text-surface-900 text-lg">Reporte de Gestión y Proyecciones Anuales</h3>
+           </div>
+           <div id="advanced-report-container" class="glass-card p-6 shadow-xl border-indigo-50 bg-white">
+              <div class="flex items-center justify-center py-10">
+                <div class="animate-spin rounded-full h-8 w-8 border-2 border-indigo-500 border-t-transparent"></div>
+                <p class="ml-3 text-surface-500">Calculando proyecciones...</p>
+              </div>
+           </div>
+        </div>
+
         <!-- PDF Button -->
-        <div class="flex justify-end">
-          <button id="generate-pdf-btn" class="btn-primary bg-gradient-to-r from-rose-500 to-pink-500 border-0 hover:from-rose-600 hover:to-pink-600">
-            <i data-lucide="file-text" class="w-4 h-4"></i> Generar Informe PDF
+        <div class="flex justify-end gap-3 mb-8">
+          <button id="generate-pdf-btn" class="btn-primary bg-gradient-to-r from-rose-500 to-pink-500 border-0 hover:from-rose-600 hover:to-pink-600 shadow-md">
+            <i data-lucide="file-text" class="w-4 h-4"></i> Generar Resumen PDF
           </button>
         </div>
       </div>
@@ -267,12 +281,31 @@ export async function renderFinancials(container) {
     btn.addEventListener('click', () => confirmDeleteTransaction(btn.dataset.id, btn.dataset.desc));
   });
 
-  // Performance selector
-  document.getElementById('performance-property-select')?.addEventListener('change', (e) => loadPerformance(e.target.value));
+  // Performance Select: Update specific reporting
+  document.getElementById('performance-property-select')?.addEventListener('change', async (e) => {
+    const propertyId = e.target.value;
+    if (propertyId) {
+      await loadPerformance(propertyId);
+    } else {
+      document.getElementById('performance-content').innerHTML = `
+        <div class="text-center py-20">
+          <i data-lucide="building" class="w-12 h-12 text-surface-200 mx-auto mb-3"></i>
+          <p class="text-surface-400 font-medium">Selecciona una propiedad para ver su rendimiento individual</p>
+        </div>
+      `;
+      if (window.lucide) lucide.createIcons();
+    }
+  });
+
+  // Initial Load for Analysis Tab
+  document.querySelector('.tab-btn[data-tab="analysis"]')?.addEventListener('click', () => {
+     loadReports();
+     loadAdvancedReport(); // Global report (business level)
+  });
 
   // PDF Global
   document.getElementById('generate-pdf-btn')?.addEventListener('click', () => {
-    window.open(`${api.baseUrl}/financial/financial-summary/export/pdf`, '_blank');
+    generatePDF(accounts, transactions);
   });
 
   // Tab switching
@@ -283,7 +316,10 @@ export async function renderFinancials(container) {
       btn.classList.add('active');
       const tab = btn.dataset.tab;
       document.getElementById(`${tab}-tab`).classList.remove('hidden');
-      if (tab === 'analysis') loadReports();
+      if (tab === 'analysis') {
+         loadReports();
+         loadAdvancedReport();
+      }
     });
   });
 
@@ -726,6 +762,136 @@ async function loadPerformance(propertyId) {
     const months = perf.monthly_cashflow;
     new Chart(cCtx, { type: 'bar', data: { labels: months.map(m => m.month), datasets: [{ label: 'Ingresos', data: months.map(m => m.income), backgroundColor: 'rgba(32,201,151,0.7)', borderRadius: 6, barPercentage: 0.6 }, { label: 'Gastos', data: months.map(m => m.expenses), backgroundColor: 'rgba(240,62,62,0.7)', borderRadius: 6, barPercentage: 0.6 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { usePointStyle: true, font: { size: 10 } } } }, scales: { y: { beginAtZero: true, ticks: { font: { size: 10 }, callback: v => '$' + (v >= 1e6 ? (v / 1e6).toFixed(1) + 'M' : v >= 1e3 ? (v / 1e3).toFixed(0) + 'K' : v) }, grid: { color: 'rgba(0,0,0,0.04)' } }, x: { ticks: { font: { size: 9 } }, grid: { display: false } } } } });
   }
+
+  // Also load Advanced metrics for this property
+  const advData = await api.get(`/reports/advanced?property_id=${propertyId}`);
+  if (advData) {
+      renderAdvancedReportSection(content, advData, true);
+  }
+}
+
+/**
+ * Loads the advanced report (Global or Property-specific)
+ */
+async function loadAdvancedReport(propertyId = null) {
+  const container = document.getElementById('advanced-report-container');
+  if (!container) return;
+  
+  try {
+     const params = propertyId ? `?property_id=${propertyId}` : '';
+     const data = await api.get(`/reports/advanced${params}`);
+     renderAdvancedReportSection(container, data, false);
+  } catch (err) {
+     container.innerHTML = `<p class="text-rose-500 text-sm">Error cargando proyecciones: ${err.message}</p>`;
+  }
+}
+
+/**
+ * Renders the advanced report components (Matrix, YTD, Projections)
+ */
+function renderAdvancedReportSection(container, data, append = false) {
+  const monthsNames = ["", "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+  
+  const matrixHtml = `
+    <div class="overflow-x-auto rounded-xl border border-surface-100 mb-8">
+      <table class="w-full text-left bg-white text-[11px]">
+        <thead class="bg-surface-50">
+          <tr class="text-surface-500 uppercase font-bold">
+            <th class="p-3">Mes</th>
+            <th class="p-3 text-right">Ingresos</th>
+            <th class="p-3 text-right">Gastos</th>
+            <th class="p-3 text-right">Utilidad</th>
+            <th class="p-3 text-center">Margen</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-surface-100">
+          ${data.monthly.map(m => {
+              const margin = m.income > 0 ? ((m.profit / m.income) * 100).toFixed(1) : '0.0';
+              return `
+                <tr>
+                  <td class="p-3 font-semibold text-surface-700">${monthsNames[m.month]}</td>
+                  <td class="p-3 text-right text-emerald-600 font-medium">${m.income > 0 ? '+' : ''}${formatCurrency(m.income)}</td>
+                  <td class="p-3 text-right text-rose-500 font-medium">${m.expenses > 0 ? '-' : ''}${formatCurrency(m.expenses)}</td>
+                  <td class="p-3 text-right font-bold ${m.profit >= 0 ? 'text-surface-900' : 'text-rose-700'}">${formatCurrency(m.profit)}</td>
+                  <td class="p-3 text-center">
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${parseFloat(margin) >= 20 ? 'bg-emerald-100 text-emerald-700' : 'bg-surface-100 text-surface-500'}">${margin}%</span>
+                  </td>
+                </tr>
+              `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  const cardsHtml = `
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+       <!-- YTD Card -->
+       <div class="p-5 rounded-2xl bg-gradient-to-br from-white to-surface-50 border border-surface-100">
+          <div class="flex items-center gap-2 mb-4 text-surface-500">
+            <i data-lucide="calendar" class="w-4 h-4"></i>
+            <span class="text-xs font-bold uppercase tracking-wider">Acumulado Año Corrido (YTD)</span>
+          </div>
+          <div class="space-y-4">
+            <div class="flex justify-between items-end border-b border-surface-100 pb-2">
+               <span class="text-sm text-surface-400">Total Ingresos</span>
+               <span class="text-lg font-bold text-accent-600">${formatCurrency(data.ytd.income)}</span>
+            </div>
+            <div class="flex justify-between items-end border-b border-surface-100 pb-2">
+               <span class="text-sm text-surface-400">Total Gastos</span>
+               <span class="text-lg font-bold text-rose-500">${formatCurrency(data.ytd.expenses)}</span>
+            </div>
+            <div class="flex justify-between items-center pt-2">
+               <span class="font-bold text-surface-900">Utilidad Neta</span>
+               <div class="text-right">
+                  <span class="text-2xl font-black ${data.ytd.profit >= 0 ? 'text-primary-600' : 'text-rose-600'}">${formatCurrency(data.ytd.profit)}</span>
+                  <p class="text-[10px] text-surface-400">Margen real: ${(data.ytd.income > 0 ? (data.ytd.profit / data.ytd.income * 100) : 0).toFixed(1)}%</p>
+               </div>
+            </div>
+          </div>
+       </div>
+
+       <!-- Projections Card -->
+       <div class="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/50 to-white border border-indigo-100 overflow-hidden relative">
+          <div class="absolute top-0 right-0 p-4 opacity-10"><i data-lucide="zap" class="w-16 h-16 text-indigo-500"></i></div>
+          <div class="flex items-center gap-2 mb-4 text-indigo-600">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+            <span class="text-xs font-bold uppercase tracking-wider">Proyecciones Fin de Año (${data.year})</span>
+          </div>
+          <div class="space-y-4">
+             <div class="flex justify-between">
+                <p class="text-xs text-surface-500">Estimado anual se calcula basado en el promedio mensual de los <b>${data.ytd.months_completed}</b> meses con actividad.</p>
+             </div>
+             <div class="bg-white/60 p-3 rounded-xl border border-indigo-100/50 space-y-2">
+                <div class="flex justify-between text-xs"><span class="text-surface-400">Ingresos Proyectados</span><span class="font-bold text-indigo-600">${formatCurrency(data.projections.estimated_annual_income)}</span></div>
+                <div class="flex justify-between text-xs"><span class="text-surface-400">Gastos Proyectados</span><span class="font-bold text-amber-600">${formatCurrency(data.projections.estimated_annual_expense)}</span></div>
+             </div>
+             <div class="pt-2 text-center">
+                <p class="text-[10px] text-indigo-400 uppercase font-bold tracking-widest mb-1">Utilidad Anual Estimada</p>
+                <span class="text-3xl font-black text-indigo-600">${formatCurrency(data.projections.estimated_annual_profit)}</span>
+                <p class="text-xs text-indigo-400 mt-2 font-medium">Potencial ROI: ${(data.projections.estimated_annual_income > 0 ? (data.projections.estimated_annual_profit / data.projections.estimated_annual_income * 100) : 0).toFixed(1)}%</p>
+             </div>
+          </div>
+       </div>
+    </div>
+  `;
+
+  const html = `
+    <div class="animate-fade-in">
+       ${append ? '<div class="my-10 border-t-2 border-dashed border-surface-100 pt-8"><h4 class="font-bold text-surface-800 mb-6 flex items-center gap-2"><i data-lucide="pie-chart" class="w-5 h-5"></i> Informe Detallado Anual</h4>' : ''}
+       ${matrixHtml}
+       ${cardsHtml}
+       ${append ? '</div>' : ''}
+    </div>
+  `;
+
+  if (append) {
+    container.insertAdjacentHTML('beforeend', html);
+  } else {
+    container.innerHTML = html;
+  }
+  
+  if (window.lucide) lucide.createIcons();
 }
 
 // ══════════════════════════════════════════════════════════
