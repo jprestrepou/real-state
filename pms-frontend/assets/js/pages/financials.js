@@ -911,7 +911,7 @@ async function openImportModal(file) {
   if (window.lucide) lucide.createIcons();
 }
 
-async function openImportModal(file) {
+async function openReconciliationModal(file) {
   try {
     const fd = new FormData();
     fd.append('file', file);
