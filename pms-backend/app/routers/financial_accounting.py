@@ -7,7 +7,7 @@ from typing import Dict, Any
 
 from app.database import get_db
 from app.services import financial_accounting_service
-from app.services.auth_service import get_current_user
+from app.utils.security import get_current_user
 from app.models.user import User
 
 router = APIRouter(prefix="/accounting", tags=["Accounting"])
