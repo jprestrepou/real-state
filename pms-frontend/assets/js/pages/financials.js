@@ -423,7 +423,17 @@ function openAccountModal() {
       </div>
       <div class="grid grid-cols-2 gap-4">
         <div><label class="label">Banco</label><input class="input" name="bank_name" placeholder="Bancolombia" /></div>
-        <div><label class="label">Moneda</label><input class="input" name="currency" value="COP" maxlength="3" /></div>
+        <div><label class="label">Moneda</label>
+          <select class="select" name="currency">
+            <option value="COP" selected>COP — Peso Colombiano</option>
+            <option value="USD">USD — Dólar Estadounidense</option>
+            <option value="EUR">EUR — Euro</option>
+            <option value="MXN">MXN — Peso Mexicano</option>
+            <option value="CLP">CLP — Peso Chileno</option>
+            <option value="BRL">BRL — Real Brasileño</option>
+            <option value="PEN">PEN — Sol Peruano</option>
+          </select>
+        </div>
       </div>
     </form>
   `, {

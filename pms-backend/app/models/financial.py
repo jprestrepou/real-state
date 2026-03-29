@@ -78,6 +78,7 @@ class BankAccount(Base):
     bank_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     account_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), default="COP")
+    initial_balance: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     current_balance: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

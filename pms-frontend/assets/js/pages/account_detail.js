@@ -54,7 +54,7 @@ async function loadAccountData(container, accountId, filters = {}) {
                         </a>
                         <h2 class="text-2xl font-black text-surface-900">${account.account_name}</h2>
                     </div>
-                    <p class="text-surface-500 text-sm ml-11">${account.bank_name || 'Sin Banco'} • ${account.account_type} • ${account.currency}</p>
+                    <p class="text-surface-500 text-sm ml-11">${account.bank_name || 'Sin Banco'} • ${account.account_type} • ${account.currency} • Saldo Inicial: ${formatCurrency(account.initial_balance)}</p>
                 </div>
                 <div class="bg-white/80 backdrop-blur-md px-8 py-4 rounded-2xl shadow-xl shadow-primary-500/5 border border-white text-center z-10 group transition-transform hover:scale-105">
                     <p class="text-[10px] font-bold text-primary-500 uppercase tracking-widest mb-1">Saldo Disponible</p>

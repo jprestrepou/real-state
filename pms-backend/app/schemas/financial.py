@@ -56,6 +56,7 @@ class AccountResponse(BaseModel):
     bank_name: Optional[str] = None
     account_number: Optional[str] = None
     currency: str
+    initial_balance: float
     current_balance: float
     is_active: bool
     created_at: datetime

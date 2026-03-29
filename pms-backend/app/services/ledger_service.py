@@ -22,7 +22,7 @@ class InsufficientFundsError(HTTPException):
 async def create_account(db: AsyncSession, data: dict) -> BankAccount:
     """Create a new bank account."""
     initial_balance = data.pop("initial_balance", 0)
-    account = BankAccount(**data, current_balance=initial_balance)
+    account = BankAccount(**data, initial_balance=initial_balance, current_balance=initial_balance)
     db.add(account)
     await db.commit()
     await db.refresh(account)
