@@ -45,7 +45,7 @@ class AccountUpdate(BaseModel):
     account_name: Optional[str] = Field(None, min_length=2, max_length=200)
     bank_name: Optional[str] = None
     account_number: Optional[str] = None
-    current_balance: Optional[float] = Field(None, description="Saldo inicial/ajustado de la cuenta")
+    initial_balance: Optional[float] = Field(None, ge=0)
     is_active: Optional[bool] = None
 
 

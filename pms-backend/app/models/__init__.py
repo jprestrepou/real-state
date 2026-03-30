@@ -17,6 +17,7 @@ from app.models.scoring import TenantScoring
 from app.models.contract_components import ContractSignature, TerminationLetter
 from app.models.config import GlobalConfig
 from app.models.invoice import Invoice
+from app.models.budget_project import BudgetProject, ProjectQuote
 
 
 __all__ = [
@@ -49,5 +50,7 @@ __all__ = [
     "TerminationLetter",
     "GlobalConfig",
     "Invoice",
+    "BudgetProject",
+    "ProjectQuote",
 ]
 

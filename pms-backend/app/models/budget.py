@@ -56,6 +56,7 @@ class Budget(Base):
     property_rel = relationship("Property", back_populates="budgets")
     categories = relationship("BudgetCategory", back_populates="budget", cascade="all, delete-orphan")
     revisions = relationship("BudgetRevision", back_populates="budget", cascade="all, delete-orphan")
+    projects = relationship("BudgetProject", back_populates="budget", cascade="all, delete-orphan", lazy="selectin")
 
     @property
     def execution_pct(self) -> float:

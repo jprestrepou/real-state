@@ -2,9 +2,9 @@
  * Budgets Page — Table view with filters and traffic-light tracking.
  */
 import { api } from '../api.js';
-import { formatCurrency, formatPercent, semaphoreClass } from '../utils/formatters.js';
+import { formatCurrency, formatPercent, formatDate, semaphoreClass, statusBadge } from '../utils/formatters.js';
 import { parseCurrencyValue } from '../utils/currency-input.js';
-import { showToast, showModal } from '../components/modal.js';
+import { showToast, showModal, closeModal } from '../components/modal.js';
 
 export async function renderBudgets(container) {
   // Initial UI structure with filters
@@ -217,6 +217,11 @@ function renderTable(container, budgets, properties, accounts, generalPropId, on
             </td>
             <td>
               <div class="flex justify-end gap-1">
+                <button class="projects-btn p-2 rounded-lg hover:bg-teal-50 text-teal-600 transition" 
+                  data-id="${b.id}" title="Proyectos y Cotizaciones">
+                  <i data-lucide="folder-kanban" class="w-4 h-4"></i>
+                </button>
+
                 <a href="#/budget-report?property_id=${b.property_id}&year=${b.year}&month=${b.month}" 
                   class="p-2 rounded-lg hover:bg-primary-50 text-primary-600 transition" title="Ver Reporte Detallado">
                   <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
@@ -374,6 +379,12 @@ function renderTable(container, budgets, properties, accounts, generalPropId, on
     btn.addEventListener('click', () => {
       const budget = budgets.find(x => x.id === btn.dataset.id);
       openHistoryModal(budget);
+    });
+  });
+
+  container.querySelectorAll('.projects-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openProjectsPanel(btn.dataset.id, properties);
     });
   });
 }
@@ -690,4 +701,461 @@ async function openBreakdownModal(id) {
   } catch (err) {
     showToast(err.message, 'error');
   }
+}
+
+// ══════════════════════════════════════════════════════════════
+// ══ PROJECTS & QUOTES PANEL ══════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+
+const STATUS_COLORS = {
+  'Borrador': { bg: 'bg-surface-100', text: 'text-surface-600', dot: 'bg-surface-400' },
+  'Cotizando': { bg: 'bg-amber-50', text: 'text-amber-700', dot: 'bg-amber-400' },
+  'Aprobado': { bg: 'bg-blue-50', text: 'text-blue-700', dot: 'bg-blue-500' },
+  'En Ejecución': { bg: 'bg-indigo-50', text: 'text-indigo-700', dot: 'bg-indigo-500' },
+  'Completado': { bg: 'bg-green-50', text: 'text-green-700', dot: 'bg-green-500' },
+  'Cancelado': { bg: 'bg-rose-50', text: 'text-rose-700', dot: 'bg-rose-400' },
+};
+
+const PRIORITY_ICONS = {
+  'Urgente': '🔴', 'Alta': '🟠', 'Media': '🟡', 'Baja': '🟢'
+};
+
+function projectStatusBadge(status) {
+  const c = STATUS_COLORS[status] || STATUS_COLORS['Borrador'];
+  return `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${c.bg} ${c.text}">
+    <span class="w-1.5 h-1.5 rounded-full ${c.dot}"></span>${status}</span>`;
+}
+
+async function openProjectsPanel(budgetId, properties) {
+  const refreshPanel = async () => {
+    try {
+      const projects = await api.get(`/budgets/${budgetId}/projects`);
+      renderProjectsModal(budgetId, projects, properties);
+    } catch (err) {
+      showToast('Error cargando proyectos: ' + err.message, 'error');
+    }
+  };
+  await refreshPanel();
+}
+
+function renderProjectsModal(budgetId, projects, properties) {
+  const projectCards = projects.length ? projects.map(p => {
+    const quotesCount = p.quotes?.length || 0;
+    const selectedQuote = p.quotes?.find(q => q.is_selected);
+    const propName = p.property_id
+       ? (properties.find(x => x.id === p.property_id)?.name || 'Propiedad')
+       : '';
+    return `
+    <div class="border border-surface-200 rounded-2xl p-4 hover:shadow-md transition-all duration-200 bg-white/80 group">
+      <div class="flex items-start justify-between mb-3">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-sm">${PRIORITY_ICONS[p.priority] || '⚪'}</span>
+            <h4 class="font-bold text-surface-900 text-sm truncate">${p.title}</h4>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            ${projectStatusBadge(p.status)}
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-surface-100 text-surface-500 font-medium">${p.project_type}</span>
+            ${propName ? `<span class="text-[10px] text-surface-400">📍 ${propName}</span>` : ''}
+          </div>
+        </div>
+        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button class="proj-edit-btn p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 transition" data-id="${p.id}" title="Editar">
+            <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+          </button>
+          <button class="proj-delete-btn p-1.5 rounded-lg hover:bg-rose-50 text-rose-400 transition" data-id="${p.id}" title="Eliminar">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+      ${p.description ? `<p class="text-xs text-surface-500 mb-3 line-clamp-2">${p.description}</p>` : ''}
+      <div class="grid grid-cols-3 gap-2 mb-3 text-[11px]">
+        <div class="bg-surface-50 rounded-lg p-2">
+          <div class="text-surface-400 mb-0.5">Estimado</div>
+          <div class="font-bold text-surface-800">${p.estimated_cost != null ? formatCurrency(p.estimated_cost) : '—'}</div>
+        </div>
+        <div class="bg-blue-50 rounded-lg p-2">
+          <div class="text-blue-400 mb-0.5">Aprobado</div>
+          <div class="font-bold text-blue-700">${p.approved_cost != null ? formatCurrency(p.approved_cost) : '—'}</div>
+        </div>
+        <div class="bg-green-50 rounded-lg p-2">
+          <div class="text-green-400 mb-0.5">Real</div>
+          <div class="font-bold text-green-700">${p.actual_cost != null ? formatCurrency(p.actual_cost) : '—'}</div>
+        </div>
+      </div>
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] text-surface-400">
+            <i data-lucide="file-stack" class="w-3 h-3 inline"></i>
+            ${quotesCount} cotización${quotesCount !== 1 ? 'es' : ''}
+            ${selectedQuote ? `<span class="text-green-600 font-semibold"> · ✓ ${selectedQuote.supplier_name}</span>` : ''}
+          </span>
+        </div>
+        <button class="proj-quotes-btn text-xs font-bold text-teal-600 hover:text-teal-800 hover:underline transition flex items-center gap-1" data-id="${p.id}">
+          <i data-lucide="receipt" class="w-3.5 h-3.5"></i> Cotizaciones
+        </button>
+      </div>
+      ${p.scheduled_start || p.scheduled_end ? `
+      <div class="mt-2 pt-2 border-t border-surface-100 text-[10px] text-surface-400 flex items-center gap-3">
+        ${p.scheduled_start ? `<span><i data-lucide="calendar" class="w-3 h-3 inline"></i> Inicio: ${formatDate(p.scheduled_start)}</span>` : ''}
+        ${p.scheduled_end ? `<span><i data-lucide="calendar-check" class="w-3 h-3 inline"></i> Fin: ${formatDate(p.scheduled_end)}</span>` : ''}
+      </div>` : ''}
+    </div>`;
+  }).join('') : `
+    <div class="text-center py-12">
+      <i data-lucide="folder-open" class="w-12 h-12 mx-auto text-surface-200 mb-3"></i>
+      <p class="text-surface-400 text-sm">No hay proyectos en este presupuesto.</p>
+      <p class="text-surface-300 text-xs mt-1">Crea uno para gestionar cotizaciones de proveedores.</p>
+    </div>`;
+
+  showModal('Proyectos y Cotizaciones', `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <p class="text-xs text-surface-500">${projects.length} proyecto${projects.length !== 1 ? 's' : ''} registrado${projects.length !== 1 ? 's' : ''}</p>
+        <button id="add-project-btn" class="btn-primary !text-xs !py-1.5 !px-3 flex items-center gap-1.5">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nuevo Proyecto
+        </button>
+      </div>
+      <div class="space-y-3 max-h-[55vh] overflow-y-auto pr-1" id="projects-list">
+        ${projectCards}
+      </div>
+    </div>
+  `, { showCancel: false, confirmText: 'Cerrar', maxWidth: '700px' });
+
+  if (window.lucide) lucide.createIcons();
+
+  // New project button
+  document.getElementById('add-project-btn')?.addEventListener('click', () => {
+    openProjectFormModal(budgetId, null, properties, () => openProjectsPanel(budgetId, properties));
+  });
+
+  // Edit project buttons
+  document.querySelectorAll('.proj-edit-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const project = projects.find(p => p.id === btn.dataset.id);
+      openProjectFormModal(budgetId, project, properties, () => openProjectsPanel(budgetId, properties));
+    });
+  });
+
+  // Delete project buttons
+  document.querySelectorAll('.proj-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const pid = btn.dataset.id;
+      showModal('¿Eliminar Proyecto?', '<p class="text-surface-600">Se eliminarán el proyecto y todas sus cotizaciones.</p>', {
+        confirmText: 'Eliminar',
+        onConfirm: async () => {
+          await api.delete(`/budgets/${budgetId}/projects/${pid}`);
+          showToast('Proyecto eliminado', 'success');
+          openProjectsPanel(budgetId, properties);
+        }
+      });
+    });
+  });
+
+  // Quotes panel buttons
+  document.querySelectorAll('.proj-quotes-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const project = projects.find(p => p.id === btn.dataset.id);
+      openQuotesPanel(budgetId, project, properties);
+    });
+  });
+}
+
+function openProjectFormModal(budgetId, existing, properties, onSuccess) {
+  const isEdit = !!existing;
+  const propOptions = properties.map(p =>
+    `<option value="${p.id}" ${isEdit && existing.property_id === p.id ? 'selected' : ''}>${p.name}</option>`
+  ).join('');
+
+  showModal(isEdit ? 'Editar Proyecto' : 'Nuevo Proyecto', `
+    <form id="pf" class="space-y-4">
+      <div>
+        <label class="label">Título *</label>
+        <input class="input" name="title" value="${isEdit ? existing.title : ''}" required minlength="3" />
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="label">Tipo *</label>
+          <select class="select" name="project_type">
+            ${['Mantenimiento','Mejora','Remodelación','Otro'].map(t => `<option ${isEdit && existing.project_type === t ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="label">Prioridad</label>
+          <select class="select" name="priority">
+            ${['Urgente','Alta','Media','Baja'].map(t => `<option ${isEdit && existing.priority === t ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label class="label">Propiedad</label>
+        <select class="select" name="property_id">
+          <option value="">(General / Sin propiedad)</option>
+          ${propOptions}
+        </select>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="label">Costo Estimado</label>
+          <input class="input currency-input" name="estimated_cost" type="text" value="${isEdit && existing.estimated_cost != null ? existing.estimated_cost : ''}" />
+        </div>
+        ${isEdit ? `<div>
+          <label class="label">Estado</label>
+          <select class="select" name="status">
+            ${['Borrador','Cotizando','Aprobado','En Ejecución','Completado','Cancelado'].map(s => `<option ${existing.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+          </select>
+        </div>` : '<div></div>'}
+      </div>
+      ${isEdit ? `
+      <div>
+        <label class="label">Costo Real</label>
+        <input class="input currency-input" name="actual_cost" type="text" value="${existing.actual_cost != null ? existing.actual_cost : ''}" />
+      </div>` : ''}
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="label">Fecha Inicio</label>
+          <input class="input" name="scheduled_start" type="date" value="${isEdit && existing.scheduled_start ? existing.scheduled_start : ''}" />
+        </div>
+        <div>
+          <label class="label">Fecha Fin</label>
+          <input class="input" name="scheduled_end" type="date" value="${isEdit && existing.scheduled_end ? existing.scheduled_end : ''}" />
+        </div>
+      </div>
+      <div>
+        <label class="label">Descripción</label>
+        <textarea class="input" name="description" rows="2" placeholder="Descripción del proyecto...">${isEdit && existing.description ? existing.description : ''}</textarea>
+      </div>
+      <div>
+        <label class="label">Notas</label>
+        <textarea class="input" name="notes" rows="2" placeholder="Notas adicionales...">${isEdit && existing.notes ? existing.notes : ''}</textarea>
+      </div>
+    </form>
+  `, {
+    confirmText: isEdit ? 'Guardar' : 'Crear Proyecto',
+    maxWidth: '600px',
+    onConfirm: async () => {
+      const fd = new FormData(document.getElementById('pf'));
+      const payload = {
+        title: fd.get('title'),
+        project_type: fd.get('project_type'),
+        priority: fd.get('priority'),
+        property_id: fd.get('property_id') || null,
+        estimated_cost: parseCurrencyValue(fd.get('estimated_cost')) || null,
+        description: fd.get('description') || null,
+        notes: fd.get('notes') || null,
+        scheduled_start: fd.get('scheduled_start') || null,
+        scheduled_end: fd.get('scheduled_end') || null,
+      };
+      if (isEdit) {
+        payload.status = fd.get('status') || existing.status;
+        const ac = parseCurrencyValue(fd.get('actual_cost'));
+        if (ac) payload.actual_cost = ac;
+        await api.put(`/budgets/${budgetId}/projects/${existing.id}`, payload);
+        showToast('Proyecto actualizado', 'success');
+      } else {
+        await api.post(`/budgets/${budgetId}/projects`, payload);
+        showToast('Proyecto creado', 'success');
+      }
+      if (onSuccess) onSuccess();
+    }
+  });
+  if (window.lucide) lucide.createIcons();
+}
+
+// ── Quotes Panel ─────────────────────────────────────────────
+
+async function openQuotesPanel(budgetId, project, properties) {
+  // Refresh project data
+  let proj;
+  try {
+    proj = await api.get(`/budgets/${budgetId}/projects/${project.id}`);
+  } catch {
+    proj = project;
+  }
+  const quotes = proj.quotes || [];
+
+  const quotesHtml = quotes.length ? quotes.map(q => {
+    const isWinner = q.is_selected;
+    return `
+    <div class="border ${isWinner ? 'border-green-300 bg-green-50/50 ring-2 ring-green-200' : 'border-surface-200 bg-white/60'} rounded-xl p-4 transition-all hover:shadow-sm group">
+      <div class="flex items-start justify-between mb-2">
+        <div>
+          <div class="flex items-center gap-2">
+            ${isWinner ? '<span class="text-green-600 text-xs font-bold bg-green-100 px-2 py-0.5 rounded-full">✓ SELECCIONADA</span>' : ''}
+            <h5 class="font-bold text-sm text-surface-900">${q.supplier_name}</h5>
+          </div>
+          ${q.description ? `<p class="text-xs text-surface-500 mt-1">${q.description}</p>` : ''}
+        </div>
+        <div class="text-right">
+          <div class="text-lg font-bold ${isWinner ? 'text-green-700' : 'text-surface-900'}">${formatCurrency(q.amount)}</div>
+          <div class="text-[10px] text-surface-400">${q.currency}</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 text-[11px] text-surface-400 mb-3">
+        ${q.validity_days ? `<span><i data-lucide="clock" class="w-3 h-3 inline"></i> Vigencia: ${q.validity_days} días</span>` : ''}
+        ${q.submitted_date ? `<span><i data-lucide="calendar" class="w-3 h-3 inline"></i> ${formatDate(q.submitted_date)}</span>` : ''}
+        ${q.quote_file ? `<a href="${q.quote_file}" target="_blank" class="text-primary-600 hover:underline font-medium"><i data-lucide="paperclip" class="w-3 h-3 inline"></i> Ver archivo</a>` : ''}
+      </div>
+      <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        ${!isWinner ? `<button class="quote-select-btn text-xs font-bold text-green-600 hover:text-green-800 hover:underline flex items-center gap-1" data-qid="${q.id}">
+          <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Seleccionar
+        </button>` : ''}
+        <button class="quote-upload-btn text-xs font-medium text-primary-600 hover:underline flex items-center gap-1" data-qid="${q.id}">
+          <i data-lucide="upload" class="w-3.5 h-3.5"></i> Archivo
+        </button>
+        <button class="quote-delete-btn text-xs font-medium text-rose-500 hover:underline flex items-center gap-1" data-qid="${q.id}">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+    </div>`;
+  }).join('') : `
+    <div class="text-center py-8">
+      <i data-lucide="receipt" class="w-10 h-10 mx-auto text-surface-200 mb-2"></i>
+      <p class="text-surface-400 text-sm">No hay cotizaciones para este proyecto.</p>
+    </div>`;
+
+  showModal(`Cotizaciones — ${proj.title}`, `
+    <div class="space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          ${projectStatusBadge(proj.status)}
+          <span class="text-xs text-surface-400">${quotes.length} cotización${quotes.length !== 1 ? 'es' : ''}</span>
+        </div>
+        <button id="add-quote-btn" class="btn-primary !text-xs !py-1.5 !px-3 flex items-center gap-1.5">
+          <i data-lucide="plus" class="w-3.5 h-3.5"></i> Nueva Cotización
+        </button>
+      </div>
+      <div class="space-y-3 max-h-[50vh] overflow-y-auto pr-1" id="quotes-list">
+        ${quotesHtml}
+      </div>
+      <div class="pt-3 border-t border-surface-100">
+        <button id="back-to-projects" class="text-xs font-medium text-surface-500 hover:text-surface-800 flex items-center gap-1 transition">
+          <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Volver a Proyectos
+        </button>
+      </div>
+    </div>
+  `, { showCancel: false, confirmText: 'Cerrar', maxWidth: '650px' });
+
+  if (window.lucide) lucide.createIcons();
+
+  // Back button
+  document.getElementById('back-to-projects')?.addEventListener('click', () => {
+    openProjectsPanel(budgetId, properties);
+  });
+
+  // Add quote
+  document.getElementById('add-quote-btn')?.addEventListener('click', () => {
+    openQuoteFormModal(budgetId, proj, properties);
+  });
+
+  // Select quote
+  document.querySelectorAll('.quote-select-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      try {
+        await api.post(`/budgets/${budgetId}/projects/${proj.id}/quotes/${btn.dataset.qid}/select`);
+        showToast('Cotización seleccionada', 'success');
+        openQuotesPanel(budgetId, proj, properties);
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+  });
+
+  // Upload file
+  document.querySelectorAll('.quote-upload-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const inp = document.createElement('input');
+      inp.type = 'file';
+      inp.accept = '.pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx';
+      inp.addEventListener('change', async () => {
+        if (!inp.files.length) return;
+        const formData = new FormData();
+        formData.append('file', inp.files[0]);
+        try {
+          const token = localStorage.getItem('token');
+          const res = await fetch(`${api.baseURL}/budgets/${budgetId}/projects/${proj.id}/quotes/${btn.dataset.qid}/upload`, {
+            method: 'POST',
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+            body: formData
+          });
+          if (!res.ok) throw new Error('Error al subir archivo');
+          showToast('Archivo subido', 'success');
+          openQuotesPanel(budgetId, proj, properties);
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
+      });
+      inp.click();
+    });
+  });
+
+  // Delete quote
+  document.querySelectorAll('.quote-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      showModal('¿Eliminar Cotización?', '<p class="text-surface-600">Esta cotización será eliminada permanentemente.</p>', {
+        confirmText: 'Eliminar',
+        onConfirm: async () => {
+          await api.delete(`/budgets/${budgetId}/projects/${proj.id}/quotes/${btn.dataset.qid}`);
+          showToast('Cotización eliminada', 'success');
+          openQuotesPanel(budgetId, proj, properties);
+        }
+      });
+    });
+  });
+}
+
+function openQuoteFormModal(budgetId, project, properties) {
+  showModal('Nueva Cotización', `
+    <form id="qf" class="space-y-4">
+      <div>
+        <label class="label">Proveedor / Empresa *</label>
+        <input class="input" name="supplier_name" required minlength="2" placeholder="Nombre del proveedor" />
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="label">Monto *</label>
+          <input class="input currency-input" name="amount" type="text" required placeholder="$0" />
+        </div>
+        <div>
+          <label class="label">Moneda</label>
+          <select class="select" name="currency">
+            <option value="COP" selected>COP</option>
+            <option value="USD">USD</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="label">Vigencia (días)</label>
+          <input class="input" name="validity_days" type="number" min="1" placeholder="30" />
+        </div>
+        <div>
+          <label class="label">Fecha Presentación</label>
+          <input class="input" name="submitted_date" type="date" value="${new Date().toISOString().slice(0, 10)}" />
+        </div>
+      </div>
+      <div>
+        <label class="label">Descripción</label>
+        <textarea class="input" name="description" rows="2" placeholder="Detalle de lo que incluye la cotización..."></textarea>
+      </div>
+    </form>
+  `, {
+    confirmText: 'Agregar Cotización',
+    maxWidth: '550px',
+    onConfirm: async () => {
+      const fd = new FormData(document.getElementById('qf'));
+      const payload = {
+        supplier_name: fd.get('supplier_name'),
+        amount: parseCurrencyValue(fd.get('amount')),
+        currency: fd.get('currency'),
+        validity_days: fd.get('validity_days') ? parseInt(fd.get('validity_days')) : null,
+        submitted_date: fd.get('submitted_date') || null,
+        description: fd.get('description') || null,
+      };
+      await api.post(`/budgets/${budgetId}/projects/${project.id}/quotes`, payload);
+      showToast('Cotización agregada', 'success');
+      openQuotesPanel(budgetId, project, properties);
+    }
+  });
+  if (window.lucide) lucide.createIcons();
 }

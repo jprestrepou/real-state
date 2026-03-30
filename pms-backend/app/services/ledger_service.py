@@ -530,9 +530,20 @@ async def get_income_statement(db: AsyncSession, start_date: date, end_date: dat
 async def update_account(db: AsyncSession, account_id: str, data: dict) -> BankAccount:
     """Update bank account fields."""
     account = await get_account(db, account_id)
+    
+    # Store old initial balance
+    old_initial_balance = float(account.initial_balance)
+    
     for key, value in data.items():
         if value is not None and hasattr(account, key):
             setattr(account, key, value)
+            
+    # If initial_balance was modified, adjust current_balance by the difference
+    if "initial_balance" in data and data["initial_balance"] is not None:
+        new_initial_balance = float(data["initial_balance"])
+        diff = new_initial_balance - old_initial_balance
+        account.current_balance = float(account.current_balance) + diff
+        
     await db.commit()
     await db.refresh(account)
     return account

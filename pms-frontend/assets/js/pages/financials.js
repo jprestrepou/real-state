@@ -80,7 +80,7 @@ export async function renderFinancials(container) {
               <div class="flex items-center justify-between mb-3">
                 <span class="badge ${acc.is_active ? 'badge-green' : 'badge-gray'}">${acc.account_type}</span>
                 <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button class="edit-account-btn p-1.5 rounded-lg hover:bg-primary-50 text-surface-400 hover:text-primary-600 transition" data-id="${acc.id}" data-name="${acc.account_name}" data-bank="${acc.bank_name || ''}" data-number="${acc.account_number || ''}" data-balance="${acc.current_balance}" title="Editar">
+                  <button class="edit-account-btn p-1.5 rounded-lg hover:bg-primary-50 text-surface-400 hover:text-primary-600 transition" data-id="${acc.id}" data-name="${acc.account_name}" data-bank="${acc.bank_name || ''}" data-number="${acc.account_number || ''}" data-initbalance="${acc.initial_balance}" title="Editar">
                     <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
                   </button>
                   <button class="delete-account-btn p-1.5 rounded-lg hover:bg-rose-50 text-surface-400 hover:text-rose-600 transition" data-id="${acc.id}" data-name="${acc.account_name}" data-balance="${acc.current_balance}" title="Eliminar">
@@ -257,7 +257,7 @@ export async function renderFinancials(container) {
   document.querySelectorAll('.edit-account-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      openEditAccountModal(btn.dataset.id, btn.dataset.name, btn.dataset.bank, btn.dataset.number, btn.dataset.balance);
+      openEditAccountModal(btn.dataset.id, btn.dataset.name, btn.dataset.bank, btn.dataset.number, btn.dataset.initbalance);
     });
   });
 
@@ -449,7 +449,7 @@ function openAccountModal() {
   });
 }
 
-function openEditAccountModal(id, name, bank, number, balance) {
+function openEditAccountModal(id, name, bank, number, initbalance) {
   showModal('Editar Cuenta', `
     <form id="edit-account-form" class="space-y-4">
       <div><label class="label">Nombre *</label><input class="input" name="account_name" value="${name}" required /></div>
@@ -458,9 +458,9 @@ function openEditAccountModal(id, name, bank, number, balance) {
         <div><label class="label">Número de Cuenta</label><input class="input" name="account_number" value="${number}" /></div>
       </div>
       <div>
-        <label class="label">Balance Actual (Ajuste Manual)</label>
-        <input class="input currency-input" name="current_balance" type="text" value="${balance}" />
-        <p class="text-[10px] text-amber-600 mt-1">Atención: Modificar el balance manualmente ignorará el saldo calculado por transacciones.</p>
+        <label class="label">Saldo Inicial</label>
+        <input class="input currency-input" name="initial_balance" type="text" value="${initbalance}" />
+        <p class="text-[10px] text-primary-600 mt-1">El saldo actual de la cuenta se recalculará automáticamente basado en el saldo inicial más las transacciones.</p>
       </div>
     </form>
   `, {
@@ -469,7 +469,7 @@ function openEditAccountModal(id, name, bank, number, balance) {
       const fd = new FormData(document.getElementById('edit-account-form'));
       const payload = {};
       fd.forEach((v, k) => {
-        if (k === 'current_balance') payload[k] = parseCurrencyValue(v);
+        if (k === 'initial_balance') payload[k] = parseCurrencyValue(v);
         else if (v) payload[k] = v;
       });
       await api.put(`/accounts/${id}`, payload);
