@@ -112,6 +112,30 @@ async def _migrate_missing_columns(conn) -> None:
 async def init_db():
     """Create all tables and apply any missing column migrations."""
     import app.models  # noqa: F401 — ensure models are imported
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        await _migrate_missing_columns(conn)
+    import sqlalchemy.exc
+    import asyncio
+    import logging
+
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+                await _migrate_missing_columns(conn)
+            break
+        except sqlalchemy.exc.OperationalError as e:
+            error_str = str(e).lower()
+            if "already exists" in error_str:
+                logging.getLogger("pms-backend").info(
+                    "Database table already exists (likely created by another worker). Safely bypassing database initialization for this worker."
+                )
+                break
+            elif "database is locked" in error_str or "disk i/o error" in error_str:
+                logging.getLogger("pms-backend").warning(
+                    f"Database locked, retrying initialization attempt ({attempt + 1}/{max_retries})..."
+                )
+                if attempt == max_retries - 1:
+                    raise
+                await asyncio.sleep(1 + attempt)
+            else:
+                raise
