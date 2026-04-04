@@ -4,7 +4,7 @@ import { formatCurrency, formatDate } from '../utils/formatters.js';
 
 export async function renderInvoices(container, state) {
   try {
-    const invoices = await api.get('/financial/invoices');
+    const invoices = await api.get('/invoices');
     
     let html = `
       <div class="mb-6 flex justify-between items-center">
@@ -81,7 +81,7 @@ export async function renderInvoices(container, state) {
         const id = e.currentTarget.dataset.id;
         if(confirm("¿Confirma que desea marcar esta factura como pagada manualmente?")) {
             try {
-                await api.post(`/financial/invoices/${id}/pay`);
+                await api.post(`/invoices/${id}/pay`);
                 showToast('Factura registrada como pagada con éxito.', 'success');
                 renderInvoices(container, state); // reload
             } catch (error) {

@@ -117,7 +117,7 @@ export async function renderBudgets(container) {
   const exportBtn = document.createElement('button');
   exportBtn.className = 'btn-secondary !rounded-xl shadow-sm py-2 px-4 flex items-center gap-2 bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 ml-auto';
   exportBtn.innerHTML = '<i data-lucide="download" class="w-4 h-4"></i> Exportar a Excel';
-  exportBtn.addEventListener('click', () => {
+  exportBtn.addEventListener('click', async () => {
     const prop_id = document.getElementById('filter-property').value;
     const year = document.getElementById('filter-year').value;
     let url = `${api.baseURL}/budgets/export/excel`;
@@ -129,23 +129,13 @@ export async function renderBudgets(container) {
     }
     if ([...params].length) url += '?' + params.toString();
     
-    // Auth token
-    const token = localStorage.getItem('token');
-    fetch(url, { headers: token ? { 'Authorization': `Bearer ${token}` } : {} })
-    .then(async res => {
-      if (!res.ok) throw new Error('Error limitando exportación');
-      const blob = await res.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `Presupuestos_${year || 'Todos'}.xlsx`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+    try {
+      await api.download(url.replace(api.baseUrl, ''), `Presupuestos_${year || 'Todos'}.xlsx`);
       showToast('Exportación exitosa', 'success');
-    }).catch(err => {
+    } catch(err) {
       showToast('Error exportando Excel', 'error');
       console.error(err);
-    });
+    }
   });
   filtersContainer.appendChild(exportBtn);
 
@@ -356,18 +346,7 @@ function renderTable(container, budgets, properties, accounts, generalPropId, on
       const ym = btn.dataset.ym;
       showToast('Generando PDF...', 'info');
       try {
-        const token = localStorage.getItem('token');
-        const res = await fetch(`${api.baseURL}/budgets/${budgetId}/export/pdf`, {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-        });
-        if (!res.ok) throw new Error('Error al generar PDF');
-        const blob = await res.blob();
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `Presupuesto_${ym}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        await api.download(`/budgets/${budgetId}/export/pdf`, `Presupuesto_${ym}.pdf`);
         showToast('PDF generado exitosamente', 'success');
       } catch (err) {
         showToast(err.message || 'Error al exportar PDF', 'error');
@@ -1072,13 +1051,7 @@ async function openQuotesPanel(budgetId, project, properties) {
         const formData = new FormData();
         formData.append('file', inp.files[0]);
         try {
-          const token = localStorage.getItem('token');
-          const res = await fetch(`${api.baseURL}/budgets/${budgetId}/projects/${proj.id}/quotes/${btn.dataset.qid}/upload`, {
-            method: 'POST',
-            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-            body: formData
-          });
-          if (!res.ok) throw new Error('Error al subir archivo');
+          await api.upload(`/budgets/${budgetId}/projects/${proj.id}/quotes/${btn.dataset.qid}/upload`, formData);
           showToast('Archivo subido', 'success');
           openQuotesPanel(budgetId, proj, properties);
         } catch (err) {

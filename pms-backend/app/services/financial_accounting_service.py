@@ -121,12 +121,6 @@ async def get_yearly_financial_report(db: AsyncSession, year: int) -> Dict[str, 
     total_initial_balance = sum(float(a.initial_balance) for a in accounts)
     
     # We also need transactions BEFORE the target year to get the starting point of the year
-    starting_stmt = select(func.sum(CASE([(Transaction.direction == TransactionDirection.DEBIT.value, Transaction.amount)], else_=-Transaction.amount))).where(
-        Transaction.transaction_date < date(year, 1, 1),
-        Transaction.status == TransactionStatus.COMPLETADA.value,
-        Transaction.category != TransactionCategory.TRANSFERENCIA_INTERNA.value
-    )
-    # Note: Case expression for sum needs proper sqlalchemy import or just do it with two sums
     # Simplest way:
     inc_before = await db.execute(select(func.sum(Transaction.amount)).where(
         Transaction.transaction_date < date(year, 1, 1),

@@ -22,6 +22,7 @@ import { renderAudits } from './pages/audits.js';
 import { renderCalendar } from './pages/calendar.js';
 import { renderAccounting } from './pages/accounting.js';
 import { renderSettings } from './pages/settings.js';
+import { renderContacts } from './pages/contacts.js';
 
 // ── Global State ────────────────────────────────────────
 const state = {
@@ -46,6 +47,7 @@ const pages = {
     calendar: { title: 'Calendario', subtitle: 'Eventos y fechas importantes próximas', render: renderCalendar },
     accounting: { title: 'Contabilidad Consolidada', subtitle: 'Estados financieros, P&L y Balance General', render: renderAccounting },
     settings: { title: 'Configuración', subtitle: 'Ajustes globales y de integraciones', render: renderSettings },
+    contacts: { title: 'Directorio de Contactos', subtitle: 'Gestión de proveedores, inquilinos y clientes', render: renderContacts },
 };
 
 // ── Router ──────────────────────────────────────────────

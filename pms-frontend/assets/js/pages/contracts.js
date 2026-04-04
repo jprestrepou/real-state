@@ -185,17 +185,7 @@ function renderContractsList(container, contracts, properties, rootContainer) {
   document.querySelectorAll('.download-btn').forEach(b => b.addEventListener('click', async () => {
     try {
       showToast('Generando PDF...', 'info');
-      const baseUrl = api.opts?.baseUrl?.replace('/api/v1', '') || '';
-      const token = localStorage.getItem('access_token') || '';
-      const url = `${baseUrl}/api/v1/contracts/${b.dataset.id}/download`;
-      const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
-      if (!res.ok) throw new Error('Error generando PDF');
-      const blob = await res.blob();
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = `contrato_${b.dataset.id.slice(0,8)}.pdf`;
-      a.click();
-      URL.revokeObjectURL(a.href);
+      await api.download(`/contracts/${b.dataset.id}/download`, `contrato_${b.dataset.id.slice(0,8)}.pdf`);
     } catch(err) {
       showToast(err.message || 'No se pudo descargar el PDF', 'error');
     }

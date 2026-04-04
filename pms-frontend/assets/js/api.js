@@ -121,6 +121,7 @@ class ApiClient {
     get(url) { return this._fetch(url); }
     post(url, data) { return this._fetch(url, { method: 'POST', body: JSON.stringify(data) }); }
     put(url, data) { return this._fetch(url, { method: 'PUT', body: JSON.stringify(data) }); }
+    patch(url, data) { return this._fetch(url, { method: 'PATCH', body: JSON.stringify(data) }); }
     delete(url) { return this._fetch(url, { method: 'DELETE' }); }
 
     upload(url, formData) {
@@ -140,6 +141,75 @@ class ApiClient {
 
     async getProfile() {
         return this.get('/auth/me');
+    }
+
+    // ── Descargas Nativas ───────────────────────────────
+    /**
+     * Helper to make authenticated download requests and trigger browser download
+     */
+    async download(url, defaultFilename = 'documento.pdf') {
+        const headers = {};
+        if (this._accessToken) {
+            headers['Authorization'] = `Bearer ${this._accessToken}`;
+        }
+
+        let response;
+        try {
+            response = await fetch(`${API_BASE}${url}`, { headers });
+        } catch (fetchError) {
+            throw new Error(`Error de conexión al servidor al descargar. ${fetchError.message}`);
+        }
+
+        // Handle Token Refresh flow on downloads
+        if (response.status === 401 && this._refreshToken) {
+            const refreshed = await this._tryRefresh();
+            if (refreshed) {
+                headers['Authorization'] = `Bearer ${this._accessToken}`;
+                response = await fetch(`${API_BASE}${url}`, { headers });
+            } else {
+                this.clearTokens();
+                if (this._onUnauthorized) this._onUnauthorized();
+                throw new Error('Sesión expirada. Inicie sesión nuevamente.');
+            }
+        }
+
+        if (!response.ok) {
+            let detail = 'Error del servidor al generar archivo';
+            try {
+                const error = await response.json();
+                if (typeof error.detail === 'string') detail = error.detail;
+            } catch (e) {
+                // fall back to default string
+            }
+            throw new Error(detail);
+        }
+
+        const blob = await response.blob();
+        let filename = defaultFilename;
+        
+        // Tratar de obtener el nombre original recomendado desde el header Content-Disposition si existe
+        const disposition = response.headers.get('Content-Disposition');
+        if (disposition && disposition.indexOf('attachment') !== -1) {
+            const filenameRegex = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/;
+            const matches = filenameRegex.exec(disposition);
+            if (matches != null && matches[1]) { 
+                filename = matches[1].replace(/['"]/g, '');
+            }
+        }
+
+        // Disparar descarga en el navegador
+        const urlBlob = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = urlBlob;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Cleanup para evitar bloqueos de memoria (memory leak)
+        setTimeout(() => {
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(urlBlob);
+        }, 100);
     }
 }
 
