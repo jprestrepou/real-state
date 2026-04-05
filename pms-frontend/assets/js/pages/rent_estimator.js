@@ -2,15 +2,15 @@
  * Rent Estimator Page Module (Fase 2)
  */
 
-export async function renderRentEstimator(container) {
-  // Configuración predeterminada
+export async function renderRentEstimator(container, propertyData = {}) {
+  // Configuración predeterminada basada en la propiedad actual o fallback
   const state = {
-    compra: 250000000,
-    inversion: 28000000,
-    canon: 1500000,
+    compra: propertyData.commercial_value || 250000000,
+    inversion: 0, // Se asume 0 para propiedades ya establecidas, o manual
+    canon: propertyData.estimated_rent || 1500000,
     vacancia: 1, // meses al año
     incremento: 9, // %
-    admin: 120000,
+    admin: propertyData.administration_fee || 120000,
     mantenimiento: 70000,
     gasto_incremento: 7, // % (inflación/incremento de gastos)
     valorizacion: 5, // % anual

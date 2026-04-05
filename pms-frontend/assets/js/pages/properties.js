@@ -6,6 +6,7 @@ import { api } from '../api.js';
 import { formatCurrency, formatDate, statusBadge, formatPercent } from '../utils/formatters.js';
 import { parseCurrencyValue } from '../utils/currency-input.js';
 import { showToast, showModal } from '../components/modal.js';
+import { renderRentEstimator } from './rent_estimator.js';
 
 export async function renderProperties(container) {
   const data = await api.get('/properties?limit=50');
@@ -492,8 +493,18 @@ function openValuationModal(property) {
   const defaultCity = property.city || 'Bogotá';
   const defaultStratum = property.stratum || 3;
 
-  showModal(`Simulación de Rentabilidad - ${property.name}`, `
-    <div class="space-y-4">
+  showModal(`Laboratorio de Rentabilidad - ${property.name}`, `
+    <div class="flex gap-2 bg-surface-100 p-1 rounded-xl w-fit mb-6">
+      <button id="tab-market" class="px-4 py-2 font-bold text-sm text-white bg-primary-600 rounded-lg shadow-sm transition-all focus:outline-none">
+        <i data-lucide="map" class="w-4 h-4 inline-block mr-1"></i> Análisis de Mercado
+      </button>
+      <button id="tab-financial" class="px-4 py-2 font-semibold text-sm text-surface-600 hover:text-surface-900 rounded-lg transition-all focus:outline-none">
+        <i data-lucide="calculator" class="w-4 h-4 inline-block mr-1"></i> Simulador Financiero
+      </button>
+    </div>
+
+    <!-- Tab 1: Análisis de Mercado -->
+    <div id="content-market" class="space-y-4 animate-fade-in block">
       <p class="text-sm text-surface-600">Simule el canon de arrendamiento y la rentabilidad esperada basados en promedios del mercado nacional.</p>
       
       <div class="grid grid-cols-2 gap-4 p-4 bg-surface-50 rounded-xl border border-surface-200">
@@ -555,10 +566,52 @@ function openValuationModal(property) {
         <!-- Results will be injected here -->
       </div>
     </div>
-  `, { showCancel: true, confirmText: null });
+
+    <!-- Tab 2: Simulador Financiero -->
+    <div id="content-financial" class="hidden animate-fade-in w-full">
+        <div id="financial-simulator-container">
+           <div class="flex items-center justify-center p-12 text-surface-400">
+               <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+           </div>
+        </div>
+    </div>
+
+  `, { showCancel: true, confirmText: null, maxWidth: '1400px' });
 
   if (window.lucide) lucide.createIcons();
 
+  // Tab Logic
+  const tabMarket = document.getElementById('tab-market');
+  const tabFin = document.getElementById('tab-financial');
+  const contentMarket = document.getElementById('content-market');
+  const contentFin = document.getElementById('content-financial');
+  let financialRendered = false;
+
+  tabMarket.addEventListener('click', () => {
+      tabMarket.className = "px-4 py-2 font-bold text-sm text-white bg-primary-600 rounded-lg shadow-sm transition-all focus:outline-none";
+      tabFin.className = "px-4 py-2 font-semibold text-sm text-surface-600 hover:text-surface-900 rounded-lg transition-all focus:outline-none";
+      contentMarket.classList.replace('hidden', 'block');
+      contentFin.classList.replace('block', 'hidden');
+  });
+
+  tabFin.addEventListener('click', async () => {
+      tabFin.className = "px-4 py-2 font-bold text-sm text-white bg-primary-600 rounded-lg shadow-sm transition-all focus:outline-none";
+      tabMarket.className = "px-4 py-2 font-semibold text-sm text-surface-600 hover:text-surface-900 rounded-lg transition-all focus:outline-none";
+      contentFin.classList.replace('hidden', 'block');
+      contentMarket.classList.replace('block', 'hidden');
+      
+      if (!financialRendered) {
+          const container = document.getElementById('financial-simulator-container');
+          await renderRentEstimator(container, property);
+          financialRendered = true;
+          // Re-init icons inside the simulator
+          if (window.lucide) {
+              setTimeout(() => lucide.createIcons(), 50);
+          }
+      }
+  });
+
+  // Market Valuation Logic
   document.getElementById('run-valuation-btn').addEventListener('click', async (e) => {
     const btn = e.target.closest('button');
     const city = document.getElementById('val-target-city').value;
@@ -577,6 +630,9 @@ function openValuationModal(property) {
       
       const res = await api.get(url + params.toString());
       
+      // Pasar el canon sugerido al properties dict para la tab financiera si el usuario cambia
+      property.estimated_rent = res.estimated_monthly_rent;
+
       // Render bounds
       container.innerHTML = `
         <div class="bg-emerald-50 rounded-xl p-5 border border-emerald-100 flex flex-col items-center justify-center relative overflow-hidden">
@@ -592,7 +648,7 @@ function openValuationModal(property) {
 
         <div class="grid grid-cols-2 gap-4">
           <div class="bg-white p-4 rounded-xl border border-surface-200 text-center shadow-sm">
-            <p class="text-xs font-bold text-surface-400 uppercase mb-1">Cap Rate (Rent. Anual)</p>
+            <p class="text-xs font-bold text-surface-400 uppercase mb-1">Cap Rate (Rent. Anual Ajustada)</p>
             <p class="text-lg font-bold text-indigo-600">${res.estimated_cap_rate > 0 ? formatPercent(res.estimated_cap_rate) : 'N/A'}</p>
           </div>
           <div class="bg-white p-4 rounded-xl border border-surface-200 text-center shadow-sm">
