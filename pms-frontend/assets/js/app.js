@@ -23,6 +23,7 @@ import { renderCalendar } from './pages/calendar.js';
 import { renderAccounting } from './pages/accounting.js';
 import { renderSettings } from './pages/settings.js';
 import { renderContacts } from './pages/contacts.js';
+import { renderRentEstimator } from './pages/rent_estimator.js';
 
 // ── Global State ────────────────────────────────────────
 const state = {
@@ -48,6 +49,7 @@ const pages = {
     accounting: { title: 'Contabilidad Consolidada', subtitle: 'Estados financieros, P&L y Balance General', render: renderAccounting },
     settings: { title: 'Configuración', subtitle: 'Ajustes globales y de integraciones', render: renderSettings },
     contacts: { title: 'Directorio de Contactos', subtitle: 'Gestión de proveedores, inquilinos y clientes', render: renderContacts },
+    'rent-estimator': { title: 'Simulador de Arriendo', subtitle: 'Proyección financiera y rentabilidad', render: renderRentEstimator },
 };
 
 // ── Router ──────────────────────────────────────────────
