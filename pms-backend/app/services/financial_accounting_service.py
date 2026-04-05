@@ -3,13 +3,11 @@ Service for advanced financial accounting reports (P&L, Balance Sheet, EFE).
 Grouping and monthly aggregation logic for yearly reports.
 """
 from datetime import date
-from collections import defaultdict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, extract
-from typing import Any, Dict, List
+from typing import Any, Dict
 
 from app.models.financial import Transaction, BankAccount, TransactionDirection, TransactionStatus, TransactionCategory
-from app.services import ledger_service
 
 # Mapping from TransactionCategory strings to report categories
 CATEGORY_MAPPING = {

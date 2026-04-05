@@ -9,7 +9,6 @@ from fastapi import HTTPException
 
 from app.models.budget_project import BudgetProject
 from app.models.maintenance import MaintenanceOrder, MaintenanceType, MaintenancePriority
-from app.models.budget import Budget
 
 
 async def list_all_projects(db: AsyncSession) -> list[BudgetProject]:

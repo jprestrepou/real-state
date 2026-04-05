@@ -2,7 +2,7 @@
 Work Group Service — manage work groups, members, and properties assignments.
 """
 from typing import List, Optional
-from sqlalchemy import select, delete, func
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 

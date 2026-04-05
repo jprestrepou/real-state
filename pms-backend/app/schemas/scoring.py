@@ -4,7 +4,7 @@ Scoring schemas — Pydantic models for risk assessment.
 
 from pydantic import BaseModel, ConfigDict
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import Optional, Dict, Any
 
 class ScoringInput(BaseModel):
     tenant_name: str

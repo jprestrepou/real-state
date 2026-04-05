@@ -4,10 +4,8 @@ Audit Log Service — immutable recording and retrieval of system actions.
 from typing import List, Optional, Any, Dict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.models.audit import AuditLog
-from app.schemas.audit import AuditLogCreate
 
 async def log_action(
     db: AsyncSession,

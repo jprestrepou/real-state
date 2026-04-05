@@ -3,7 +3,7 @@ Configuration Service — Logic for database-backed configuration with environme
 """
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from app.models.config import GlobalConfig
 from app.config import settings
 import logging

@@ -16,7 +16,7 @@ from app.schemas.budget_project import (
 from app.schemas.maintenance import MaintenanceResponse
 from app.services import budget_project_service
 from app.services import project_global_service
-from app.utils.security import get_current_user, require_role
+from app.utils.security import require_role
 
 router = APIRouter(prefix="/projects", tags=["Proyectos de Facility"])
 

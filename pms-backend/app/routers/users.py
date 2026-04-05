@@ -12,7 +12,6 @@ from sqlalchemy import select, func
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import (
-    UserResponse,
     UserResponseFull,
     UserUpdate,
     ProfileUpdate,

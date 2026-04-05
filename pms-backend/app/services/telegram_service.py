@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from app.config import settings
-from app.models.maintenance import MaintenanceOrder, MaintenanceSource, MaintenanceStatus
 from app.services import config_service
 
 logger = logging.getLogger(__name__)
@@ -259,7 +258,6 @@ class TelegramService:
     async def _handle_report_command(cls, db: AsyncSession, chat_id: str, message_id: str, text: str):
         """Handle /reportar command for maintenance reports."""
         from app.models import Property
-        from sqlalchemy import or_
 
         args_text = text[len("/reportar "):].strip()
         if not args_text:

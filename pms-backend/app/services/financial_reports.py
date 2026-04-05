@@ -3,8 +3,6 @@ Service for generating financial reports and exports (CSV, etc).
 """
 import csv
 import io
-from datetime import date
-from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.financial import BankAccount, Transaction

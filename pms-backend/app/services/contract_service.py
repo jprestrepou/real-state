@@ -2,7 +2,7 @@
 Contract service — lease management + payment schedule generation.
 """
 
-from datetime import date, timedelta
+from datetime import date
 from dateutil.relativedelta import relativedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func

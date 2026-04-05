@@ -4,10 +4,9 @@ Scoring Service — logic for tenant risk assessment.
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from fastapi import HTTPException
 
 from app.models.scoring import TenantScoring
-from app.schemas.scoring import ScoringInput, ScoringResponse
+from app.schemas.scoring import ScoringInput
 
 async def calculate_and_save_score(db: AsyncSession, data: ScoringInput, user_id: str):
     # Core algorithm logic (previously in insurance_service.py)

@@ -5,7 +5,7 @@ BudgetProject service — business logic for project & quote management.
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from fastapi import HTTPException, status
+from fastapi import HTTPException
 
 from app.models.budget_project import BudgetProject, ProjectQuote
 from app.models.budget import Budget

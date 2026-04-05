@@ -2,7 +2,7 @@
 Budget Service — CRUD operations + Allocation logic and budget vs actual reporting.
 """
 
-from typing import Dict, List, Any, Optional
+from typing import Dict, Any, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, extract, func
 from sqlalchemy.orm import selectinload
@@ -412,7 +412,7 @@ async def get_budget_monthly_breakdown(db: AsyncSession, budget_id: str) -> Dict
         
     all_prop_ids = list(dist_keys.keys()) + [budget.property_id]
         
-    from sqlalchemy import func, cast, Integer
+    from sqlalchemy import func
     
     for i in range(num_months):
         target_m = start_m + i

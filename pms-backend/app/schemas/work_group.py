@@ -1,7 +1,7 @@
 """
 Work Group schemas — Pydantic v2 models.
 """
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional, List
 from app.models.work_group import WorkGroupRole

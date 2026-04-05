@@ -4,12 +4,10 @@ Property service — CRUD + map data.
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
 
-from app.models.property import Property, PropertyStatus
+from app.models.property import Property
 from app.models.contract import Contract, ContractStatus
-from app.models.occupant import PropertyOccupant
 from app.schemas.property import PropertyCreate, PropertyUpdate
 from app.services import audit_service
 

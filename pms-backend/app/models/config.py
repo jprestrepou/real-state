@@ -4,7 +4,6 @@ Configuration Model — Store system-wide settings in the database.
 from sqlalchemy import String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
-import uuid
 
 class GlobalConfig(Base):
     __tablename__ = "global_configs"

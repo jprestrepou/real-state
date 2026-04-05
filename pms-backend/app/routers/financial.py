@@ -209,7 +209,7 @@ async def get_eeff_report(
         }
     
     # Get all transactions for the year
-    from sqlalchemy import select, and_, func, cast, Integer
+    from sqlalchemy import select, func, cast, Integer
     from app.models.financial import Transaction, TransactionDirection
     
     stmt = select(Transaction).where(

@@ -16,7 +16,6 @@ from app.models.financial import (
     TransactionCategory, AccountType
 )
 from app.models.property import Property, PropertyType, PropertyStatus
-from app.schemas.financial import TransactionCreate
 from app.services import ledger_service
 
 

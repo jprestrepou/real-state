@@ -5,7 +5,7 @@ Loads from .env file or environment variables.
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
-from typing import Optional, List
+from typing import Optional
 
 
 class Settings(BaseSettings):

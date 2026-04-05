@@ -1,7 +1,7 @@
 """
 Configuration Router — /api/v1/config endpoints.
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict
 from app.database import get_db
