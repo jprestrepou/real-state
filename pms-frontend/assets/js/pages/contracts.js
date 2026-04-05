@@ -206,16 +206,16 @@ function renderContractsList(container, contracts, properties, rootContainer) {
             </div>
         </form>
       `, {
-      confirmText: 'Generar PDF',
+      confirmText: 'Generar y Descargar PDF',
       onConfirm: async () => {
         const fd = new FormData(document.getElementById('pdf-form'));
         const payload = Object.fromEntries(fd);
-        const res = await api.post(`/contracts/${b.dataset.id}/termination-letter`, payload);
-        showToast('PDF Generado', 'success');
-        if (res.pdf_url) {
-          const baseUrl = api.opts?.baseUrl?.replace('/api/v1', '') || '';
-          window.open(baseUrl + res.pdf_url, '_blank');
-        }
+        showToast('Generando carta de terminación...', 'info');
+        // Step 1: Generate PDF on server
+        await api.post(`/contracts/${b.dataset.id}/termination-letter`, payload);
+        // Step 2: Download it via dedicated authenticated endpoint
+        await api.download(`/contracts/${b.dataset.id}/termination-letter/download`, `terminacion_${b.dataset.id.slice(0,8)}.pdf`);
+        showToast('✅ Carta de terminación descargada', 'success');
       }
     });
   }));

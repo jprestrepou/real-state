@@ -27,7 +27,6 @@ export async function renderFacility(container, state) {
                 <button class="tab-btn active" data-tab="assets">Inventario de Activos</button>
                 <button class="tab-btn" data-tab="inspections">Inspecciones</button>
                 <button class="tab-btn" data-tab="maintenance">Mantenimiento</button>
-                <button class="tab-btn" data-tab="providers">Proveedores</button>
             </div>
 
             <div id="tab-content" class="min-h-[400px]">
@@ -75,9 +74,6 @@ async function renderTab(tab, container, data) {
                 break;
             case 'inspections':
                 renderInspectionsTab(container, data);
-                break;
-            case 'providers':
-                await renderProvidersTab(container, data);
                 break;
             case 'maintenance':
                 await renderMaintenanceTab(container, data);

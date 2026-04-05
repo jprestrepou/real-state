@@ -33,6 +33,7 @@ class User(Base):
         default=UserRole.GESTOR.value,
     )
     phone: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     work_group_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("work_groups.id"), nullable=True, index=True

@@ -44,6 +44,8 @@ async def register_user(db: AsyncSession, data: UserRegister) -> User:
 
 async def login_user(db: AsyncSession, data: UserLogin) -> TokenResponse:
     """Authenticate user — returns access + refresh tokens."""
+    from datetime import datetime, timezone
+
     stmt = select(User).where(User.email == data.email, User.is_active == True)  # noqa: E712
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
@@ -53,6 +55,11 @@ async def login_user(db: AsyncSession, data: UserLogin) -> TokenResponse:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciales inválidas",
         )
+
+    # Track last login timestamp
+    user.last_login = datetime.now(timezone.utc)
+    user.login_attempts = 0
+    await db.commit()
 
     token_data = {"sub": user.id, "email": user.email, "role": user.role}
     access_token = create_access_token(token_data)

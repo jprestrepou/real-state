@@ -180,8 +180,34 @@ async def generate_termination(
         raise HTTPException(status_code=404, detail="Contrato no encontrado")
         
     from app.services.pdf_service import generate_termination_letter
+    import os
     pdf_path = await generate_termination_letter(db, contract.id, data.reason, data.termination_date)
-    return {"message": "Carta generada", "pdf_url": f"/{pdf_path}"}
+    # Return only the filename so the client can download via the dedicated endpoint
+    filename = os.path.basename(pdf_path)
+    return {"message": "Carta generada", "download_endpoint": f"/contracts/{contract_id}/termination-letter/download", "filename": filename}
+
+
+from fastapi.responses import FileResponse
+
+@router.get("/{contract_id}/termination-letter/download")
+async def download_termination_letter(
+    contract_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """Descarga la carta de terminación generada más recientemente para un contrato."""
+    import os
+    from app.config import settings
+    UPLOADS_DIR = os.path.join(settings.UPLOAD_DIR, "contracts")
+    filename = f"terminacion_{contract_id[:8]}.pdf"
+    filepath = os.path.join(UPLOADS_DIR, filename)
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="Carta de terminación no encontrada. Genérela primero.")
+    return FileResponse(
+        path=filepath,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'}
+    )
 
 @router.get("/{contract_id}/payments", response_model=list[PaymentScheduleResponse])
 async def get_payment_schedules(
