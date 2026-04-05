@@ -83,6 +83,7 @@ class MaintenanceResponse(BaseModel):
     approved_at: Optional[datetime] = None
     notes: Optional[str] = None
     created_by: Optional[str] = None
+    budget_project_id: Optional[str] = None
     created_at: datetime
     photos: list[MaintenancePhotoResponse] = []
 

@@ -27,6 +27,7 @@ export async function renderFacility(container, state) {
                 <button class="tab-btn active" data-tab="assets">Inventario de Activos</button>
                 <button class="tab-btn" data-tab="inspections">Inspecciones</button>
                 <button class="tab-btn" data-tab="maintenance">Mantenimiento</button>
+                <button class="tab-btn" data-tab="projects">Proyectos Tácticos</button>
             </div>
 
             <div id="tab-content" class="min-h-[400px]">
@@ -77,6 +78,9 @@ async function renderTab(tab, container, data) {
                 break;
             case 'maintenance':
                 await renderMaintenanceTab(container, data);
+                break;
+            case 'projects':
+                await renderProjectsTab(container, data);
                 break;
         }
     } catch (err) {
@@ -574,3 +578,181 @@ function openInspectionModal(properties) {
         }
     });
 }
+
+// ── Projects Integration ────────────────────────────────────────────────────────
+async function renderProjectsTab(container, { properties }) {
+    try {
+        const projects = await api.get('/projects');
+        
+        container.innerHTML = `
+        <div class="flex items-center justify-between mb-6 animate-fade-in px-4">
+          <div class="flex items-center gap-3">
+            <h4 class="text-lg font-semibold text-surface-700">Proyectos Tácticos y Mejoras</h4>
+          </div>
+          <button id="refresh-projects-btn" class="btn-secondary btn-sm"><i data-lucide="refresh-cw" class="w-4 h-4 mr-1"></i> Actualizar</button>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 px-4 animate-fade-in">
+            ${projects.length ? projects.map(p => {
+                const prop = properties.find(prop => prop.id === p.property_id);
+                const propName = prop ? prop.name : 'Múltiple/N/A';
+                const hasQuotes = p.quotes && p.quotes.length > 0;
+                
+                return `
+                <div class="glass-card-static p-4 space-y-4 border-l-4 ${p.status === 'En Ejecución' ? 'border-l-primary-500' : p.status === 'Completado' ? 'border-l-emerald-500' : p.status === 'Aprobado' ? 'border-l-indigo-500' : 'border-l-surface-300'}">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-primary-600 bg-primary-50 px-2 py-0.5 rounded-full">${p.project_type}</span>
+                            <h5 class="font-bold text-surface-900 mt-2">${p.title}</h5>
+                            <p class="text-xs text-surface-500">${propName}</p>
+                        </div>
+                        <span class="badge ${p.status === 'En Ejecución' ? 'badge-primary' : p.status === 'Completado' ? 'badge-green' : p.status === 'Aprobado' ? 'badge-indigo' : 'badge-gray'}">${p.status}</span>
+                    </div>
+                    
+                    <div class="flex gap-4 text-sm text-surface-600">
+                        <div><span class="font-medium">Presupuestado:</span> ${p.estimated_cost ? formatCurrency(p.estimated_cost) : 'N/D'}</div>
+                        <div><span class="font-medium">Aprobado:</span> ${p.approved_cost ? formatCurrency(p.approved_cost) : 'N/D'}</div>
+                    </div>
+                    
+                    <div class="pt-3 border-t border-surface-100 flex gap-2 justify-end">
+                        <button class="btn-secondary btn-sm flex-1 view-quotes-btn" data-project='${JSON.stringify(p)}'>
+                            <i data-lucide="file-text" class="w-4 h-4 mr-1"></i> Cotizaciones (${p.quotes?.length || 0})
+                        </button>
+                        ${p.status === 'Aprobado' ? `
+                        <button class="btn-primary btn-sm flex-1 convert-maint-btn bg-indigo-600 hover:bg-indigo-700" data-id="${p.id}">
+                            <i data-lucide="zap" class="w-4 h-4 mr-1"></i> A Orden de Trabajo
+                        </button>
+                        ` : ''}
+                    </div>
+                </div>
+                `;
+            }).join('') : '<div class="col-span-2 text-center py-10 text-surface-400">No hay proyectos tácticos en el sistema.</div>'}
+        </div>
+        `;
+        
+        if (window.lucide) lucide.createIcons();
+        
+        container.querySelector('#refresh-projects-btn')?.addEventListener('click', () => renderProjectsTab(container, { properties }));
+        
+        container.querySelectorAll('.view-quotes-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const project = JSON.parse(e.currentTarget.dataset.project);
+                openProjectQuotesModal(project, container, properties);
+            });
+        });
+        
+        container.querySelectorAll('.convert-maint-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.currentTarget.dataset.id;
+                try {
+                    await api.post(`/projects/${id}/convert-to-maintenance`);
+                    showToast('Proyecto convertido exitosamente. Revisa la pestaña de Mantenimiento.', 'success');
+                    renderProjectsTab(container, { properties });
+                } catch(error) {
+                    showToast(error.message, 'error');
+                }
+            });
+        });
+        
+    } catch(err) {
+        container.innerHTML = `<div class="p-8 text-center text-rose-500">Error: ${err.message}</div>`;
+    }
+}
+
+function openProjectQuotesModal(project, tabContainer, properties) {
+    const quotesHTML = project.quotes?.length ? project.quotes.map(q => `
+        <div class="bg-surface-50 p-3 rounded border border-surface-200 flex justify-between items-center">
+            <div>
+                <p class="font-semibold text-sm">${q.supplier_name}</p>
+                <p class="text-xs text-surface-500">${formatCurrency(q.amount)} ${q.currency}</p>
+            </div>
+            <div class="flex gap-2">
+                ${q.quote_file ? `<a href="${api.baseUrl.replace('/api/v1', '')}${q.quote_file}" target="_blank" class="text-primary-600 p-1 hover:bg-primary-50 rounded" title="Ver archivo"><i data-lucide="download" class="w-4 h-4"></i></a>` : ''}
+                ${!project.approved_quote_id || project.status === 'Cotizando' ? `
+                <button class="text-emerald-600 p-1 hover:bg-emerald-50 rounded approve-quote-btn" data-qid="${q.id}" title="Aprobar"><i data-lucide="check-circle" class="w-4 h-4"></i></button>
+                ` : q.id === project.approved_quote_id ? '<span class="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded uppercase">Aprobada</span>' : ''}
+            </div>
+        </div>
+    `).join('') : '<p class="text-xs text-surface-500">No hay cotizaciones.</p>';
+
+    showModal(`Cotizaciones: ${project.title}`, `
+        <div class="space-y-4">
+            <div class="max-h-60 overflow-y-auto space-y-2">
+                ${quotesHTML}
+            </div>
+            
+            <hr class="border-surface-200" />
+            <h5 class="font-medium text-sm text-surface-700">Añadir nueva cotización</h5>
+            <form id="add-quote-form" class="space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="label text-xs">Proveedor *</label>
+                        <input class="input py-1.5" name="supplier_name" required maxlength="200" />
+                    </div>
+                    <div>
+                        <label class="label text-xs">Monto Estimado *</label>
+                        <input class="input py-1.5 currency-input" name="amount" required />
+                    </div>
+                </div>
+                <div>
+                    <label class="label text-xs">Archivo de cotización (PDF/Doc) *</label>
+                    <input class="input py-1.5 text-xs" type="file" name="quote_file" accept=".pdf,.doc,.docx" required />
+                </div>
+            </form>
+        </div>
+    `, {
+        confirmText: 'Guardar Cotización',
+        onConfirm: async () => {
+            const form = document.getElementById('add-quote-form');
+            if(!form.checkValidity()) { form.reportValidity(); throw new Error(''); }
+            
+            const fd = new FormData(form);
+            const amountStr = fd.get('amount') || '0';
+            const val = parseCurrencyValue(amountStr);
+            
+            // 1. Create quote
+            const qResp = await api.post(`/projects/${project.id}/quotes`, {
+                supplier_name: fd.get('supplier_name'),
+                amount: val
+            });
+            
+            // 2. Upload file
+            const fileInput = form.querySelector('input[type="file"]');
+            if(fileInput.files.length > 0) {
+                const fileFd = new FormData();
+                fileFd.append('file', fileInput.files[0]);
+                
+                const token = sessionStorage.getItem('token');
+                const uploadRes = await fetch(`${api.baseUrl}/projects/${project.id}/quotes/${qResp.id}/upload`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` },
+                    body: fileFd
+                });
+                if(!uploadRes.ok) throw new Error('Error al subir archivo');
+            }
+            
+            showToast('Cotización agregada exitosamente', 'success');
+            renderProjectsTab(tabContainer, { properties });
+        }
+    });
+
+    if (window.lucide) lucide.createIcons();
+
+    // Attach approve handlers
+    document.querySelectorAll('.approve-quote-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const qid = e.currentTarget.dataset.qid;
+            try {
+                await api.post(`/projects/${project.id}/quotes/${qid}/select`);
+                showToast('Cotización aprobada', 'success');
+                // close modal dynamically
+                const modalClose = document.getElementById('modal-close');
+                if(modalClose) modalClose.click();
+                renderProjectsTab(tabContainer, { properties });
+            } catch(error) {
+                showToast(error.message, 'error');
+            }
+        });
+    });
+}
+

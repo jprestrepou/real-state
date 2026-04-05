@@ -90,12 +90,16 @@ class MaintenanceOrder(Base):
     supplier_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("contacts.id"), nullable=True, index=True
     )
+    budget_project_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("budget_projects.id"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships
     property = relationship("Property", back_populates="maintenance_orders")
     photos = relationship("MaintenancePhoto", back_populates="order", cascade="all, delete-orphan")
     supplier = relationship("Contact", lazy="selectin")
+    budget_project = relationship("BudgetProject", back_populates="maintenance_orders", lazy="selectin")
 
     def __repr__(self) -> str:
         return f"<MaintenanceOrder {self.title} ({self.status})>"

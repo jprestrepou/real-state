@@ -82,6 +82,9 @@ class BudgetProject(Base):
         "ProjectQuote", back_populates="project", cascade="all, delete-orphan",
         lazy="selectin"
     )
+    maintenance_orders = relationship(
+        "MaintenanceOrder", back_populates="budget_project"
+    )
 
     def __repr__(self) -> str:
         return f"<BudgetProject {self.title} ({self.status})>"
