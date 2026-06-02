@@ -151,3 +151,73 @@ async def get_yearly_financial_report(db: AsyncSession, year: int) -> Dict[str, 
         "year": year,
         "report": report
     }
+
+
+async def get_available_years(db: AsyncSession) -> list[int]:
+    """
+    Returns a sorted list of years that have transactions in the database.
+    """
+    stmt = select(extract('year', Transaction.transaction_date).distinct()).where(
+        Transaction.status == TransactionStatus.COMPLETADA.value
+    )
+    result = await db.execute(stmt)
+    years = [int(y) for y in result.scalars().all()]
+    
+    if not years:
+        return [date.today().year]
+        
+    return sorted(years, reverse=True)
+
+
+async def get_account_profitability(db: AsyncSession, account_id: str, year: int) -> dict[str, Any]:
+    """
+    Calculates profitability metrics for an investment account.
+    """
+    # 1. Fetch account
+    result = await db.execute(select(BankAccount).where(BankAccount.id == account_id))
+    account = result.scalar_one_or_none()
+    if not account:
+        return {}
+    
+    # 2. Fetch interest transactions for the year
+    stmt = select(Transaction).where(
+        Transaction.account_id == account_id,
+        Transaction.transaction_type == "Interés",
+        extract('year', Transaction.transaction_date) == year,
+        Transaction.status == TransactionStatus.COMPLETADA.value
+    )
+    res_tx = await db.execute(stmt)
+    interest_txs = res_tx.scalars().all()
+    
+    total_interest = sum(float(tx.amount) for tx in interest_txs)
+    
+    # 3. Monthly breakdown
+    months = []
+    month_names = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+    
+    for m in range(1, 13):
+        m_interest = sum(float(tx.amount) for tx in interest_txs if tx.transaction_date.month == m)
+        
+        # Estimate balance at start of month (simplified)
+        # In a real system, we'd need point-in-time balance
+        months.append({
+            "month": m,
+            "month_name": month_names[m],
+            "interest_earned": m_interest,
+            "starting_balance": float(account.current_balance) # simplifying for now
+        })
+        
+    # ROI = (Total Interest / Initial Balance) * 100
+    initial = float(account.initial_balance) or 1.0
+    roi = (total_interest / initial) * 100
+    
+    return {
+        "account_id": account_id,
+        "account_name": account.account_name,
+        "year": year,
+        "total_interest_earned": total_interest,
+        "roi": round(roi, 2),
+        "interest_rate_config": float(account.interest_rate or 0),
+        "periodicity": account.interest_periodicity,
+        "months": months
+    }

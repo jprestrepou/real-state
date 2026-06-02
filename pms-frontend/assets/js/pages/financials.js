@@ -76,11 +76,19 @@ export async function renderFinancials(container) {
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
           ${accounts.map(acc => `
-            <div class="glass-card p-5 cursor-pointer hover:shadow-card-hover hover:border-primary-200 transition-all group account-card" data-account-id="${acc.id}">
+            <div class="glass-card p-5 cursor-pointer hover:shadow-card-hover hover:border-primary-200 transition-all group account-card relative overflow-hidden" data-account-id="${acc.id}">
+              ${acc.is_investment ? '<div class="absolute -right-6 -top-6 w-12 h-12 bg-indigo-500 rotate-45 flex items-end justify-center pb-1"><i data-lucide="trending-up" class="w-2.5 h-2.5 text-white -rotate-45"></i></div>' : ''}
               <div class="flex items-center justify-between mb-3">
-                <span class="badge ${acc.is_active ? 'badge-green' : 'badge-gray'}">${acc.account_type}</span>
+                <div class="flex items-center gap-2">
+                  <span class="badge ${acc.is_active ? 'badge-green' : 'badge-gray'}">${acc.account_type}</span>
+                  ${acc.is_investment ? '<span class="badge badge-indigo text-[9px] uppercase tracking-tighter">Inversión</span>' : ''}
+                </div>
                 <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button class="edit-account-btn p-1.5 rounded-lg hover:bg-primary-50 text-surface-400 hover:text-primary-600 transition" data-id="${acc.id}" data-name="${acc.account_name}" data-bank="${acc.bank_name || ''}" data-number="${acc.account_number || ''}" data-initbalance="${acc.initial_balance}" title="Editar">
+                  <button class="edit-account-btn p-1.5 rounded-lg hover:bg-primary-50 text-surface-400 hover:text-primary-600 transition" 
+                    data-id="${acc.id}" data-name="${acc.account_name}" data-bank="${acc.bank_name || ''}" 
+                    data-number="${acc.account_number || ''}" data-initbalance="${acc.initial_balance}"
+                    data-investment="${acc.is_investment}" data-rate="${acc.interest_rate || ''}" data-period="${acc.interest_periodicity || ''}"
+                    title="Editar">
                     <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
                   </button>
                   <button class="delete-account-btn p-1.5 rounded-lg hover:bg-rose-50 text-surface-400 hover:text-rose-600 transition" data-id="${acc.id}" data-name="${acc.account_name}" data-balance="${acc.current_balance}" title="Eliminar">
@@ -245,13 +253,20 @@ export async function renderFinancials(container) {
     window.location.href = `${api.baseUrl}/reports/export`;
   });
 
-  // Account cards: click to view history
+  // Account cards: click to view history (or profitability if investment)
   document.querySelectorAll('.account-card').forEach(card => {
     card.addEventListener('click', (e) => {
       if (e.target.closest('.edit-account-btn') || e.target.closest('.delete-account-btn')) return;
-      window.location.hash = `#/account-detail?id=${card.dataset.accountId}`;
+      
+      const acc = accounts.find(a => a.id === card.dataset.accountId);
+      if (acc && acc.is_investment) {
+        openProfitabilityModal(acc);
+      } else {
+        window.location.hash = `#/account-detail?id=${card.dataset.accountId}`;
+      }
     });
   });
+
 
   // Edit account buttons
   document.querySelectorAll('.edit-account-btn').forEach(btn => {
@@ -402,6 +417,67 @@ export async function renderFinancials(container) {
 }
 
 // ══════════════════════════════════════════════════════════
+// openProfitabilityModal — Module-level function (outside renderFinancials)
+// ══════════════════════════════════════════════════════════
+async function openProfitabilityModal(account) {
+  showModal(`Análisis de Inversión: ${account.account_name}`, `
+    <div class="flex items-center justify-center py-12" id="profitability-loading">
+      <div class="animate-spin rounded-full h-8 w-8 border-2 border-primary-500 border-t-transparent mx-auto mb-4"></div>
+      <p class="ml-3 text-surface-500">Calculando rentabilidad...</p>
+    </div>
+    <div id="profitability-content" class="hidden animate-fade-in"></div>
+  `, { confirmText: 'Cerrar', onConfirm: () => {} });
+
+  try {
+    const data = await api.get(`/accounting/profitability/${account.id}?year=${new Date().getFullYear()}`);
+    document.getElementById('profitability-loading').classList.add('hidden');
+    const content = document.getElementById('profitability-content');
+    content.classList.remove('hidden');
+
+    content.innerHTML = `
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div class="p-4 bg-indigo-50 rounded-2xl border border-indigo-100">
+          <p class="text-[10px] font-bold text-indigo-400 uppercase mb-1">Intereses Ganados (YTD)</p>
+          <p class="text-2xl font-black text-indigo-600">${formatCurrency(data.total_interest_earned)}</p>
+        </div>
+        <div class="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
+          <p class="text-[10px] font-bold text-emerald-400 uppercase mb-1">ROI Proyectado Anual</p>
+          <p class="text-2xl font-black text-emerald-600">${data.roi}%</p>
+        </div>
+        <div class="p-4 bg-surface-50 rounded-2xl border border-surface-100">
+          <p class="text-[10px] font-bold text-surface-400 uppercase mb-1">Configuración Tasa</p>
+          <p class="text-lg font-bold text-surface-700">${data.interest_rate_config}% <span class="text-xs font-normal text-surface-400">(${data.periodicity})</span></p>
+        </div>
+      </div>
+      <div class="glass-card-static p-0 overflow-hidden border-surface-100 mb-4">
+        <table class="w-full text-xs">
+          <thead class="bg-surface-50 border-b border-surface-100">
+            <tr>
+              <th class="p-3 text-left">Mes</th>
+              <th class="p-3 text-right">Interés Generado</th>
+              <th class="p-3 text-right">Rentabilidad Mensual</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${data.months.map(m => `
+              <tr class="border-b border-surface-50 last:border-0">
+                <td class="p-3 font-medium text-surface-600">${m.month_name}</td>
+                <td class="p-3 text-right text-indigo-600 font-bold">${m.interest_earned > 0 ? '+' : ''}${formatCurrency(m.interest_earned)}</td>
+                <td class="p-3 text-right text-surface-400">${m.interest_earned > 0 ? (m.interest_earned / m.starting_balance * 100).toFixed(2) : '0'}%</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-[10px] text-surface-400 italic text-center">Métricas calculadas dinámicamente según histórico de transacciones tipo 'Interés'.</p>
+    `;
+  } catch (err) {
+    document.getElementById('profitability-loading').innerHTML = `<p class="text-rose-500 font-medium">Error: ${err.message}</p>`;
+  }
+}
+
+
+// ══════════════════════════════════════════════════════════
 // Account detail modal is replaced by full page #/account-detail
 
 // ══════════════════════════════════════════════════════════
@@ -435,17 +511,57 @@ function openAccountModal() {
           </select>
         </div>
       </div>
+      
+      <div class="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 space-y-4">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="is_investment" class="rounded text-indigo-600" id="is-investment-toggle" />
+          <span class="text-sm font-bold text-indigo-900">Esta cuenta es una Inversión</span>
+        </label>
+        
+        <div id="investment-fields" class="hidden grid grid-cols-2 gap-4 animate-fade-in shadow-inner p-3 bg-white/50 rounded-xl">
+          <div>
+            <label class="label">Tasa Interés (%)</label>
+            <input class="input" name="interest_rate" type="number" step="0.01" placeholder="12.5" />
+          </div>
+          <div>
+            <label class="label">Periodicidad</label>
+            <select class="select" name="interest_periodicity">
+              <option value="Mensual">Mensual</option>
+              <option value="Trimestral">Trimestral</option>
+              <option value="Semestral">Semestral</option>
+              <option value="Anual">Anual</option>
+            </select>
+          </div>
+          <div class="col-span-2">
+            <label class="label">Fecha Vencimiento (opcional)</label>
+            <input class="input" name="maturity_date" type="date" />
+          </div>
+        </div>
+      </div>
     </form>
   `, {
     confirmText: 'Crear Cuenta',
     onConfirm: async () => {
       const fd = new FormData(document.getElementById('account-form'));
       const payload = {};
-      fd.forEach((v, k) => { if (k === 'initial_balance') payload[k] = parseCurrencyValue(v) || 0; else if (v) payload[k] = v; });
+      fd.forEach((v, k) => { 
+        if (k === 'initial_balance') payload[k] = parseCurrencyValue(v) || 0; 
+        else if (k === 'is_investment') payload[k] = true;
+        else if (k === 'interest_rate') payload[k] = parseFloat(v) || null;
+        else if (v) payload[k] = v; 
+      });
+      if (!fd.has('is_investment')) payload.is_investment = false;
       await api.post('/accounts', payload);
       showToast('Cuenta creada', 'success');
       await renderFinancials(document.getElementById('page-content'));
     },
+  });
+
+  // Toggle Investment Fields logic
+  const toggle = document.getElementById('is-investment-toggle');
+  const fields = document.getElementById('investment-fields');
+  toggle.addEventListener('change', () => {
+    fields.classList.toggle('hidden', !toggle.checked);
   });
 }
 
@@ -460,7 +576,30 @@ function openEditAccountModal(id, name, bank, number, initbalance) {
       <div>
         <label class="label">Saldo Inicial</label>
         <input class="input currency-input" name="initial_balance" type="text" value="${initbalance}" />
-        <p class="text-[10px] text-primary-600 mt-1">El saldo actual de la cuenta se recalculará automáticamente basado en el saldo inicial más las transacciones.</p>
+        <p class="text-[10px] text-primary-600 mt-1">El saldo actual se recalculará automáticamente.</p>
+      </div>
+
+      <div class="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 space-y-4 mt-4">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="is_investment" class="rounded text-indigo-600" id="is-investment-toggle-edit" />
+          <span class="text-sm font-bold text-indigo-900">Esta cuenta es una Inversión</span>
+        </label>
+        
+        <div id="investment-fields-edit" class="hidden grid grid-cols-2 gap-4 animate-fade-in shadow-inner p-3 bg-white/50 rounded-xl">
+          <div>
+            <label class="label">Tasa Interés (%)</label>
+            <input class="input" name="interest_rate" type="number" step="0.01" />
+          </div>
+          <div>
+            <label class="label">Periodicidad</label>
+            <select class="select" name="interest_periodicity">
+               <option value="Mensual">Mensual</option>
+               <option value="Trimestral">Trimestral</option>
+               <option value="Semestral">Semestral</option>
+               <option value="Anual">Anual</option>
+            </select>
+          </div>
+        </div>
       </div>
     </form>
   `, {
@@ -470,12 +609,30 @@ function openEditAccountModal(id, name, bank, number, initbalance) {
       const payload = {};
       fd.forEach((v, k) => {
         if (k === 'initial_balance') payload[k] = parseCurrencyValue(v);
+        else if (k === 'is_investment') payload[k] = true;
+        else if (k === 'interest_rate') payload[k] = parseFloat(v) || null;
         else if (v) payload[k] = v;
       });
+      if (!fd.has('is_investment')) payload.is_investment = false;
       await api.put(`/accounts/${id}`, payload);
       showToast('Cuenta actualizada', 'success');
       await renderFinancials(document.getElementById('page-content'));
     },
+  });
+
+  // Init toggle and fields for edit
+  const btn = document.querySelector(`.edit-account-btn[data-id="${id}"]`);
+  const toggle = document.getElementById('is-investment-toggle-edit');
+  const fields = document.getElementById('investment-fields-edit');
+  const isInv = btn.dataset.investment === 'true';
+  toggle.checked = isInv;
+  if (isInv) fields.classList.remove('hidden');
+  
+  if (btn.dataset.rate) document.querySelector('[name="interest_rate"]').value = btn.dataset.rate;
+  if (btn.dataset.period) document.querySelector('[name="interest_periodicity"]').value = btn.dataset.period;
+
+  toggle.addEventListener('change', () => {
+    fields.classList.toggle('hidden', !toggle.checked);
   });
 }
 

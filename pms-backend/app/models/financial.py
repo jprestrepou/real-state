@@ -81,6 +81,14 @@ class BankAccount(Base):
     initial_balance: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     current_balance: Mapped[float] = mapped_column(Numeric(15, 2), default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+    # Investment Fields
+    is_investment: Mapped[bool] = mapped_column(Boolean, default=False)
+    interest_rate: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True) # e.g. 12.50 for 12.5%
+    interest_periodicity: Mapped[str | None] = mapped_column(String(20), nullable=True) # Mensual, Anual, etc.
+    maturity_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    last_interest_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     # Relationships

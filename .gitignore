@@ -1,4 +1,52 @@
+# Python bytecode / caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.cache/
+
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Node / Frontend
+node_modules/
+pms-frontend/node_modules/
+pms-frontend/dist/
+dist/
+
+# Databases
+*.db
+*.sqlite
+pms_prod.db
+pms_dev.db
+pms-backend/app.db
+pms-backend/pms_prod.db
+pms-backend/pms_dev.db
+
+# Environment Files
+.env
+.env.*
+!.env.example
+!.env.development
+!.env.production
+
+# Logs
+*.log
+test_fac.log
+test_mai.log
+test_maint.log
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Project specific files to ignore
 EEFF.xlsx
 ETS-PMS-001_Especificaciones_Tecnicas.docx.md
 wallet_records.csv
 stm.txt
+output.txt

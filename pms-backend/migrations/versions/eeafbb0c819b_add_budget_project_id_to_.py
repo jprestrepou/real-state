@@ -23,7 +23,7 @@ def upgrade() -> None:
     with op.batch_alter_table('maintenance_orders', schema=None) as batch_op:
         batch_op.add_column(sa.Column('budget_project_id', sa.String(length=36), nullable=True))
         batch_op.create_index(batch_op.f('ix_maintenance_orders_budget_project_id'), ['budget_project_id'], unique=False)
-        batch_op.create_foreign_key(None, 'budget_projects', ['budget_project_id'], ['id'])
+        batch_op.create_foreign_key('fk_maintenance_orders_budget_project_id', 'budget_projects', ['budget_project_id'], ['id'])
 
     with op.batch_alter_table('users', schema=None) as batch_op:
         batch_op.add_column(sa.Column('avatar_url', sa.String(length=500), nullable=True))
@@ -37,7 +37,7 @@ def downgrade() -> None:
         batch_op.drop_column('avatar_url')
 
     with op.batch_alter_table('maintenance_orders', schema=None) as batch_op:
-        batch_op.drop_constraint(None, type_='foreignkey')
+        batch_op.drop_constraint('fk_maintenance_orders_budget_project_id', type_='foreignkey')
         batch_op.drop_index(batch_op.f('ix_maintenance_orders_budget_project_id'))
         batch_op.drop_column('budget_project_id')
 

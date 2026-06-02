@@ -231,7 +231,7 @@ function renderContractsList(container, contracts, properties, rootContainer) {
     const paymentBadge = (status) => {
       if (status === 'Pagado') return 'badge-green';
       if (status === 'Vencido') return 'badge-red';
-      return 'badge-yellow';
+      return 'badge-amber';
     };
 
     let selectedPayment = null;

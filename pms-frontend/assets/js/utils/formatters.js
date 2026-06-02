@@ -79,3 +79,35 @@ export function semaphoreClass(semaphore) {
     };
     return map[semaphore] || 'semaphore-green';
 }
+
+/** Animate count up for a number inside an element. */
+export function animateCountUp(element, targetValue, duration = 1000, formatter = null) {
+    if (!element) return;
+    const start = 0;
+    const end = parseFloat(targetValue) || 0;
+    if (start === end) {
+        element.textContent = formatter ? formatter(end) : end.toLocaleString();
+        return;
+    }
+    const range = end - start;
+    const startTime = performance.now();
+    
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        // Ease out quad
+        const easeProgress = progress * (2 - progress);
+        const current = start + range * easeProgress;
+        
+        element.textContent = formatter ? formatter(current) : Math.floor(current).toLocaleString();
+        
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        } else {
+            element.textContent = formatter ? formatter(end) : end.toLocaleString();
+        }
+    }
+    requestAnimationFrame(update);
+}
+
+

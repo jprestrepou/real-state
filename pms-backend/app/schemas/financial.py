@@ -39,6 +39,10 @@ class AccountCreate(BaseModel):
     account_number: Optional[str] = Field(None, max_length=50)
     currency: str = Field(default="COP", max_length=3)
     initial_balance: float = Field(default=0, ge=0)
+    is_investment: bool = False
+    interest_rate: Optional[float] = Field(None, ge=0, le=100)
+    interest_periodicity: Optional[str] = Field(None, pattern="^(Mensual|Trimestral|Semestral|Anual)$")
+    maturity_date: Optional[date] = None
 
 
 class AccountUpdate(BaseModel):
@@ -47,6 +51,10 @@ class AccountUpdate(BaseModel):
     account_number: Optional[str] = None
     initial_balance: Optional[float] = Field(None, ge=0)
     is_active: Optional[bool] = None
+    is_investment: Optional[bool] = None
+    interest_rate: Optional[float] = Field(None, ge=0, le=100)
+    interest_periodicity: Optional[str] = None
+    maturity_date: Optional[date] = None
 
 
 class AccountResponse(BaseModel):
@@ -59,6 +67,11 @@ class AccountResponse(BaseModel):
     initial_balance: float
     current_balance: float
     is_active: bool
+    is_investment: bool
+    interest_rate: Optional[float] = None
+    interest_periodicity: Optional[str] = None
+    maturity_date: Optional[date] = None
+    last_interest_date: Optional[date] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

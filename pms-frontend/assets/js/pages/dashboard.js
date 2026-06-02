@@ -3,7 +3,7 @@
  */
 
 import { api } from '../api.js';
-import { formatCurrency, formatCurrencyShort, formatPercent } from '../utils/formatters.js';
+import { formatCurrency, formatCurrencyShort, formatPercent, animateCountUp } from '../utils/formatters.js';
 import { createBarChart, createDoughnutChart, createCashFlowChart } from '../utils/charts.js';
 import { initMap, updateMarkers, invalidateMap } from '../utils/map.js';
 
@@ -27,45 +27,45 @@ export async function renderDashboard(container) {
 
     container.innerHTML = `
     <!-- KPI Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8 animate-fade-in">
-      <div class="kpi-card kpi-blue">
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+      <div class="kpi-card kpi-blue animate-slide-up" style="animation-delay: 50ms;">
         <div class="flex items-center justify-between">
           <span class="text-sm font-medium text-surface-500">Total Propiedades</span>
           <div class="w-10 h-10 rounded-xl bg-primary-100 flex items-center justify-center">
             <i data-lucide="home" class="w-5 h-5 text-primary-600"></i>
           </div>
         </div>
-        <p class="text-3xl font-bold text-surface-900">${summary.total_properties}</p>
+        <p id="kpi-properties" class="text-3xl font-bold text-surface-900">0</p>
       </div>
 
-      <div class="kpi-card kpi-green">
+      <div class="kpi-card kpi-green animate-slide-up" style="animation-delay: 100ms;">
         <div class="flex items-center justify-between">
           <span class="text-sm font-medium text-surface-500">Ocupación</span>
           <div class="w-10 h-10 rounded-xl bg-accent-100 flex items-center justify-center">
             <i data-lucide="users" class="w-5 h-5 text-accent-600"></i>
           </div>
         </div>
-        <p class="text-3xl font-bold text-surface-900">${formatPercent(summary.occupancy_rate)}</p>
+        <p id="kpi-occupancy" class="text-3xl font-bold text-surface-900">0%</p>
       </div>
 
-      <div class="kpi-card kpi-green">
+      <div class="kpi-card kpi-green animate-slide-up" style="animation-delay: 150ms;">
         <div class="flex items-center justify-between">
           <span class="text-sm font-medium text-surface-500">Ingresos</span>
           <div class="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center">
             <i data-lucide="trending-up" class="w-5 h-5 text-green-600"></i>
           </div>
         </div>
-        <p class="text-3xl font-bold text-surface-900">${formatCurrencyShort(summary.total_income)}</p>
+        <p id="kpi-income" class="text-3xl font-bold text-surface-900">$0</p>
       </div>
 
-      <div class="kpi-card kpi-red">
+      <div class="kpi-card kpi-red animate-slide-up" style="animation-delay: 200ms;">
         <div class="flex items-center justify-between">
           <span class="text-sm font-medium text-surface-500">Gastos</span>
           <div class="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center">
             <i data-lucide="trending-down" class="w-5 h-5 text-rose-600"></i>
           </div>
         </div>
-        <p class="text-3xl font-bold text-surface-900">${formatCurrencyShort(summary.total_expenses)}</p>
+        <p id="kpi-expenses" class="text-3xl font-bold text-surface-900">$0</p>
       </div>
     </div>
 
@@ -158,10 +158,22 @@ export async function renderDashboard(container) {
           `).join('')}
         </div>
       ` : `
-        <p class="text-center text-surface-400 py-8">No hay cuentas registradas aún</p>
+        <div class="flex flex-col items-center justify-center py-12 text-center animate-fade-in">
+          <div class="w-12 h-12 bg-surface-100 rounded-xl flex items-center justify-center mb-3">
+            <i data-lucide="credit-card" class="w-6 h-6 text-surface-400"></i>
+          </div>
+          <h4 class="text-sm font-semibold text-surface-800">No hay cuentas registradas</h4>
+          <p class="text-xs text-surface-500 max-w-xs mt-1">Registre su primera cuenta bancaria en el módulo de Finanzas para comenzar el control.</p>
+        </div>
       `}
     </div>
   `;
+
+  // Animate count-up KPIs
+  animateCountUp(document.getElementById('kpi-properties'), summary.total_properties, 1000);
+  animateCountUp(document.getElementById('kpi-occupancy'), summary.occupancy_rate, 1000, (v) => formatPercent(v));
+  animateCountUp(document.getElementById('kpi-income'), summary.total_income, 1000, (v) => formatCurrencyShort(v));
+  animateCountUp(document.getElementById('kpi-expenses'), summary.total_expenses, 1000, (v) => formatCurrencyShort(v));
 
     // Re-init icons
     if (window.lucide) lucide.createIcons();

@@ -127,43 +127,64 @@ export async function renderProperties(container) {
 
     if (deleteBtn) {
       const id = deleteBtn.dataset.id;
-      if (confirm('¿Está seguro de que desea eliminar esta propiedad? Esta acción la desactivará del sistema.')) {
-        try {
+      showModal('Eliminar Propiedad', `
+        <div class="text-center py-4">
+          <div class="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="alert-triangle" class="w-8 h-8 text-rose-500"></i>
+          </div>
+          <p class="text-surface-700 font-semibold mb-2">¿Eliminar esta propiedad?</p>
+          <p class="text-sm text-surface-400">Esta acción la desactivará del sistema. Los contratos e historial asociado se conservan.</p>
+        </div>
+      `, {
+        confirmText: 'Sí, eliminar',
+        onConfirm: async () => {
           await api.delete(`/properties/${id}`);
           showToast('Propiedad eliminada correctamente', 'success');
           const content = document.getElementById('page-content');
           await renderProperties(content);
-        } catch (error) {
-          showToast(error.message, 'error');
-        }
-      }
+        },
+      });
+      if (window.lucide) lucide.createIcons();
     }
   });
 
-  // Filters
-  document.getElementById('filter-status').addEventListener('change', async (e) => {
-    const status = e.target.value;
+  // Filters — shared handler that calls renderPropertiesTable without losing event delegation
+  const applyFilters = async () => {
+    const status = document.getElementById('filter-status').value;
     const type = document.getElementById('filter-type').value;
     let url = '/properties?limit=50';
     if (status) url += `&status=${encodeURIComponent(status)}`;
     if (type) url += `&property_type=${encodeURIComponent(type)}`;
     const filtered = await api.get(url);
     renderPropertiesTable(filtered.items || []);
-  });
+  };
 
-  document.getElementById('filter-type').addEventListener('change', async (e) => {
-    const type = e.target.value;
-    const status = document.getElementById('filter-status').value;
-    let url = '/properties?limit=50';
-    if (status) url += `&status=${encodeURIComponent(status)}`;
-    if (type) url += `&property_type=${encodeURIComponent(type)}`;
-    const filtered = await api.get(url);
-    renderPropertiesTable(filtered.items || []);
-  });
+  document.getElementById('filter-status').addEventListener('change', applyFilters);
+  document.getElementById('filter-type').addEventListener('change', applyFilters);
 }
 
+/**
+ * Re-renders only the tbody of the properties table.
+ * Event listeners remain on #properties-table via delegation — no re-binding needed.
+ */
 function renderPropertiesTable(properties) {
   const tbody = document.querySelector('#properties-table tbody');
+  if (!tbody) return;
+
+  if (properties.length === 0) {
+    tbody.innerHTML = `
+      <tr><td colspan="8" class="text-center py-16">
+        <div class="flex flex-col items-center gap-3 text-surface-300">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+          </svg>
+          <p class="font-semibold text-surface-400">Sin propiedades con este filtro</p>
+          <p class="text-sm text-surface-300">Intenta cambiar los filtros de búsqueda</p>
+        </div>
+      </td></tr>`;
+    return;
+  }
+
   tbody.innerHTML = properties.map(p => `
     <tr>
       <td>
@@ -176,6 +197,7 @@ function renderPropertiesTable(properties) {
       <td class="font-medium">${formatCurrency(p.commercial_value)}</td>
       <td><span class="badge ${statusBadge(p.status)}">${p.status}</span></td>
       <td class="text-surface-500 text-xs">${formatDate(p.created_at)}</td>
+      <td>
         <div class="flex items-center gap-1">
           <button class="btn-ghost text-xs py-1 px-2 evaluate-property text-emerald-600 hover:bg-emerald-50" data-id="${p.id}" title="Simular Arriendo (Mercado)">
             <i data-lucide="bar-chart" class="w-3.5 h-3.5"></i>

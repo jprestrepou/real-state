@@ -14,8 +14,11 @@ from app.schemas.contract import ContractCreate, ContractUpdate, ContractSignReq
 from app.services.pdf_service import generate_contract_pdf
 from app.services.telegram_service import TelegramService
 import hashlib
+import logging
 from datetime import datetime
 from app.services import audit_service
+
+logger = logging.getLogger(__name__)
 
 from app.models.property import Property
 
@@ -436,11 +439,8 @@ async def process_annual_indexation(db: AsyncSession):
     """
     Apply annual rent indexation to contracts that reach their yearly anniversary.
     """
-    from app.models.config import GlobalConfig
-    import logging
-    logger = logging.getLogger(__name__)
-    
     today = date.today()
+    from app.models.config import GlobalConfig
     
     # Get the global inflation rate setting
     config_stmt = select(GlobalConfig).where(GlobalConfig.key == "global_inflation_rate")

@@ -16,7 +16,7 @@ export async function renderAccounting(container) {
                 <div class="flex items-center gap-3">
                     <label class="text-xs font-bold text-surface-400 uppercase">Año Fiscal:</label>
                     <select id="report-year-select" class="select w-32 shadow-sm">
-                        ${[currentYear, currentYear - 1, currentYear - 2].map(y => `<option value="${y}">${y}</option>`).join('')}
+                        <!-- Loaded dynamically -->
                     </select>
                     <button id="btn-refresh-report" class="btn-secondary p-2.5 rounded-xl">
                         <i data-lucide="refresh-cw" class="w-5 h-5"></i>
@@ -40,8 +40,22 @@ export async function renderAccounting(container) {
     const yearSelect = document.getElementById('report-year-select');
     const refreshBtn = document.getElementById('btn-refresh-report');
 
+    const loadYears = async () => {
+        try {
+            const years = await api.get('/accounting/available-years');
+            yearSelect.innerHTML = years.map(y => `<option value="${y}" ${y === currentYear ? 'selected' : ''}>${y}</option>`).join('');
+            if (years.length > 0) loadReport();
+        } catch (err) {
+            console.error("Error loading years:", err);
+            yearSelect.innerHTML = `<option value="${currentYear}">${currentYear}</option>`;
+            loadReport();
+        }
+    };
+
     const loadReport = async () => {
         const year = yearSelect.value;
+        if (!year) return;
+        
         const content = document.getElementById('accounting-report-content');
         content.innerHTML = '<div class="flex items-center justify-center py-40"><div class="animate-spin rounded-full h-10 w-10 border-4 border-primary-500 border-t-transparent"></div></div>';
         
@@ -57,7 +71,7 @@ export async function renderAccounting(container) {
     refreshBtn.addEventListener('click', loadReport);
 
     // Initial load
-    loadReport();
+    loadYears();
 }
 
 function renderReportTable(container, report) {
